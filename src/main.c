@@ -1,13 +1,9 @@
-/* main.c — Katiztic, the meadow vibe slice.
+/* main.c — Katiztic.
  *
- * A cozy, ethereal cat game with a GBA soul. This slice: a pastel meadow you
- * can watch, a cat you can pet, and a time-of-day you can shift through dawn,
- * noon, dusk, and night.
- *
- *   controls
- *     click / tap the cat ..... pet her (purr + hearts)
- *     space / T ............... shift time of day
- *     esc / Q ................. quit
+ * A cozy, ethereal cat game with a GBA soul. You keep a family of up to five
+ * cats, each its own type and color, and care for them across a cottage home
+ * and the meadow outside — feeding, grooming, petting, and sleeping to a
+ * fresh morning. Everything is driven by taps, so it's already touch-shaped.
  *
  * The rendering trick: everything draws in a 240x160 logical space, and SDL's
  * integer-scale presentation blows it up to the window with crisp, square
@@ -18,7 +14,9 @@
 #include "palette.h"
 #include "scene.h"
 #include "cat.h"
+#include "cattype.h"
 #include "stats.h"
+#include "roster.h"
 #include "ui.h"
 #include "cottage.h"
 
@@ -63,7 +61,9 @@ int main(int argc, char *argv[]) {
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     Meadow meadow = meadow_make();
-    Cat    cat    = cat_make(112.0f, 118.0f);
+
+    /* The spot in the scene where the active cat sits. */
+    const float CAT_X = 112.0f, CAT_Y = 118.0f;
 
     /* Start at home in the cottage — you wake up here. */
     Location location = LOC_COTTAGE;
@@ -74,10 +74,10 @@ int main(int argc, char *argv[]) {
     Button btn_sleep  = { KZ_W - 48, 4,  20, 16, KZ_BTN_SLEEP };
     int    press_fx   = 0;   /* frames of button-press highlight remaining */
 
-    /* Load the cat's stats, or start her fresh and content if there's no save. */
-    Stats stats;
-    if (!stats_load(&stats, KZ_SAVE_PATH)) {
-        stats = stats_new();
+    /* Load the family, or start with two starter cats if there's no save. */
+    Roster roster;
+    if (!roster_load(&roster, KZ_SAVE_PATH, CAT_X, CAT_Y)) {
+        roster = roster_new(CAT_X, CAT_Y);
     }
 
     bool   running = true;
@@ -99,9 +99,9 @@ int main(int argc, char *argv[]) {
                 else if (e.key.key == SDLK_SPACE || e.key.key == SDLK_T)
                     meadow_cycle_time(&meadow);
                 else if (e.key.key == SDLK_F)
-                    stats_feed(&stats);
+                    stats_feed(&roster_active(&roster)->stats);
                 else if (e.key.key == SDLK_G)
-                    stats_groom(&stats);
+                    stats_groom(&roster_active(&roster)->stats);
                 break;
 
             case SDL_EVENT_MOUSE_BUTTON_DOWN: {
@@ -112,7 +112,21 @@ int main(int argc, char *argv[]) {
                 SDL_RenderCoordinatesFromWindow(renderer, e.button.x,
                                                 e.button.y, &lx, &ly);
 
-                /* 1) travel button: toggle cottage <-> meadow */
+                /* 1) roster strip: select a cat, or adopt a new one. */
+                int slot = ui_roster_hit(&roster, lx, ly);
+                if (slot == -2) {
+                    /* adopt: cycle through types by how many you have */
+                    CatType t = (CatType)(roster.count % KZ_TYPE_COUNT);
+                    roster_adopt(&roster, t, CAT_X, CAT_Y);
+                    press_fx = 8;
+                    break;
+                } else if (slot >= 0) {
+                    roster_select(&roster, slot);
+                    press_fx = 8;
+                    break;
+                }
+
+                /* 2) travel button: toggle cottage <-> meadow */
                 if (ui_button_hit(&btn_travel, lx, ly)) {
                     location = (location == LOC_COTTAGE) ? LOC_MEADOW
                                                          : LOC_COTTAGE;
@@ -120,25 +134,28 @@ int main(int argc, char *argv[]) {
                                                                 : KZ_BTN_HOME;
                     press_fx = 8;
                 }
-                /* 2) sleep button (cottage only): fresh morning + save */
+                /* 3) sleep button (cottage only): fresh morning + save */
                 else if (location == LOC_COTTAGE
                          && ui_button_hit(&btn_sleep, lx, ly)) {
-                    meadow.time = KZ_DAWN;          /* wake to a fresh morning */
-                    stats.energy = KZ_STAT_MAX;     /* a good rest             */
-                    stats_save(&stats, KZ_SAVE_PATH);
+                    meadow.time = KZ_DAWN;
+                    roster_active(&roster)->stats.energy = KZ_STAT_MAX;
+                    roster_save(&roster, KZ_SAVE_PATH);
                     press_fx = 8;
                 }
-                /* 3) tapping the bed also sleeps */
+                /* 4) tapping the bed also sleeps */
                 else if (location == LOC_COTTAGE && cottage_bed_hit(lx, ly)) {
                     meadow.time = KZ_DAWN;
-                    stats.energy = KZ_STAT_MAX;
-                    stats_save(&stats, KZ_SAVE_PATH);
+                    roster_active(&roster)->stats.energy = KZ_STAT_MAX;
+                    roster_save(&roster, KZ_SAVE_PATH);
                     press_fx = 8;
                 }
-                /* 4) otherwise, a tap on the cat pets her */
-                else if (cat_hit(&cat, lx, ly)) {
-                    cat_pet(&cat);
-                    stats_pet(&stats);   /* petting deepens the bond */
+                /* 5) otherwise, a tap on the active cat pets her */
+                else {
+                    OwnedCat *a = roster_active(&roster);
+                    if (cat_hit(&a->anim, lx, ly)) {
+                        cat_pet(&a->anim);
+                        stats_pet(&a->stats);   /* petting deepens the bond */
+                    }
                 }
                 break;
             }
@@ -148,29 +165,31 @@ int main(int argc, char *argv[]) {
 
         /* ---- update ---- */
         if (location == LOC_MEADOW) meadow_update(&meadow);
-        cat_update(&cat);
+        OwnedCat *active = roster_active(&roster);
+        cat_update(&active->anim);
         if (press_fx > 0) press_fx--;
 
         /* ---- draw (back to front) ---- */
         SDL_SetRenderDrawColor(renderer, KZ_CLOUD.r, KZ_CLOUD.g, KZ_CLOUD.b, 255);
         SDL_RenderClear(renderer);
 
+        CatColors col = cattype_colors(active->type);
         bool is_night = (meadow.time == KZ_NIGHT);
         if (location == LOC_COTTAGE) {
             cottage_draw(renderer, frame, is_night);
-            cat_draw(renderer, &cat, frame);
+            cat_draw(renderer, &active->anim, col, frame);
         } else {
             meadow_draw(renderer, &meadow, frame);
-            cat_draw(renderer, &cat, frame);
+            cat_draw(renderer, &active->anim, col, frame);
             meadow_draw_wash(renderer, &meadow);   /* mood overlay, on top */
         }
 
         /* ---- UI (both locations) ---- */
-        ui_draw_panel(renderer, &stats, 4, 4);            /* stats, top-left */
+        ui_draw_panel(renderer, &active->stats, 4, 4);    /* active cat's stats */
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
         if (location == LOC_COTTAGE)
             ui_button_draw(renderer, &btn_sleep, press_fx > 0);
-        ui_draw_hint(renderer);
+        ui_roster_draw(renderer, &roster);                /* the family strip   */
 
         SDL_RenderPresent(renderer);
 
@@ -182,8 +201,8 @@ int main(int argc, char *argv[]) {
         else            next = now;   /* fell behind; don't spiral */
     }
 
-    /* Save the cat's stats so she remembers you next time. */
-    stats_save(&stats, KZ_SAVE_PATH);
+    /* Save the whole family so they remember you next time. */
+    roster_save(&roster, KZ_SAVE_PATH);
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

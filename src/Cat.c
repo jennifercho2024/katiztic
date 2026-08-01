@@ -8,17 +8,17 @@
 #include "render.h"
 #include "palette.h"
 #include <math.h>
- 
+
 /* Blink cadence: a blink every ~2-5 seconds at 60fps. */
 static int roll_next_blink(void) {
     return 120 + (SDL_rand(200));  /* 120..319 frames */
 }
- 
+
 Cat cat_make(float cx, float cy) {
     Cat c = { cx, cy, 0, roll_next_blink(), 0 };
     return c;
 }
- 
+
 void cat_update(Cat *cat) {
     if (cat->blink > 0) {
         cat->blink--;
@@ -31,48 +31,49 @@ void cat_update(Cat *cat) {
     }
     if (cat->pet > 0) cat->pet--;
 }
- 
+
 void cat_pet(Cat *cat) {
     cat->pet = 90;  /* ~1.5s of purring hearts */
 }
- 
+
 bool cat_hit(const Cat *cat, float px_, float py_) {
     /* Generous tappable box around head+body. */
     float dx = px_ - cat->cx;
     float dy = py_ - cat->cy;
     return dx > -12 && dx < 12 && dy > -16 && dy < 22;
 }
- 
-void cat_draw(SDL_Renderer *r, const Cat *cat, Uint64 frame) {
+
+void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
     float cx = cat->cx;
     /* Breathing: gentle vertical bob. Petting adds a faster purr wobble. */
     float bob  = sinf((float)frame * 0.04f) * 1.2f;
     float purr = cat->pet > 0 ? sinf((float)frame * 0.5f) * 0.6f : 0.0f;
     float py   = cat->cy + bob;
- 
+
     /* Soft contact shadow (mauve, low alpha — never a hard black blob). */
     px_rect_a(r, cx - 15, cat->cy + 19, 30, 4, KZ_COCOA, 46);
- 
+
     /* Swishing tail. */
     float tw = sinf((float)frame * 0.06f) * 3.0f;
-    px_rect(r, cx + 11, py + 6,      4, 3, KZ_CAT_BODY);
-    px_rect(r, cx + 14, py + 4 + tw, 3, 3, KZ_CAT_BODY);
-    px_rect(r, cx + 16, py + 2 + tw, 3, 4, KZ_CAT_BODY);
- 
+    px_rect(r, cx + 11, py + 6,      4, 3, col.body);
+    px_rect(r, cx + 14, py + 4 + tw, 3, 3, col.body);
+    px_rect(r, cx + 16, py + 2 + tw, 3, 4, col.body);
+
     /* Body + darker belly band. */
-    px_rect(r, cx - 9, py + 4,  20, 14, KZ_CAT_BODY);
-    px_rect(r, cx - 9, py + 16, 20,  2, KZ_CAT_DARK);
- 
+    px_rect(r, cx - 9, py + 4,  20, 14, col.body);
+    px_rect(r, cx - 9, py + 16, 20,  2, col.dark);
+
     /* Head. */
-    px_rect(r, cx - 8, py - 8 + purr, 16, 14, KZ_CAT_BODY);
- 
+    px_rect(r, cx - 8, py - 8 + purr, 16, 14, col.body);
+
     /* Ears (outer + inner). */
-    px_rect(r, cx - 8, py - 12 + purr, 4, 5, KZ_CAT_BODY);
-    px_rect(r, cx + 4, py - 12 + purr, 4, 5, KZ_CAT_BODY);
-    px_rect(r, cx - 7, py - 11 + purr, 2, 3, KZ_CAT_EAR);
-    px_rect(r, cx + 5, py - 11 + purr, 2, 3, KZ_CAT_EAR);
- 
-    /* Eyes: a slit line when blinking, tall ovals when open. */
+    px_rect(r, cx - 8, py - 12 + purr, 4, 5, col.body);
+    px_rect(r, cx + 4, py - 12 + purr, 4, 5, col.body);
+    px_rect(r, cx - 7, py - 11 + purr, 2, 3, col.ear);
+    px_rect(r, cx + 5, py - 11 + purr, 2, 3, col.ear);
+
+    /* Eyes: a slit line when blinking, tall ovals when open.
+     * Outline + nose stay a fixed soft mauve — reads well on every coat. */
     if (cat->blink > 0) {
         px_rect(r, cx - 5, py - 3 + purr, 3, 1, KZ_CAT_OUTLINE);
         px_rect(r, cx + 2, py - 3 + purr, 3, 1, KZ_CAT_OUTLINE);
@@ -80,21 +81,21 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, Uint64 frame) {
         px_rect(r, cx - 5, py - 4 + purr, 2, 3, KZ_CAT_OUTLINE);
         px_rect(r, cx + 3, py - 4 + purr, 2, 3, KZ_CAT_OUTLINE);
     }
- 
+
     /* Nose + cheek blush. */
     px_rect(r, cx - 1, py - 1 + purr, 2, 1, KZ_CAT_NOSE);
-    px_rect(r, cx - 6, py - 1 + purr, 2, 1, KZ_CAT_CHEEK);
-    px_rect(r, cx + 4, py - 1 + purr, 2, 1, KZ_CAT_CHEEK);
- 
+    px_rect(r, cx - 6, py - 1 + purr, 2, 1, col.cheek);
+    px_rect(r, cx + 4, py - 1 + purr, 2, 1, col.cheek);
+
     /* Stripes. */
-    px_rect(r, cx - 6, py + 6, 2, 6, KZ_CAT_DARK);
-    px_rect(r, cx - 2, py + 6, 2, 6, KZ_CAT_DARK);
-    px_rect(r, cx + 2, py + 6, 2, 6, KZ_CAT_DARK);
- 
+    px_rect(r, cx - 6, py + 6, 2, 6, col.dark);
+    px_rect(r, cx - 2, py + 6, 2, 6, col.dark);
+    px_rect(r, cx + 2, py + 6, 2, 6, col.dark);
+
     /* Front paws. */
-    px_rect(r, cx - 8, py + 16, 4, 3, KZ_CAT_PAW);
-    px_rect(r, cx + 4, py + 16, 4, 3, KZ_CAT_PAW);
- 
+    px_rect(r, cx - 8, py + 16, 4, 3, col.paw);
+    px_rect(r, cx + 4, py + 16, 4, 3, col.paw);
+
     /* Floating hearts while being petted. */
     if (cat->pet > 0) {
         for (int h = 0; h < 3; h++) {
@@ -111,4 +112,3 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, Uint64 frame) {
         }
     }
 }
- 

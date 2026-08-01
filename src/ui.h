@@ -14,6 +14,7 @@
 
 #include <SDL3/SDL.h>
 #include "stats.h"
+#include "roster.h"
 
 /* ---- touch-first buttons ----
  * A Button is just a labeled rectangle in logical 240x160 space. It's drawn
@@ -47,5 +48,16 @@ void ui_draw_panel(SDL_Renderer *r, const Stats *s, float x, float y);
 /* Draw a small centered hint bar near the bottom (e.g. "F feed  G groom").
  * `flash` > 0 briefly highlights the panel to acknowledge an action. */
 void ui_draw_hint(SDL_Renderer *r);
+
+/* ---- roster strip ----
+ * A row of little cat portraits along the bottom, each in its type's color,
+ * with the active cat highlighted, plus a "+" slot to adopt if there's room.
+ * Draw it, and hit-test taps against it.
+ */
+void ui_roster_draw(SDL_Renderer *r, const Roster *ro);
+
+/* Given a tap at (px,py), return the portrait index tapped (0..count-1),
+ * or -2 for the "+" adopt slot, or -1 for no hit. */
+int  ui_roster_hit(const Roster *ro, float px, float py);
 
 #endif /* KATIZTIC_UI_H */

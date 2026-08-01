@@ -10,6 +10,7 @@
 #define KATIZTIC_CAT_H
 
 #include <SDL3/SDL.h>
+#include "cattype.h"
 
 typedef struct {
     float cx, cy;      /* center of the cat, in logical pixels        */
@@ -30,7 +31,9 @@ void cat_pet(Cat *cat);
 /* Is point (px,py) inside the cat's tappable area? (for petting) */
 bool cat_hit(const Cat *cat, float px, float py);
 
-/* Draw the cat. `frame` drives breathing, tail sway, floating hearts. */
-void cat_draw(SDL_Renderer *r, const Cat *cat, Uint64 frame);
+/* Draw the cat in its type's colors. `frame` drives breathing, tail sway,
+ * and floating hearts. Color lives with the cat's type, not its animation
+ * state, so it's passed in rather than stored on the Cat. */
+void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame);
 
 #endif /* KATIZTIC_CAT_H */

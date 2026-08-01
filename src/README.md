@@ -9,26 +9,26 @@ drift through dawn, noon, dusk, and night.
 
 ## Controls
 
-You start at home in the cottage. Tap the on-screen buttons (top-right) to go
-outside to the meadow and back, and tap the bed (or the moon button) to sleep.
+You start at home in the cottage with a little family of cats. The strip along
+the bottom is your team — tap a cat to make her active (she appears in the
+scene and receives your care), or tap the **+** to adopt a new one, up to five.
+Each cat is a different type with its own pastel coat.
 
 | Input | Action |
 |-------|--------|
+| tap a cat in the bottom strip | make that cat active |
+| tap the **+** slot | adopt a new cat (up to 5) |
 | tap the sun / house button | go outside / come home |
-| tap the bed (or moon button) | sleep — wake to a fresh morning, saves the game |
-| click / tap the cat | pet her (purr + hearts, deepens bond) |
-| `F` | feed (restores energy, lifts mood) |
-| `G` | groom (lifts mood, deepens bond) |
+| tap the bed (or moon button) | sleep — fresh morning, rests the active cat, saves |
+| click / tap the active cat | pet her (deepens bond) |
+| `F` | feed the active cat |
+| `G` | groom the active cat |
 | `space` or `T` | shift time of day (meadow) |
 | `esc` or `Q` | quit (saves automatically) |
 
-Sleeping always wakes you to dawn — you're never locked out by the time of day.
-Her stats show in the top-left panel: bond (heart), mood (smile), energy
-(leaf), growth (star). Everything saves to `katiztic.sav`; stats only ever
-change when you care for her, never decaying while you're away.
-
-Every action is driven by a tap at a point, so the whole game already works
-by touch — the same taps will drive the planned iOS version.
+The five types — Sunny, Dreamy, Playful, Gentle, Clever — each have a signature
+pastel color, so a team *looks* like a chosen aesthetic. Each cat keeps her own
+bond, mood, energy, and growth. The whole family saves to `katiztic.sav`.
 
 ## Build
 
@@ -62,12 +62,26 @@ src/
                and behavior (breathe, blink, purr), drawn from primitives
   stats.h/.c   the cat's inner life — bond, mood, energy, growth; the feed/groom/
                pet care actions; and a tiny versioned save file
-  cottage.h/.c the home interior — warm room, window, bed you tap to sleep;
-               drawn in the same pastel language as the meadow
-  ui.h/.c      the cozy status panel plus touch-first buttons (tap to travel
-               and sleep) — same hit-test for mouse now and finger later
-  main.c       window, fixed-60fps loop, location state, tap routing, save/load
+  cattype.h/.c the five cat types (Sunny, Dreamy, Playful, Gentle, Clever) and
+               the signature pastel color set that makes each one look distinct
+  roster.h/.c  your family of up to 5 cats — each with a name, type, stats, and
+               animation state; the active selection, adopting, and save/load
+  cat.h/.c     one cat's animation state (blink, pet glow) and how it's drawn,
+               in whatever type colors it's given
+  cottage.h/.c the home interior — warm room, window, bed you tap to sleep
+  ui.h/.c      status panel, touch-first buttons, and the roster strip along
+               the bottom (tap a portrait to select, + to adopt)
+  main.c       window, fixed-60fps loop, location + roster state, tap routing
 ```
+
+## Roadmap
+
+Done: the *feeling*, the **care loop**, the **cottage & day cycle**, and now
+a **team of up to 5 cats** — swap the active cat, adopt new ones, each a
+distinct type and color, all saved together. Next: befriending new cats out in
+the world (rather than adopting from a menu), then more zones and gentle
+quests. An iOS port comes once there's more game to ship; the touch-first input
+throughout means that port stays a swap, not a rewrite.
 
 ### Design notes
 
@@ -81,15 +95,6 @@ src/
   remove it and the scene dies.
 - **No assets yet.** Every sprite is drawn from primitives so the project builds
   from source with zero image files. Hand-drawn sprite art is a later pass.
-
-## Roadmap
-
-Done: the *feeling* (palette, idle motion, time of day), the **care loop**
-(stats, feed/groom/pet, saving), and the **cottage & day cycle** (a home base,
-travel between rooms, and sleeping to a fresh morning — all touch-first).
-Next rungs: choosing and swapping a team of up to 5 cats, then befriending new
-cats out in the world. An iOS port (SDL3 supports it) comes once there's more
-game to ship — the touch-first input means that port is a swap, not a rewrite.
 
 ## License
 

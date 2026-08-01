@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "render.h"
 #include "palette.h"
+#include "cattype.h"
 
 /* ---- button icon glyphs, ~9x9, drawn centered in the button ---- */
 
@@ -150,4 +151,80 @@ void ui_draw_hint(SDL_Renderer *r) {
     px_rect(r, x + 8,  y + 3, 3, 3, KZ_MINT);
     px_rect(r, x + 30, y + 3, 3, 3, KZ_PETAL_PINK);
     px_rect(r, x + 52, y + 3, 3, 3, KZ_BUTTER);
+}
+
+/* ---- roster strip geometry (shared by draw + hit so they always agree) ---- */
+#define RS_SLOT   22          /* portrait slot width/height        */
+#define RS_GAP    3           /* space between slots               */
+#define RS_Y      (KZ_H - RS_SLOT - 2)   /* top of the strip, bottom-left */
+#define RS_X      2
+
+static float rs_slot_x(int i) {
+    return (float)RS_X + i * (RS_SLOT + RS_GAP);
+}
+
+/* A tiny cat face in the given type color, filling a portrait slot at (x,y). */
+static void portrait(SDL_Renderer *r, float x, float y, CatColors col) {
+    /* head */
+    px_rect(r, x + 4, y + 6, 14, 12, col.body);
+    /* ears */
+    px_rect(r, x + 4,  y + 2, 4, 5, col.body);
+    px_rect(r, x + 14, y + 2, 4, 5, col.body);
+    px_rect(r, x + 5,  y + 3, 2, 3, col.ear);
+    px_rect(r, x + 15, y + 3, 2, 3, col.ear);
+    /* eyes + nose (fixed mauve) */
+    px_rect(r, x + 7,  y + 10, 2, 2, KZ_CAT_OUTLINE);
+    px_rect(r, x + 13, y + 10, 2, 2, KZ_CAT_OUTLINE);
+    px_rect(r, x + 10, y + 13, 2, 1, KZ_CAT_NOSE);
+    /* cheeks */
+    px_rect(r, x + 5,  y + 12, 2, 1, col.cheek);
+    px_rect(r, x + 15, y + 12, 2, 1, col.cheek);
+}
+
+void ui_roster_draw(SDL_Renderer *r, const Roster *ro) {
+    for (int i = 0; i < ro->count; i++) {
+        float x = rs_slot_x(i), y = RS_Y;
+        bool active = (i == ro->active);
+
+        /* slot background: cream, with a pink ring when active */
+        px_rect_a(r, x + 1, y + 2, RS_SLOT, RS_SLOT, KZ_COCOA, 40); /* shadow */
+        px_rect(r, x, y, RS_SLOT, RS_SLOT, KZ_CLOUD);
+        Color border = active ? KZ_PETAL_PINK : KZ_COCOA;
+        int th = active ? 2 : 1;   /* thicker ring when active */
+        for (int t = 0; t < th; t++) {
+            px_rect(r, x + t,             y + t,             RS_SLOT - 2*t, 1, border);
+            px_rect(r, x + t,             y + RS_SLOT-1 - t, RS_SLOT - 2*t, 1, border);
+            px_rect(r, x + t,             y + t,             1, RS_SLOT - 2*t, border);
+            px_rect(r, x + RS_SLOT-1 - t, y + t,             1, RS_SLOT - 2*t, border);
+        }
+
+        portrait(r, x, y, cattype_colors(ro->cats[i].type));
+    }
+
+    /* "+" adopt slot, if there's room */
+    if (ro->count < KZ_MAX_CATS) {
+        float x = rs_slot_x(ro->count), y = RS_Y;
+        px_rect_a(r, x + 1, y + 2, RS_SLOT, RS_SLOT, KZ_COCOA, 40);
+        px_rect(r, x, y, RS_SLOT, RS_SLOT, KZ_CLOUD);
+        px_rect(r, x, y, RS_SLOT, 1, KZ_COCOA);
+        px_rect(r, x, y + RS_SLOT-1, RS_SLOT, 1, KZ_COCOA);
+        px_rect(r, x, y, 1, RS_SLOT, KZ_COCOA);
+        px_rect(r, x + RS_SLOT-1, y, 1, RS_SLOT, KZ_COCOA);
+        /* plus sign in mint */
+        px_rect(r, x + RS_SLOT/2 - 4, y + RS_SLOT/2, 8, 2, KZ_MINT);
+        px_rect(r, x + RS_SLOT/2, y + RS_SLOT/2 - 4, 2, 8, KZ_MINT);
+    }
+}
+
+int ui_roster_hit(const Roster *ro, float px_, float py_) {
+    if (py_ < RS_Y || py_ > RS_Y + RS_SLOT) return -1;
+    for (int i = 0; i < ro->count; i++) {
+        float x = rs_slot_x(i);
+        if (px_ >= x && px_ <= x + RS_SLOT) return i;
+    }
+    if (ro->count < KZ_MAX_CATS) {
+        float x = rs_slot_x(ro->count);
+        if (px_ >= x && px_ <= x + RS_SLOT) return -2;   /* adopt slot */
+    }
+    return -1;
 }
