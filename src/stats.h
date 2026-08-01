@@ -33,6 +33,10 @@ void stats_feed(Stats *s);    /* +energy, +a little mood            */
 void stats_groom(Stats *s);   /* +mood, +bond                       */
 void stats_pet(Stats *s);     /* +bond (called when the cat is pet) */
 
+/* A good night's sleep: a gentle mood lift (energy is refilled separately). */
+void stats_wake(Stats *s);
+
+
 /* ---- persistence ----
  * A tiny binary save written next to the executable. Returns true on success.
  * Loading a missing/corrupt file just leaves `out` untouched and returns false,

@@ -32,6 +32,18 @@ At home, your whole family lounges in the cottage together — tap any of them t
 switch to her. Step outside and it's a one-cat outing with whoever's active.
 Renaming uses the keyboard for now (it'll use the on-screen keyboard on iOS).
 
+## Befriending cats on walks
+
+Out in the meadow, a wild cat sometimes comes to visit — a mix of regulars
+you've met and new faces. Tap the fish button to offer her a treat; each treat
+builds her trust, and once trust fills she becomes a lasting friend. Open the
+friends list (the heart button, top-right) to see everyone you've met and how
+much they trust you. Befriended cats are marked with a heart.
+
+These friends are *not* your cats — they live out in the world. Your own family
+(up to 5, adopted with the **+**) is separate. Befriending is the warm social
+reward of walking, not a way to collect cats.
+
 The five types — Sunny, Dreamy, Playful, Gentle, Clever — each have a signature
 pastel color, so a team *looks* like a chosen aesthetic. Each cat keeps her own
 bond, mood, energy, and growth. The active cat's card (top-left) now shows her
@@ -73,6 +85,10 @@ src/
                the signature pastel color set that makes each one look distinct
   text.h/.c    a tiny 4x6 pixel font (built from source, no font file) — draws
                names, labels, and any string in any pastel color
+  friends.h/.c the cats you meet on walks — trust levels, befriending, and their
+               own save file (separate from your roster)
+  encounter.h/.c the wild cat visiting the meadow — who shows up, where she sits,
+               and how she edges closer as she trusts you
   roster.h/.c  your family of up to 5 cats — each with a name, type, stats, and
                animation state; the active selection, adopting, and save/load
   cat.h/.c     one cat's animation state (blink, pet glow) and how it's drawn,
@@ -85,11 +101,11 @@ src/
 
 ## Roadmap
 
-Done: the *feeling*, the **care loop**, the **cottage & day cycle**, and now
-a **team of up to 5 cats** — swap the active cat, adopt new ones, each a
-distinct type and color, all saved together. Next: befriending new cats out in
-the world (rather than adopting from a menu), then more zones and gentle
-quests. An iOS port comes once there's more game to ship; the touch-first input
+Done: the *feeling*, the **care loop**, the **cottage & day cycle**, a **team of
+up to 5 cats**, a **pixel font**, and now **befriending cats on walks** — meeting
+wild cats in the meadow, building trust with treats, and keeping a friends list.
+Next: more zones and gentle quests, cottage décor, and the soft main story. An
+iOS port comes once the game feels ready to ship; the touch-first input
 throughout means that port stays a swap, not a rewrite.
 
 ### Design notes

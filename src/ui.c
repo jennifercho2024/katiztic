@@ -38,6 +38,26 @@ static void glyph_moon(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 3, y + 7, 3, 1, c);
 }
 
+static void glyph_fish(SDL_Renderer *r, float x, float y, Color c) {
+    /* little side-on fish: body + tail */
+    px_rect(r, x + 1, y + 3, 6, 3, c);   /* body */
+    px_rect(r, x + 2, y + 2, 4, 1, c);
+    px_rect(r, x + 2, y + 6, 4, 1, c);
+    px_rect(r, x + 7, y + 2, 2, 2, c);   /* tail top */
+    px_rect(r, x + 7, y + 5, 2, 2, c);   /* tail bottom */
+    px_rect(r, x + 2, y + 4, 1, 1, KZ_CLOUD); /* eye */
+}
+
+static void glyph_heart_big(SDL_Renderer *r, float x, float y, Color c) {
+    px_rect(r, x + 1, y + 1, 2, 1, c);
+    px_rect(r, x + 6, y + 1, 2, 1, c);
+    px_rect(r, x,     y + 2, 9, 2, c);
+    px_rect(r, x + 1, y + 4, 7, 1, c);
+    px_rect(r, x + 2, y + 5, 5, 1, c);
+    px_rect(r, x + 3, y + 6, 3, 1, c);
+    px_rect(r, x + 4, y + 7, 1, 1, c);
+}
+
 bool ui_button_hit(const Button *b, float px_, float py_) {
     return px_ >= b->x && px_ <= b->x + b->w
         && py_ >= b->y && py_ <= b->y + b->h;
@@ -58,9 +78,11 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
     float gx = b->x + (b->w - 9) / 2.0f;
     float gy = b->y + (b->h - 9) / 2.0f;
     switch (b->kind) {
-        case KZ_BTN_HOME:  glyph_house(r, gx, gy, KZ_COCOA); break;
-        case KZ_BTN_OUT:   glyph_sun(r,   gx, gy, KZ_COCOA); break;
-        case KZ_BTN_SLEEP: glyph_moon(r,  gx, gy, KZ_COCOA); break;
+        case KZ_BTN_HOME:    glyph_house(r, gx, gy, KZ_COCOA); break;
+        case KZ_BTN_OUT:     glyph_sun(r,   gx, gy, KZ_COCOA); break;
+        case KZ_BTN_SLEEP:   glyph_moon(r,  gx, gy, KZ_COCOA); break;
+        case KZ_BTN_TREAT:   glyph_fish(r,  gx, gy, rgb(0xE8,0x8B,0x6B)); break;
+        case KZ_BTN_FRIENDS: glyph_heart_big(r, gx, gy, KZ_PETAL_PINK); break;
     }
 }
 
@@ -251,4 +273,89 @@ int ui_roster_hit(const Roster *ro, float px_, float py_) {
         if (px_ >= x && px_ <= x + RS_SLOT) return -2;   /* adopt slot */
     }
     return -1;
+}
+
+/* ---- encounter UI ---- */
+
+/* Fixed-position buttons. Treat sits bottom-right (clear of the roster strip
+ * which is bottom-left); friends button sits top-right under the travel/sleep. */
+const Button KZ_TREAT_BUTTON   = { KZ_W - 26, KZ_H - 46, 22, 18, KZ_BTN_TREAT };
+const Button KZ_FRIENDS_BUTTON = { KZ_W - 24, 24,        20, 16, KZ_BTN_FRIENDS };
+
+void ui_treat_button_draw(SDL_Renderer *r, bool pressed) {
+    ui_button_draw(r, &KZ_TREAT_BUTTON, pressed);
+}
+bool ui_treat_button_hit(float px_, float py_) {
+    return ui_button_hit(&KZ_TREAT_BUTTON, px_, py_);
+}
+void ui_friends_button_draw(SDL_Renderer *r, bool pressed) {
+    ui_button_draw(r, &KZ_FRIENDS_BUTTON, pressed);
+}
+bool ui_friends_button_hit(float px_, float py_) {
+    return ui_button_hit(&KZ_FRIENDS_BUTTON, px_, py_);
+}
+
+/* A soft dialogue banner across the bottom-center with one line of text. */
+void ui_banner(SDL_Renderer *r, const char *line) {
+    float w = 176, h = 16;
+    float x = (KZ_W - w) / 2.0f, y = KZ_H - h - 26;
+
+    px_rect_a(r, x + 2, y + 2, w, h, KZ_COCOA, 40);
+    px_rect(r, x, y, w, h, KZ_CLOUD);
+    px_rect(r, x,         y,         w, 1, KZ_COCOA);
+    px_rect(r, x,         y + h - 1, w, 1, KZ_COCOA);
+    px_rect(r, x,         y,         1, h, KZ_COCOA);
+    px_rect(r, x + w - 1, y,         1, h, KZ_COCOA);
+
+    text_draw_centered(r, line, KZ_W / 2.0f, y + 5, KZ_COCOA);
+}
+
+/* The friends-list overlay: a soft panel listing everyone met, trust bars,
+ * and a heart on full friends. */
+void ui_friends_list(SDL_Renderer *r, const Friends *f) {
+    /* dim the scene */
+    px_rect_a(r, 0, 0, KZ_W, KZ_H, rgb(0x3B, 0x30, 0x50), 150);
+
+    float w = 180, h = 132;
+    float x = (KZ_W - w) / 2.0f, y = (KZ_H - h) / 2.0f;
+    px_rect(r, x, y, w, h, KZ_CLOUD);
+    px_rect(r, x,         y,         w, 1, KZ_COCOA);
+    px_rect(r, x,         y + h - 1, w, 1, KZ_COCOA);
+    px_rect(r, x,         y,         1, h, KZ_COCOA);
+    px_rect(r, x + w - 1, y,         1, h, KZ_COCOA);
+
+    text_draw(r, "Friends", x + 6, y + 5, KZ_COCOA);
+    px_rect(r, x + 5, y + 13, w - 10, 1, KZ_COCOA);
+
+    if (f->count == 0) {
+        text_draw(r, "None yet. Take a walk!", x + 6, y + 20, KZ_COCOA);
+    } else {
+        for (int i = 0; i < f->count && i < 8; i++) {
+            const Friend *fr = &f->list[i];
+            float ry = y + 18 + i * 13;
+            /* little portrait dot in her type color */
+            px_rect(r, x + 6, ry, 6, 6, cattype_colors(fr->type).body);
+            px_rect(r, x + 6, ry, 6, 1, cattype_colors(fr->type).dark);
+            /* name */
+            text_draw(r, fr->name, x + 16, ry, KZ_COCOA);
+            /* trust bar */
+            float bx = x + 96, bw = 60;
+            px_rect(r, bx, ry, bw, 5, KZ_CLOUD);
+            float fw = bw * ((float)fr->trust / (float)KZ_TRUST_FULL);
+            if (fw > 0) px_rect(r, bx, ry, fw, 5, KZ_PETAL_PINK);
+            px_rect(r, bx, ry, bw, 1, KZ_COCOA);
+            px_rect(r, bx, ry + 4, bw, 1, KZ_COCOA);
+            px_rect(r, bx, ry, 1, 5, KZ_COCOA);
+            px_rect(r, bx + bw - 1, ry, 1, 5, KZ_COCOA);
+            /* heart if fully befriended */
+            if (fr->befriended) {
+                float hx = bx + bw + 4;
+                px_rect(r, hx, ry, 1, 1, KZ_HEART);
+                px_rect(r, hx + 2, ry, 1, 1, KZ_HEART);
+                px_rect(r, hx, ry + 1, 3, 1, KZ_HEART);
+                px_rect(r, hx + 1, ry + 2, 1, 1, KZ_HEART);
+            }
+        }
+    }
+    text_draw_centered(r, "tap to close", KZ_W / 2.0f, y + h - 9, KZ_COCOA);
 }

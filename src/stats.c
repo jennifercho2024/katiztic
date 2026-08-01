@@ -48,6 +48,13 @@ void stats_pet(Stats *s) {
     grow(s);
 }
 
+/* Waking from a good sleep: a gentle mood lift. Energy is set to full by the
+ * caller; this is the little "well-rested and happy" bump on top. Does not
+ * count as care (no growth) — it's just the morning feeling good. */
+void stats_wake(Stats *s) {
+    s->mood = bump(s->mood, 8);
+}
+
 /* ---- save format ----
  * A 4-byte magic + 1-byte version, then the fields written explicitly (not a
  * raw struct dump — that would break across compilers/padding). Small, sturdy,
