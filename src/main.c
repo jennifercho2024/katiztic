@@ -18,11 +18,16 @@
 #include "palette.h"
 #include "scene.h"
 #include "cat.h"
+#include "stats.h"
+#include "ui.h"
 
 /* Window opens at 4x the logical canvas: 960x640. */
 #define KZ_SCALE  4
 #define WIN_W     (KZ_W * KZ_SCALE)
 #define WIN_H     (KZ_H * KZ_SCALE)
+
+/* Where the cat's stats are saved between sessions. */
+#define KZ_SAVE_PATH "katiztic.sav"
 
 /* Fixed timestep so the mood animations run the same on any machine. */
 #define KZ_FPS       60
@@ -55,6 +60,12 @@ int main(int argc, char *argv[]) {
     Meadow meadow = meadow_make();
     Cat    cat    = cat_make(112.0f, 118.0f);
 
+    /* Load the cat's stats, or start her fresh and content if there's no save. */
+    Stats stats;
+    if (!stats_load(&stats, KZ_SAVE_PATH)) {
+        stats = stats_new();
+    }
+
     bool   running = true;
     Uint64 frame   = 0;
     Uint64 next    = SDL_GetTicksNS();
@@ -73,6 +84,10 @@ int main(int argc, char *argv[]) {
                     running = false;
                 else if (e.key.key == SDLK_SPACE || e.key.key == SDLK_T)
                     meadow_cycle_time(&meadow);
+                else if (e.key.key == SDLK_F)
+                    stats_feed(&stats);
+                else if (e.key.key == SDLK_G)
+                    stats_groom(&stats);
                 break;
 
             case SDL_EVENT_MOUSE_BUTTON_DOWN: {
@@ -80,7 +95,10 @@ int main(int argc, char *argv[]) {
                 float lx, ly;
                 SDL_RenderCoordinatesFromWindow(renderer, e.button.x,
                                                 e.button.y, &lx, &ly);
-                if (cat_hit(&cat, lx, ly)) cat_pet(&cat);
+                if (cat_hit(&cat, lx, ly)) {
+                    cat_pet(&cat);
+                    stats_pet(&stats);   /* petting deepens the bond */
+                }
                 break;
             }
             default: break;
@@ -99,6 +117,9 @@ int main(int argc, char *argv[]) {
         cat_draw(renderer, &cat, frame);
         meadow_draw_wash(renderer, &meadow);   /* mood overlay, on top */
 
+        ui_draw_panel(renderer, &stats, 4, 4);  /* stats, top-left     */
+        ui_draw_hint(renderer);                 /* action legend       */
+
         SDL_RenderPresent(renderer);
 
         /* ---- pace to 60fps without busy-spinning ---- */
@@ -108,6 +129,9 @@ int main(int argc, char *argv[]) {
         if (next > now) SDL_DelayNS(next - now);
         else            next = now;   /* fell behind; don't spiral */
     }
+
+    /* Save the cat's stats so she remembers you next time. */
+    stats_save(&stats, KZ_SAVE_PATH);
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

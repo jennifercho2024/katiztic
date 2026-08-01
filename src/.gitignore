@@ -1,0 +1,9 @@
+# build artifacts
+katiztic
+*.o
+build/
+
+# editor / os
+*.swp
+.DS_Store
+katiztic.sav
