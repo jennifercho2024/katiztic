@@ -17,6 +17,8 @@ Each cat is a different type with its own pastel coat.
 | Input | Action |
 |-------|--------|
 | tap a cat in the bottom strip | make that cat active |
+| tap any cat lounging in the cottage | make that cat active and pet her |
+| tap the cat's name on the card | rename her (type, Enter to confirm, Esc to cancel) |
 | tap the **+** slot | adopt a new cat (up to 5) |
 | tap the sun / house button | go outside / come home |
 | tap the bed (or moon button) | sleep — fresh morning, rests the active cat, saves |
@@ -25,6 +27,10 @@ Each cat is a different type with its own pastel coat.
 | `G` | groom the active cat |
 | `space` or `T` | shift time of day (meadow) |
 | `esc` or `Q` | quit (saves automatically) |
+
+At home, your whole family lounges in the cottage together — tap any of them to
+switch to her. Step outside and it's a one-cat outing with whoever's active.
+Renaming uses the keyboard for now (it'll use the on-screen keyboard on iOS).
 
 The five types — Sunny, Dreamy, Playful, Gentle, Clever — each have a signature
 pastel color, so a team *looks* like a chosen aesthetic. Each cat keeps her own

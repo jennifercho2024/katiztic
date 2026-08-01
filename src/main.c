@@ -80,6 +80,15 @@ int main(int argc, char *argv[]) {
         roster = roster_new(CAT_X, CAT_Y);
     }
 
+    /* Rename mode: when active, keystrokes edit `edit_buf` instead of doing
+     * their usual jobs. Tapping the name on the stat card starts it; Enter
+     * confirms, Escape cancels. Physical keyboard for now — forward-compatible
+     * with the iOS on-screen keyboard when that port comes. */
+    bool editing = false;
+    char edit_buf[KZ_NAME_LEN];
+    edit_buf[0] = '\0';
+    int  edit_len = 0;
+
     bool   running = true;
     Uint64 frame   = 0;
     Uint64 next    = SDL_GetTicksNS();
@@ -88,6 +97,33 @@ int main(int argc, char *argv[]) {
         /* ---- input ---- */
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
+            /* ---- rename mode intercepts input ---- */
+            if (editing) {
+                if (e.type == SDL_EVENT_QUIT) { running = false; }
+                else if (e.type == SDL_EVENT_TEXT_INPUT) {
+                    /* Append typed characters that fit (leave room for '\0'). */
+                    for (const char *p = e.text.text; *p; p++) {
+                        if (edit_len < KZ_NAME_LEN - 1) {
+                            edit_buf[edit_len++] = *p;
+                            edit_buf[edit_len] = '\0';
+                        }
+                    }
+                } else if (e.type == SDL_EVENT_KEY_DOWN) {
+                    if (e.key.key == SDLK_BACKSPACE && edit_len > 0) {
+                        edit_buf[--edit_len] = '\0';
+                    } else if (e.key.key == SDLK_RETURN) {
+                        roster_rename(&roster, roster.active, edit_buf);
+                        roster_save(&roster, KZ_SAVE_PATH);
+                        editing = false;
+                        SDL_StopTextInput(window);
+                    } else if (e.key.key == SDLK_ESCAPE) {
+                        editing = false;      /* cancel, keep old name */
+                        SDL_StopTextInput(window);
+                    }
+                }
+                continue;   /* while editing, nothing else sees the event */
+            }
+
             switch (e.type) {
             case SDL_EVENT_QUIT:
                 running = false;
@@ -112,7 +148,17 @@ int main(int argc, char *argv[]) {
                 SDL_RenderCoordinatesFromWindow(renderer, e.button.x,
                                                 e.button.y, &lx, &ly);
 
-                /* 1) roster strip: select a cat, or adopt a new one. */
+                /* 1) tap the name on the stat card -> start renaming */
+                if (ui_name_hit(4, 4, lx, ly)) {
+                    editing = true;
+                    SDL_strlcpy(edit_buf, roster_active(&roster)->name,
+                                KZ_NAME_LEN);
+                    edit_len = (int)SDL_strlen(edit_buf);
+                    SDL_StartTextInput(window);
+                    break;
+                }
+
+                /* 2) roster strip: select a cat, or adopt a new one. */
                 int slot = ui_roster_hit(&roster, lx, ly);
                 if (slot == -2) {
                     /* adopt: cycle through types by how many you have */
@@ -126,7 +172,7 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* 2) travel button: toggle cottage <-> meadow */
+                /* 3) travel button: toggle cottage <-> meadow */
                 if (ui_button_hit(&btn_travel, lx, ly)) {
                     location = (location == LOC_COTTAGE) ? LOC_MEADOW
                                                          : LOC_COTTAGE;
@@ -134,7 +180,7 @@ int main(int argc, char *argv[]) {
                                                                 : KZ_BTN_HOME;
                     press_fx = 8;
                 }
-                /* 3) sleep button (cottage only): fresh morning + save */
+                /* 4) sleep button (cottage only): fresh morning + save */
                 else if (location == LOC_COTTAGE
                          && ui_button_hit(&btn_sleep, lx, ly)) {
                     meadow.time = KZ_DAWN;
@@ -142,19 +188,35 @@ int main(int argc, char *argv[]) {
                     roster_save(&roster, KZ_SAVE_PATH);
                     press_fx = 8;
                 }
-                /* 4) tapping the bed also sleeps */
+                /* 5) tapping the bed also sleeps */
                 else if (location == LOC_COTTAGE && cottage_bed_hit(lx, ly)) {
                     meadow.time = KZ_DAWN;
                     roster_active(&roster)->stats.energy = KZ_STAT_MAX;
                     roster_save(&roster, KZ_SAVE_PATH);
                     press_fx = 8;
                 }
-                /* 5) otherwise, a tap on the active cat pets her */
+                /* 6) tap a cat. In the cottage the whole family is present, so
+                 * a tap can land on any of them: that cat becomes active and
+                 * gets petted. In the meadow, only the active cat is there. */
                 else {
-                    OwnedCat *a = roster_active(&roster);
-                    if (cat_hit(&a->anim, lx, ly)) {
-                        cat_pet(&a->anim);
-                        stats_pet(&a->stats);   /* petting deepens the bond */
+                    bool hit_one = false;
+                    if (location == LOC_COTTAGE) {
+                        for (int i = 0; i < roster.count; i++) {
+                            if (cat_hit(&roster.cats[i].anim, lx, ly)) {
+                                roster_select(&roster, i);
+                                cat_pet(&roster.cats[i].anim);
+                                stats_pet(&roster.cats[i].stats);
+                                hit_one = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!hit_one) {
+                        OwnedCat *a = roster_active(&roster);
+                        if (cat_hit(&a->anim, lx, ly)) {
+                            cat_pet(&a->anim);
+                            stats_pet(&a->stats);   /* petting deepens bond */
+                        }
                     }
                 }
                 break;
@@ -166,7 +228,10 @@ int main(int argc, char *argv[]) {
         /* ---- update ---- */
         if (location == LOC_MEADOW) meadow_update(&meadow);
         OwnedCat *active = roster_active(&roster);
-        cat_update(&active->anim);
+        /* Animate every cat (they all breathe and blink at home); the active
+         * one also carries any petting glow. */
+        for (int i = 0; i < roster.count; i++)
+            cat_update(&roster.cats[i].anim);
         if (press_fx > 0) press_fx--;
 
         /* ---- draw (back to front) ---- */
@@ -177,15 +242,35 @@ int main(int argc, char *argv[]) {
         bool is_night = (meadow.time == KZ_NIGHT);
         if (location == LOC_COTTAGE) {
             cottage_draw(renderer, frame, is_night);
+            /* The whole family lounges at home. Draw each cat at its spot,
+             * back-to-front by row so nearer cats overlap farther ones, and
+             * draw the active cat last so she sits on top with her hearts. */
+            for (int i = 0; i < roster.count; i++) {
+                if (i == roster.active) continue;
+                float hx, hy;
+                roster_home_spot(i, &hx, &hy);
+                roster.cats[i].anim.cx = hx;
+                roster.cats[i].anim.cy = hy;
+                cat_draw(renderer, &roster.cats[i].anim,
+                         cattype_colors(roster.cats[i].type), frame);
+            }
+            float ax, ay;
+            roster_home_spot(roster.active, &ax, &ay);
+            active->anim.cx = ax;
+            active->anim.cy = ay;
             cat_draw(renderer, &active->anim, col, frame);
         } else {
+            /* Outdoors is a one-cat outing: just the active cat, at the
+             * meadow spot. */
+            active->anim.cx = CAT_X;
+            active->anim.cy = CAT_Y;
             meadow_draw(renderer, &meadow, frame);
             cat_draw(renderer, &active->anim, col, frame);
             meadow_draw_wash(renderer, &meadow);   /* mood overlay, on top */
         }
 
         /* ---- UI (both locations) ---- */
-        ui_draw_panel(renderer, active, 4, 4);            /* active cat's card  */
+        ui_draw_panel(renderer, active, 4, 4, editing, edit_buf, frame);
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
         if (location == LOC_COTTAGE)
             ui_button_draw(renderer, &btn_sleep, press_fx > 0);

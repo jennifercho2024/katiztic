@@ -117,7 +117,16 @@ static void stat_row(SDL_Renderer *r, float x, float y,
     px_rect(r, bx + bw - 1, y,          1,  bh, KZ_COCOA);
 }
 
-void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y) {
+/* The name row occupies roughly the top 8px of the panel interior. */
+#define PANEL_NAME_H 8
+
+bool ui_name_hit(float panel_x, float panel_y, float px_, float py_) {
+    return px_ >= panel_x && px_ <= panel_x + 62
+        && py_ >= panel_y && py_ <= panel_y + 3 + PANEL_NAME_H;
+}
+
+void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
+                   bool editing, const char *edit_buf, Uint64 frame) {
     const Stats *s = &cat->stats;
     float w = 62, h = 54;   /* a little taller now, to fit the name header */
 
@@ -129,8 +138,15 @@ void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y) {
     px_rect(r, x,         y,         1, h, KZ_COCOA);
     px_rect(r, x + w - 1, y,         1, h, KZ_COCOA);
 
-    /* Header: the cat's name, and her type in the type's accent color. */
-    text_draw(r, cat->name, x + 4, y + 3, KZ_COCOA);
+    /* Header: the cat's name (or the edit buffer + caret while renaming). */
+    if (editing) {
+        px_rect(r, x + 2, y + 2, w - 4, PANEL_NAME_H, KZ_PETAL_PINK); /* field */
+        float nx = text_draw(r, edit_buf, x + 4, y + 3, KZ_COCOA) + x + 4;
+        if ((frame / 20) % 2 == 0)             /* blinking caret */
+            px_rect(r, nx, y + 3, 1, 6, KZ_COCOA);
+    } else {
+        text_draw(r, cat->name, x + 4, y + 3, KZ_COCOA);
+    }
     text_draw(r, cattype_name(cat->type), x + 4, y + 10,
               cattype_colors(cat->type).dark);
     px_rect(r, x + 3, y + 17, w - 6, 1, KZ_COCOA);   /* divider */

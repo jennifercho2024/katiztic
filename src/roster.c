@@ -51,6 +51,23 @@ bool roster_adopt(Roster *ro, CatType type, float cat_x, float cat_y) {
     return true;
 }
 
+void roster_rename(Roster *ro, int i, const char *name) {
+    if (i < 0 || i >= ro->count) return;
+    if (!name || name[0] == '\0') return;   /* never leave a cat nameless */
+    set_name(&ro->cats[i], name);
+}
+
+/* Fixed lounging spots around the cottage floor, so the family spreads out
+ * instead of stacking. Chosen to sit on the floor/rug, clear of the bed and
+ * window. Up to KZ_MAX_CATS spots. */
+void roster_home_spot(int i, float *x, float *y) {
+    static const float SX[KZ_MAX_CATS] = { 120.0f, 158.0f,  96.0f, 178.0f, 138.0f };
+    static const float SY[KZ_MAX_CATS] = { 132.0f, 120.0f, 118.0f, 138.0f, 150.0f };
+    if (i < 0 || i >= KZ_MAX_CATS) { *x = 120.0f; *y = 132.0f; return; }
+    *x = SX[i];
+    *y = SY[i];
+}
+
 /* ---- save format v2 ----
  * magic "KZSV", version=2, then count, active, and for each cat:
  * name[KZ_NAME_LEN], type (1 byte), and its stats fields.

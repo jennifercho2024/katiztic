@@ -43,8 +43,14 @@ bool ui_button_hit(const Button *b, float px, float py);
 void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed);
 
 /* Draw the stat panel for a cat at (x,y) in logical 240x160 space. Shows the
- * cat's name and type as a header, then her four stat bars. */
-void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y);
+ * cat's name and type as a header, then her four stat bars. When `editing` is
+ * true, the name row shows `edit_buf` with a blinking caret instead. */
+void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
+                   bool editing, const char *edit_buf, Uint64 frame);
+
+/* Is point (px,py) on the name row of the stat card drawn at (x,y)?
+ * (tap to rename) */
+bool ui_name_hit(float panel_x, float panel_y, float px, float py);
 
 /* Draw a small centered hint bar near the bottom (e.g. "F feed  G groom").
  * `flash` > 0 briefly highlights the panel to acknowledge an action. */

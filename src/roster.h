@@ -44,6 +44,14 @@ void roster_select(Roster *ro, int i);
 /* Adopt a new cat of the given type. Returns false if the team is full. */
 bool roster_adopt(Roster *ro, CatType type, float cat_x, float cat_y);
 
+/* Rename a cat. The name is copied and truncated to fit; empty names are
+ * ignored (the old name is kept) so a cat is never left nameless. */
+void roster_rename(Roster *ro, int i, const char *name);
+
+/* Where cat `i` sits when the whole family is lounging in the cottage.
+ * Fixed spots spread around the room so they don't overlap. Writes (x,y). */
+void roster_home_spot(int i, float *x, float *y);
+
 /* ---- persistence (save version 2) ---- */
 bool roster_save(const Roster *ro, const char *path);
 bool roster_load(Roster *out, const char *path, float cat_x, float cat_y);
