@@ -9,18 +9,26 @@ drift through dawn, noon, dusk, and night.
 
 ## Controls
 
+You start at home in the cottage. Tap the on-screen buttons (top-right) to go
+outside to the meadow and back, and tap the bed (or the moon button) to sleep.
+
 | Input | Action |
 |-------|--------|
+| tap the sun / house button | go outside / come home |
+| tap the bed (or moon button) | sleep — wake to a fresh morning, saves the game |
 | click / tap the cat | pet her (purr + hearts, deepens bond) |
 | `F` | feed (restores energy, lifts mood) |
 | `G` | groom (lifts mood, deepens bond) |
-| `space` or `T` | shift time of day |
+| `space` or `T` | shift time of day (meadow) |
 | `esc` or `Q` | quit (saves automatically) |
 
-Her stats show in the top-left panel — bond (heart), mood (smile), energy
-(leaf), and growth (star). Everything is saved to `katiztic.sav` when you quit,
-so she remembers you next time. Stats only ever change when you care for her;
-nothing decays while you're away.
+Sleeping always wakes you to dawn — you're never locked out by the time of day.
+Her stats show in the top-left panel: bond (heart), mood (smile), energy
+(leaf), growth (star). Everything saves to `katiztic.sav`; stats only ever
+change when you care for her, never decaying while you're away.
+
+Every action is driven by a tap at a point, so the whole game already works
+by touch — the same taps will drive the planned iOS version.
 
 ## Build
 
@@ -54,8 +62,11 @@ src/
                and behavior (breathe, blink, purr), drawn from primitives
   stats.h/.c   the cat's inner life — bond, mood, energy, growth; the feed/groom/
                pet care actions; and a tiny versioned save file
-  ui.h/.c      the cozy status panel — icon-labeled pastel stat bars
-  main.c       window, fixed-60fps loop, input, save/load, and the draw order
+  cottage.h/.c the home interior — warm room, window, bed you tap to sleep;
+               drawn in the same pastel language as the meadow
+  ui.h/.c      the cozy status panel plus touch-first buttons (tap to travel
+               and sleep) — same hit-test for mouse now and finger later
+  main.c       window, fixed-60fps loop, location state, tap routing, save/load
 ```
 
 ### Design notes
@@ -73,10 +84,12 @@ src/
 
 ## Roadmap
 
-Rung 1 (the *feeling* — palette, idle motion, time-of-day) and rung 2 (the
-**care loop** — stats, feed/groom/pet, and saving) are in. Next rungs:
-a proper day cycle tied to a cottage home base, then choosing and swapping a
-team of up to 5 cats, then befriending new cats out in the world.
+Done: the *feeling* (palette, idle motion, time of day), the **care loop**
+(stats, feed/groom/pet, saving), and the **cottage & day cycle** (a home base,
+travel between rooms, and sleeping to a fresh morning — all touch-first).
+Next rungs: choosing and swapping a team of up to 5 cats, then befriending new
+cats out in the world. An iOS port (SDL3 supports it) comes once there's more
+game to ship — the touch-first input means that port is a swap, not a rewrite.
 
 ## License
 

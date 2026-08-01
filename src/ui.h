@@ -15,6 +15,32 @@
 #include <SDL3/SDL.h>
 #include "stats.h"
 
+/* ---- touch-first buttons ----
+ * A Button is just a labeled rectangle in logical 240x160 space. It's drawn
+ * the same way and hit-tested the same way whether the player uses a mouse
+ * (now) or a finger (on iOS later) — that's the whole point: input is a tap
+ * at a point, and nothing in the game logic cares which device made it.
+ *
+ * Labels are drawn as a tiny icon glyph (no font needed yet), chosen by kind.
+ */
+typedef enum {
+    KZ_BTN_HOME,    /* a little house — go home to the cottage */
+    KZ_BTN_OUT,     /* a little sun/tree — go outside          */
+    KZ_BTN_SLEEP,   /* a moon — sleep                          */
+} ButtonKind;
+
+typedef struct {
+    float x, y, w, h;
+    ButtonKind kind;
+} Button;
+
+/* Is point (px,py) inside the button? Works for click or tap alike. */
+bool ui_button_hit(const Button *b, float px, float py);
+
+/* Draw the button: soft cream pill, mauve border, icon glyph. `pressed`
+ * briefly darkens it for tap feedback. */
+void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed);
+
 /* Draw the stat panel at (x,y) in logical 240x160 space. */
 void ui_draw_panel(SDL_Renderer *r, const Stats *s, float x, float y);
 

@@ -3,6 +3,65 @@
 #include "render.h"
 #include "palette.h"
 
+/* ---- button icon glyphs, ~9x9, drawn centered in the button ---- */
+
+static void glyph_house(SDL_Renderer *r, float x, float y, Color c) {
+    /* roof */
+    px_rect(r, x + 3, y,     3, 1, c);
+    px_rect(r, x + 2, y + 1, 5, 1, c);
+    px_rect(r, x + 1, y + 2, 7, 1, c);
+    px_rect(r, x,     y + 3, 9, 1, c);
+    /* walls + door */
+    px_rect(r, x + 1, y + 4, 7, 5, c);
+    px_rect(r, x + 3, y + 6, 3, 3, KZ_CLOUD);
+}
+
+static void glyph_sun(SDL_Renderer *r, float x, float y, Color c) {
+    /* rays */
+    px_rect(r, x + 4, y,     1, 2, c);
+    px_rect(r, x + 4, y + 7, 1, 2, c);
+    px_rect(r, x,     y + 4, 2, 1, c);
+    px_rect(r, x + 7, y + 4, 2, 1, c);
+    /* body */
+    px_rect(r, x + 3, y + 3, 3, 3, c);
+    px_rect(r, x + 2, y + 4, 5, 1, c);
+    px_rect(r, x + 4, y + 2, 1, 5, c);
+}
+
+static void glyph_moon(SDL_Renderer *r, float x, float y, Color c) {
+    px_rect(r, x + 3, y + 1, 3, 1, c);
+    px_rect(r, x + 2, y + 2, 2, 1, c);
+    px_rect(r, x + 1, y + 3, 2, 3, c);
+    px_rect(r, x + 2, y + 6, 2, 1, c);
+    px_rect(r, x + 3, y + 7, 3, 1, c);
+}
+
+bool ui_button_hit(const Button *b, float px_, float py_) {
+    return px_ >= b->x && px_ <= b->x + b->w
+        && py_ >= b->y && py_ <= b->y + b->h;
+}
+
+void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
+    /* soft drop shadow */
+    px_rect_a(r, b->x + 1, b->y + 2, b->w, b->h, KZ_COCOA, 40);
+    /* fill — a touch darker while pressed, for tap feedback */
+    Color fill = pressed ? KZ_LAVENDER : KZ_CLOUD;
+    px_rect(r, b->x, b->y, b->w, b->h, fill);
+    /* mauve border */
+    px_rect(r, b->x,            b->y,            b->w, 1,    KZ_COCOA);
+    px_rect(r, b->x,            b->y + b->h - 1, b->w, 1,    KZ_COCOA);
+    px_rect(r, b->x,            b->y,            1,    b->h, KZ_COCOA);
+    px_rect(r, b->x + b->w - 1, b->y,            1,    b->h, KZ_COCOA);
+    /* centered glyph */
+    float gx = b->x + (b->w - 9) / 2.0f;
+    float gy = b->y + (b->h - 9) / 2.0f;
+    switch (b->kind) {
+        case KZ_BTN_HOME:  glyph_house(r, gx, gy, KZ_COCOA); break;
+        case KZ_BTN_OUT:   glyph_sun(r,   gx, gy, KZ_COCOA); break;
+        case KZ_BTN_SLEEP: glyph_moon(r,  gx, gy, KZ_COCOA); break;
+    }
+}
+
 /* ---- tiny icons, each ~5x5, drawn at (x,y) ---- */
 
 static void icon_heart(SDL_Renderer *r, float x, float y, Color c) {
