@@ -3,6 +3,7 @@
 #include "render.h"
 #include "palette.h"
 #include "cattype.h"
+#include "text.h"
 
 /* ---- button icon glyphs, ~9x9, drawn centered in the button ---- */
 
@@ -116,8 +117,9 @@ static void stat_row(SDL_Renderer *r, float x, float y,
     px_rect(r, bx + bw - 1, y,          1,  bh, KZ_COCOA);
 }
 
-void ui_draw_panel(SDL_Renderer *r, const Stats *s, float x, float y) {
-    float w = 62, h = 44;
+void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y) {
+    const Stats *s = &cat->stats;
+    float w = 62, h = 54;   /* a little taller now, to fit the name header */
 
     /* Panel: cream fill, 1px mauve border, soft drop shadow. */
     px_rect_a(r, x + 2, y + 2, w, h, KZ_COCOA, 40);       /* shadow */
@@ -127,7 +129,13 @@ void ui_draw_panel(SDL_Renderer *r, const Stats *s, float x, float y) {
     px_rect(r, x,         y,         1, h, KZ_COCOA);
     px_rect(r, x + w - 1, y,         1, h, KZ_COCOA);
 
-    float rx = x + 5, ry = y + 5;
+    /* Header: the cat's name, and her type in the type's accent color. */
+    text_draw(r, cat->name, x + 4, y + 3, KZ_COCOA);
+    text_draw(r, cattype_name(cat->type), x + 4, y + 10,
+              cattype_colors(cat->type).dark);
+    px_rect(r, x + 3, y + 17, w - 6, 1, KZ_COCOA);   /* divider */
+
+    float rx = x + 5, ry = y + 21;
     stat_row(r, rx, ry,      icon_heart, KZ_PETAL_PINK, s->bond);
     stat_row(r, rx, ry + 9,  icon_smile, KZ_BUTTER,     s->mood);
     stat_row(r, rx, ry + 18, icon_leaf,  KZ_MINT,       s->energy);

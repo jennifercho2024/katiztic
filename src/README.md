@@ -28,7 +28,8 @@ Each cat is a different type with its own pastel coat.
 
 The five types — Sunny, Dreamy, Playful, Gentle, Clever — each have a signature
 pastel color, so a team *looks* like a chosen aesthetic. Each cat keeps her own
-bond, mood, energy, and growth. The whole family saves to `katiztic.sav`.
+bond, mood, energy, and growth. The active cat's card (top-left) now shows her
+name and type in readable pixel text. The whole family saves to `katiztic.sav`.
 
 ## Build
 
@@ -64,6 +65,8 @@ src/
                pet care actions; and a tiny versioned save file
   cattype.h/.c the five cat types (Sunny, Dreamy, Playful, Gentle, Clever) and
                the signature pastel color set that makes each one look distinct
+  text.h/.c    a tiny 4x6 pixel font (built from source, no font file) — draws
+               names, labels, and any string in any pastel color
   roster.h/.c  your family of up to 5 cats — each with a name, type, stats, and
                animation state; the active selection, adopting, and save/load
   cat.h/.c     one cat's animation state (blink, pet glow) and how it's drawn,

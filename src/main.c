@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* ---- UI (both locations) ---- */
-        ui_draw_panel(renderer, &active->stats, 4, 4);    /* active cat's stats */
+        ui_draw_panel(renderer, active, 4, 4);            /* active cat's card  */
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
         if (location == LOC_COTTAGE)
             ui_button_draw(renderer, &btn_sleep, press_fx > 0);

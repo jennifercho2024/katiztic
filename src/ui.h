@@ -42,8 +42,9 @@ bool ui_button_hit(const Button *b, float px, float py);
  * briefly darkens it for tap feedback. */
 void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed);
 
-/* Draw the stat panel at (x,y) in logical 240x160 space. */
-void ui_draw_panel(SDL_Renderer *r, const Stats *s, float x, float y);
+/* Draw the stat panel for a cat at (x,y) in logical 240x160 space. Shows the
+ * cat's name and type as a header, then her four stat bars. */
+void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y);
 
 /* Draw a small centered hint bar near the bottom (e.g. "F feed  G groom").
  * `flash` > 0 briefly highlights the panel to acknowledge an action. */
