@@ -110,7 +110,6 @@ int main(int argc, char *argv[]) {
     }
     bool decor_open = false;      /* is the décor tray showing?         */
     int  drag_item = -1;          /* décor item being dragged, or -1    */
-    bool drag_from_tray = false;  /* did the drag start in the tray?    */
 
     /* The wild cat currently visiting the meadow (if any), the banner line
      * that describes the moment, and whether the friends-list overlay is open. */
@@ -212,20 +211,24 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* 0c) while the décor tray is open, taps drive dragging:
-                 *  - grab an owned item from the tray to place a fresh copy,
-                 *  - or grab an already-placed item in the room to move it. */
+                /* 0c) while the décor tray is open, a tap on a tray slot grabs
+                 * a fresh copy of that item to drag out into the room. */
                 if (location == LOC_COTTAGE && decor_open) {
                     int tray = ui_decor_tray_hit(&decor, lx, ly);
                     if (tray >= 0) {
                         drag_item = tray;
-                        drag_from_tray = true;
                         break;
                     }
+                }
+
+                /* 0d) grabbing an item already placed in the room works anytime
+                 * you're home — tray open or not — so you can rearrange your
+                 * cottage freely. Checked before the pet-the-cat handler so a
+                 * décor item on top of a cat grabs rather than pets. */
+                if (location == LOC_COTTAGE) {
                     int placed = decor_hit(&decor, lx, ly);
                     if (placed >= 0) {
                         drag_item = placed;
-                        drag_from_tray = false;
                         break;
                     }
                 }
@@ -360,9 +363,10 @@ int main(int argc, char *argv[]) {
                     float lx, ly;
                     SDL_RenderCoordinatesFromWindow(renderer, e.button.x,
                                                     e.button.y, &lx, &ly);
-                    /* Dropped back onto the tray -> put it away (unplace).
-                     * Dropped in the room -> keep it placed where it landed. */
-                    if (ly >= ui_decor_tray_top()) {
+                    /* If the tray is open and you drop the item back onto it,
+                     * put it away. Otherwise (tray closed, or dropped in the
+                     * room) it just stays wherever you placed it. */
+                    if (decor_open && ly >= ui_decor_tray_top()) {
                         decor.items[drag_item].placed = false;
                     } else {
                         decor.items[drag_item].placed = true;
@@ -371,7 +375,6 @@ int main(int argc, char *argv[]) {
                     }
                     decor_save(&decor, KZ_DECOR_PATH);
                     drag_item = -1;
-                    drag_from_tray = false;
                 }
                 break;
             }
