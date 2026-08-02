@@ -56,10 +56,14 @@ static void quest_fanfare(Roster *ro, Quests *qs, QuestId id,
     const QuestInfo *qi = quest_info(id);
     for (int i = 0; i < ro->count; i++)
         stats_gain_xp(&ro->cats[i].stats, (int)qi->reward_xp);
-    SDL_snprintf(banner, blen, "Quest done! +%u xp for all",
-                 (unsigned)qi->reward_xp);
+    if (qi->repeatable)
+        SDL_snprintf(banner, blen, "Quest done! +%u xp - a new one begins",
+                     (unsigned)qi->reward_xp);
+    else
+        SDL_snprintf(banner, blen, "Quest done! +%u xp for all",
+                     (unsigned)qi->reward_xp);
     *banner_timer = 320;
-    quests_save(qs, KZ_QUESTS_PATH);   /* a finished quest is never lost */
+    quests_save(qs, KZ_QUESTS_PATH);   /* progress is never lost */
 }
 
 /* Window opens at 4x the logical canvas: 960x640. */
@@ -540,8 +544,8 @@ int main(int argc, char *argv[]) {
                     if (dy >  11) { quests_scroll--; quests_drag_y = ly; quests_scrolled = true; }
                     if (dy < -11) { quests_scroll++; quests_drag_y = ly; quests_scrolled = true; }
                     if (quests_scroll < 0) quests_scroll = 0;
-                    if (quests_scroll > QUEST_COUNT - 5)
-                        quests_scroll = QUEST_COUNT - 5;
+                    if (quests_scroll > QUEST_COUNT - 8)
+                        quests_scroll = QUEST_COUNT - 8;
                     if (quests_scroll < 0) quests_scroll = 0;
                     break;
                 }

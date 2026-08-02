@@ -33,15 +33,22 @@ typedef struct {
     const char *desc;      /* short line for the quest list      */
     Uint16      target;    /* progress needed to complete        */
     Uint16      reward_xp; /* XP granted to EVERY cat on finish  */
+    bool        repeatable;/* resets with a fresh target vs. one-time */
 } QuestInfo;
 
 typedef struct {
     Uint16 progress[QUEST_COUNT];
     bool   done[QUEST_COUNT];
+    Uint16 completions[QUEST_COUNT];  /* how many times finished (repeatables) */
 } Quests;
 
 /* The static description/target/reward for a quest. */
 const QuestInfo *quest_info(QuestId q);
+
+/* The current target for a quest, which grows a little each time a repeatable
+ * one is completed (pet 15, then 18, then 21...) for a gentle sense of
+ * progression. Milestones just use their fixed target. */
+Uint16 quest_live_target(const Quests *qs, QuestId q);
 
 /* A fresh quest log: everything at zero. */
 Quests quests_new(void);
@@ -55,8 +62,12 @@ bool quests_bump(Quests *q, QuestId id);
  * Returns true if this call just completed it. */
 bool quests_set(Quests *q, QuestId id, int value);
 
-/* How many quests are done (for the list header). */
+/* How many quests are done (milestones), for reference. */
 int quests_done_count(const Quests *q);
+
+/* Total quests ever completed, repeatables included — a satisfying lifetime
+ * tally for the log header. */
+int quests_total_completed(const Quests *q);
 
 /* ---- persistence: its own save file ---- */
 bool quests_save(const Quests *q, const char *path);

@@ -661,16 +661,17 @@ void ui_quests_list(SDL_Renderer *r, const Quests *q, int scroll) {
     px_rect(r, x,         y,         1, h, KZ_COCOA);
     px_rect(r, x + w - 1, y,         1, h, KZ_COCOA);
 
-    /* header, at 2x scale */
-    char head[24];
-    SDL_snprintf(head, sizeof head, "Quests %d/%d",
-                 quests_done_count(q), (int)QUEST_COUNT);
+    /* header, at 2x scale for a clear title */
+    char head[28];
+    SDL_snprintf(head, sizeof head, "Quests  %d done",
+                 quests_total_completed(q));
     text_draw_scaled(r, head, x + 8, y + 6, KZ_COCOA, 2);
     px_rect(r, x + 6, y + 22, w - 12, 1, KZ_COCOA);
 
-    /* rows: bigger font, a scrolling window of the list */
-    const int ROW_H = 22;               /* room for 2x text + spacing */
-    const int VIS   = 5;                /* how many rows fit at once   */
+    /* rows: normal-size font (crisp, not chunky) with roomy spacing so it's
+     * easy to read without feeling oversized. */
+    const int ROW_H = 15;
+    const int VIS   = 8;                /* more rows fit at this size  */
     float list_top  = y + 27;
     int maxscroll = QUEST_COUNT - VIS;
     if (maxscroll < 0) maxscroll = 0;
@@ -684,27 +685,26 @@ void ui_quests_list(SDL_Renderer *r, const Quests *q, int scroll) {
         float ry = list_top + v * ROW_H;
 
         if (q->done[i]) {
-            /* mint check box */
-            px_rect(r, x + 8, ry + 2, 12, 12, KZ_MINT);
-            px_rect(r, x + 11, ry + 8, 2, 3, KZ_CLOUD);
-            px_rect(r, x + 13, ry + 10, 2, 2, KZ_CLOUD);
-            px_rect(r, x + 15, ry + 5, 2, 4, KZ_CLOUD);
-            text_draw_scaled(r, in->desc, x + 26, ry + 2,
-                             rgb(0xB0, 0x9E, 0xA8), 2);
+            /* mint check box (milestones that are permanently complete) */
+            px_rect(r, x + 8, ry + 1, 8, 8, KZ_MINT);
+            px_rect(r, x + 10, ry + 4, 1, 2, KZ_CLOUD);
+            px_rect(r, x + 11, ry + 5, 1, 2, KZ_CLOUD);
+            px_rect(r, x + 12, ry + 3, 1, 3, KZ_CLOUD);
+            text_draw(r, in->desc, x + 22, ry + 1, rgb(0xB0, 0x9E, 0xA8));
         } else {
             /* empty box */
-            px_rect(r, x + 8, ry + 2, 12, 12, KZ_CLOUD);
-            px_rect(r, x + 8,  ry + 2,  12, 1, KZ_COCOA);
-            px_rect(r, x + 8,  ry + 13, 12, 1, KZ_COCOA);
-            px_rect(r, x + 8,  ry + 2,  1, 12, KZ_COCOA);
-            px_rect(r, x + 19, ry + 2,  1, 12, KZ_COCOA);
-            text_draw_scaled(r, in->desc, x + 26, ry + 2, KZ_COCOA, 2);
+            px_rect(r, x + 8, ry + 1, 8, 8, KZ_CLOUD);
+            px_rect(r, x + 8,  ry + 1, 8, 1, KZ_COCOA);
+            px_rect(r, x + 8,  ry + 8, 8, 1, KZ_COCOA);
+            px_rect(r, x + 8,  ry + 1, 1, 8, KZ_COCOA);
+            px_rect(r, x + 15, ry + 1, 1, 8, KZ_COCOA);
+            text_draw(r, in->desc, x + 22, ry + 1, KZ_COCOA);
+            /* progress toward the LIVE target (repeatables grow each round) */
             char prog[16];
             SDL_snprintf(prog, sizeof prog, "%u/%u",
-                         (unsigned)q->progress[i], (unsigned)in->target);
-            text_draw_scaled(r, prog,
-                             x + w - 10 - text_width_scaled(prog, 2),
-                             ry + 2, KZ_COCOA, 2);
+                         (unsigned)q->progress[i],
+                         (unsigned)quest_live_target(q, (QuestId)i));
+            text_draw(r, prog, x + w - 8 - text_width(prog), ry + 1, KZ_COCOA);
         }
     }
 
