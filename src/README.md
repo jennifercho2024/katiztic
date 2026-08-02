@@ -58,6 +58,13 @@ the room to place it anywhere you like; drag it back to the tray to put it away.
 Your arrangement is saved. Items fall to rest on the floor (or stack on each
 other) rather than floating. While the tray is open, each item shows its name.
 
+## Shiny cats
+
+Every so often — about 1 in 100 — an adopted cat is **shiny**: a rare golden
+coat wreathed in twinkling sparkles. They're purely a lucky delight, a special
+cat to treasure. When one appears, a banner celebrates the moment, and her
+shininess is saved so she stays golden forever.
+
 ## Day & night
 
 The world follows your real clock. Take a walk in the morning and the meadow

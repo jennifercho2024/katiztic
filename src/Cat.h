@@ -55,4 +55,11 @@ bool cat_hit(const Cat *cat, float px, float py);
  * state, so it's passed in rather than stored on the Cat. */
 void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame);
 
+/* A golden recolor of any cat's palette, for shiny cats. */
+CatColors cat_shiny_colors(void);
+
+/* Draw sparkles around a shiny cat, on top of her sprite. Call after cat_draw
+ * when the cat is shiny. */
+void cat_draw_sparkles(SDL_Renderer *r, const Cat *cat, Uint64 frame);
+
 #endif /* KATIZTIC_CAT_H */

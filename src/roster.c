@@ -20,6 +20,8 @@ static OwnedCat make_cat(CatType type, const char *name,
     c.type  = type;
     c.stats = stats_new();
     c.anim  = cat_make(cat_x, cat_y);
+    /* A rare treat: 1 in 100 cats is shiny — golden, with sparkles. */
+    c.shiny = (SDL_rand(100) == 0);
     return c;
 }
 
@@ -73,7 +75,7 @@ void roster_home_spot(int i, float *x, float *y) {
  * name[KZ_NAME_LEN], type (1 byte), and its stats fields.
  */
 static const char KZ_MAGIC[4] = { 'K', 'Z', 'S', 'V' };
-#define KZ_SAVE_VERSION 3u
+#define KZ_SAVE_VERSION 4u
 
 static bool write_stats(SDL_IOStream *io, const Stats *s) {
     bool ok = true;
@@ -115,9 +117,11 @@ bool roster_save(const Roster *ro, const char *path) {
     for (int i = 0; i < ro->count && ok; i++) {
         const OwnedCat *c = &ro->cats[i];
         Uint8 type = (Uint8)c->type;
+        Uint8 shiny = c->shiny ? 1 : 0;
         ok = ok && SDL_WriteIO(io, c->name, KZ_NAME_LEN) == KZ_NAME_LEN;
         ok = ok && SDL_WriteIO(io, &type, 1) == 1;
         ok = ok && write_stats(io, &c->stats);
+        ok = ok && SDL_WriteIO(io, &shiny, 1) == 1;
     }
     SDL_CloseIO(io);
     return ok;
@@ -143,14 +147,16 @@ bool roster_load(Roster *out, const char *path, float cat_x, float cat_y) {
     tmp.active = 0;
     for (int i = 0; i < (int)count && ok; i++) {
         OwnedCat *c = &tmp.cats[i];
-        Uint8 type = 0;
+        Uint8 type = 0, shiny = 0;
         ok = ok && SDL_ReadIO(io, c->name, KZ_NAME_LEN) == KZ_NAME_LEN;
         ok = ok && SDL_ReadIO(io, &type, 1) == 1;
         ok = ok && read_stats(io, &c->stats);
+        ok = ok && SDL_ReadIO(io, &shiny, 1) == 1;
         if (ok) {
             c->name[KZ_NAME_LEN - 1] = '\0';   /* ensure termination */
             c->type = (type < KZ_TYPE_COUNT) ? (CatType)type : KZ_GENTLE;
             c->anim = cat_make(cat_x, cat_y);
+            c->shiny = (shiny != 0);
             tmp.count++;
         }
     }

@@ -152,3 +152,32 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
         }
     }
 }
+
+CatColors cat_shiny_colors(void) {
+    /* Warm gold coat with soft highlights. */
+    CatColors c;
+    c.body  = rgb(0xF2, 0xD0, 0x7A);   /* gold                */
+    c.dark  = rgb(0xD8, 0xA8, 0x4C);   /* deeper gold         */
+    c.ear   = rgb(0xF7, 0xE4, 0xB0);   /* pale gold inner ear */
+    c.paw   = rgb(0xF7, 0xE8, 0xC0);
+    c.cheek = rgb(0xF0, 0xB8, 0x88);   /* warm peach blush    */
+    return c;
+}
+
+void cat_draw_sparkles(SDL_Renderer *r, const Cat *cat, Uint64 frame) {
+    Uint64 f = frame + cat->act_seed;
+    static const float OX[4] = { -14.0f, 12.0f, -10.0f, 14.0f };
+    static const float OY[4] = { -10.0f, -6.0f,  8.0f,   4.0f };
+    for (int i = 0; i < 4; i++) {
+        float phase = (float)((f + (Uint64)(i * 40)) % 160) / 160.0f;
+        float tw = sinf(phase * 6.2831853f);
+        if (tw < 0) continue;                 /* off for half the cycle */
+        Uint8 a = (Uint8)(tw * 235.0f);
+        float sx = cat->cx + OX[i] + sinf((float)f * 0.03f + (float)i) * 2.0f;
+        float sy = cat->cy + OY[i] + cosf((float)f * 0.04f + (float)i) * 2.0f;
+        Color gold = rgb(0xFF, 0xE8, 0x9A);
+        px_rect_a(r, sx,     sy - 2, 1, 5, gold, a);     /* vertical  */
+        px_rect_a(r, sx - 2, sy,     5, 1, gold, a);     /* horizontal */
+        px_rect_a(r, sx,     sy,     1, 1, KZ_CLOUD, a); /* center    */
+    }
+}

@@ -23,6 +23,7 @@ typedef struct {
     CatType type;
     Stats   stats;
     Cat     anim;    /* per-cat animation state (blink, pet glow)   */
+    bool    shiny;   /* a rare 1-in-100 golden, sparkly cat         */
 } OwnedCat;
 
 typedef struct {

@@ -311,8 +311,13 @@ int main(int argc, char *argv[]) {
                     CatType t = (CatType)(roster.count % KZ_TYPE_COUNT);
                     if (roster_adopt(&roster, t, CAT_X, CAT_Y)) {
                         /* new cat starts at level 1; seed its tracker */
-                        prev_level[roster.count - 1] =
-                            roster.cats[roster.count - 1].stats.level;
+                        int ni = roster.count - 1;
+                        prev_level[ni] = roster.cats[ni].stats.level;
+                        if (roster.cats[ni].shiny) {
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "A shiny cat! So rare!");
+                            banner_timer = 300;
+                        }
                     }
                     press_fx = 8;
                     break;
@@ -514,7 +519,8 @@ int main(int argc, char *argv[]) {
         SDL_SetRenderDrawColor(renderer, KZ_CLOUD.r, KZ_CLOUD.g, KZ_CLOUD.b, 255);
         SDL_RenderClear(renderer);
 
-        CatColors col = cattype_colors(active->type);
+        CatColors col = active->shiny ? cat_shiny_colors()
+                                      : cattype_colors(active->type);
         bool is_night = (meadow.time == KZ_NIGHT || meadow.time == KZ_DUSK);
         if (location == LOC_COTTAGE || location == LOC_CAFE) {
             /* Indoor places where the family roams and socializes. */
@@ -540,8 +546,12 @@ int main(int argc, char *argv[]) {
             }
             for (int k = 0; k < roster.count; k++) {
                 int i = order[k];
-                cat_draw(renderer, &roster.cats[i].anim,
-                         cattype_colors(roster.cats[i].type), frame);
+                CatColors cc = roster.cats[i].shiny
+                             ? cat_shiny_colors()
+                             : cattype_colors(roster.cats[i].type);
+                cat_draw(renderer, &roster.cats[i].anim, cc, frame);
+                if (roster.cats[i].shiny)
+                    cat_draw_sparkles(renderer, &roster.cats[i].anim, frame);
             }
             /* mood bubbles float above everyone */
             for (int i = 0; i < roster.count; i++)
@@ -559,6 +569,8 @@ int main(int argc, char *argv[]) {
             meadow_draw(renderer, &meadow, frame);
             encounter_draw(renderer, &enc, frame);   /* the visitor, if present */
             cat_draw(renderer, &active->anim, col, frame);
+            if (active->shiny)
+                cat_draw_sparkles(renderer, &active->anim, frame);
             mood_draw(renderer, &active->anim, frame);
             meadow_draw_wash(renderer, &meadow);   /* mood overlay, on top */
             active->anim.cx = save_x;
