@@ -49,22 +49,30 @@ static void glyph_fish(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 2, y + 4, 1, 1, KZ_CLOUD); /* eye */
 }
 
-static void glyph_heart_big(SDL_Renderer *r, float x, float y, Color c) {
-    px_rect(r, x + 1, y + 1, 2, 1, c);
-    px_rect(r, x + 6, y + 1, 2, 1, c);
-    px_rect(r, x,     y + 2, 9, 2, c);
-    px_rect(r, x + 1, y + 4, 7, 1, c);
-    px_rect(r, x + 2, y + 5, 5, 1, c);
-    px_rect(r, x + 3, y + 6, 3, 1, c);
-    px_rect(r, x + 4, y + 7, 1, 1, c);
-}
-
 static void glyph_chair(SDL_Renderer *r, float x, float y, Color c) {
     /* a little armchair silhouette */
     px_rect(r, x + 1, y,     7, 4, c);   /* back */
     px_rect(r, x,     y + 3, 9, 3, c);   /* seat + arms */
     px_rect(r, x + 1, y + 6, 2, 2, c);   /* legs */
     px_rect(r, x + 6, y + 6, 2, 2, c);
+}
+
+/* Two little cat faces side by side — the "friends" icon. Each cat is a small
+ * head with two pointy ears; they sit close so they read as a pair. `c` is the
+ * pink coat, `o` the mauve outline for eyes. */
+static void glyph_two_cats(SDL_Renderer *r, float x, float y, Color c, Color o) {
+    /* left cat (a touch lower, in front) */
+    px_rect(r, x,     y + 3, 1, 2, c);   /* ears */
+    px_rect(r, x + 3, y + 3, 1, 2, c);
+    px_rect(r, x,     y + 5, 4, 4, c);   /* head */
+    px_rect(r, x + 1, y + 6, 1, 1, o);   /* eyes */
+    px_rect(r, x + 3, y + 6, 1, 1, o);
+    /* right cat (a touch higher, behind) */
+    px_rect(r, x + 5, y + 1, 1, 2, c);   /* ears */
+    px_rect(r, x + 8, y + 1, 1, 2, c);
+    px_rect(r, x + 5, y + 3, 4, 4, c);   /* head */
+    px_rect(r, x + 6, y + 4, 1, 1, o);   /* eyes */
+    px_rect(r, x + 8, y + 4, 1, 1, o);
 }
 
 bool ui_button_hit(const Button *b, float px_, float py_) {
@@ -91,7 +99,7 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
         case KZ_BTN_OUT:     glyph_sun(r,   gx, gy, KZ_COCOA); break;
         case KZ_BTN_SLEEP:   glyph_moon(r,  gx, gy, KZ_COCOA); break;
         case KZ_BTN_TREAT:   glyph_fish(r,  gx, gy, rgb(0xE8,0x8B,0x6B)); break;
-        case KZ_BTN_FRIENDS: glyph_heart_big(r, gx, gy, KZ_PETAL_PINK); break;
+        case KZ_BTN_FRIENDS: glyph_two_cats(r, gx, gy, KZ_PETAL_PINK, KZ_CAT_OUTLINE); break;
         case KZ_BTN_DECOR:   glyph_chair(r, gx, gy, KZ_COCOA); break;
     }
 }
