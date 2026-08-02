@@ -21,6 +21,7 @@
 #include "encounter.h"
 #include "ui.h"
 #include "cottage.h"
+#include "icon.h"
 
 /* Where the player currently is. Sleeping happens in the cottage; the meadow
  * is the outdoors. Moving between them is a tap on an on-screen button. */
@@ -54,6 +55,13 @@ int main(int argc, char *argv[]) {
         SDL_Log("CreateWindowAndRenderer failed: %s", SDL_GetError());
         SDL_Quit();
         return 1;
+    }
+
+    /* Give the window (and dock/taskbar) the Katiztic cat face. */
+    SDL_Surface *icon = icon_create();
+    if (icon) {
+        SDL_SetWindowIcon(window, icon);
+        SDL_DestroySurface(icon);   /* SDL copied it; we can free ours */
     }
 
     /* The GBA scaling: draw at 240x160, present at integer multiples. */
