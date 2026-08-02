@@ -10,8 +10,31 @@ static float g_off_x = 0.0f, g_off_y = 0.0f;
 void render_set_offset(float x, float y) { g_off_x = x; g_off_y = y; }
 void render_clear_offset(void) { g_off_x = 0.0f; g_off_y = 0.0f; }
 
+/* Global warmth for the story's re-coloring magic: 1 = full color, 0 = faded
+ * grey. Zone drawing sets it from the zone's story warmth; everything else
+ * draws at 1. Colors are pulled toward their grey luminance as warmth drops,
+ * so a faded place literally loses its pastels — and regains them. */
+static float g_warmth = 1.0f;
+
+void render_set_warmth(float w) {
+    if (w < 0.0f) w = 0.0f;
+    if (w > 1.0f) w = 1.0f;
+    g_warmth = w;
+}
+
+static Color apply_warmth(Color c) {
+    if (g_warmth >= 1.0f) return c;
+    float gray = 0.299f * (float)c.r + 0.587f * (float)c.g + 0.114f * (float)c.b;
+    Color out = c;
+    out.r = (Uint8)(gray + ((float)c.r - gray) * g_warmth);
+    out.g = (Uint8)(gray + ((float)c.g - gray) * g_warmth);
+    out.b = (Uint8)(gray + ((float)c.b - gray) * g_warmth);
+    return out;
+}
+
 void px_rect(SDL_Renderer *r, float x, float y, float w, float h, Color c) {
-    SDL_SetRenderDrawColor(r, c.r, c.g, c.b, c.a);
+    Color cc = apply_warmth(c);
+    SDL_SetRenderDrawColor(r, cc.r, cc.g, cc.b, cc.a);
     SDL_FRect rect = { x - g_off_x, y - g_off_y, w, h };
     SDL_RenderFillRect(r, &rect);
 }
@@ -23,7 +46,8 @@ void px(SDL_Renderer *r, float x, float y, Color c) {
 void px_rect_a(SDL_Renderer *r, float x, float y, float w, float h,
                Color c, Uint8 alpha) {
     /* Blend mode is set once in main; here we just vary alpha. */
-    SDL_SetRenderDrawColor(r, c.r, c.g, c.b, alpha);
+    Color cc = apply_warmth(c);
+    SDL_SetRenderDrawColor(r, cc.r, cc.g, cc.b, alpha);
     SDL_FRect rect = { x - g_off_x, y - g_off_y, w, h };
     SDL_RenderFillRect(r, &rect);
 }

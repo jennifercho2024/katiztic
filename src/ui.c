@@ -221,14 +221,17 @@ void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
     } else {
         text_draw(r, cat->name, x + 4, y + 3, KZ_COCOA);
     }
+    /* Shiny cats get a small gold sparkle on the name line, positioned to the
+     * left of the release button so it never overlaps it or runs past the box. */
+    if (cat->shiny) {
+        float sx = x + 41, sy = y + 3;
+        Color gold = rgb(0xE0, 0xB0, 0x40);
+        px_rect(r, sx + 1, sy,     1, 5, gold);      /* vertical   */
+        px_rect(r, sx,     sy + 2, 3, 1, gold);      /* horizontal */
+        px_rect(r, sx + 1, sy + 2, 1, 1, KZ_CLOUD);  /* bright center */
+    }
     text_draw(r, cattype_name(cat->type), x + 4, y + 10,
               cattype_colors(cat->type).dark);
-    /* shiny cats are marked with a golden "shiny" tag by the type */
-    if (cat->shiny) {
-        float tx = x + 4 + text_width(cattype_name(cat->type)) + 4;
-        Color gold = rgb(0xE0, 0xB0, 0x40);
-        text_draw(r, "shiny", tx, y + 10, gold);
-    }
     px_rect(r, x + 3, y + 17, w - 6, 1, KZ_COCOA);   /* divider */
 
     float rx = x + 5, ry = y + 21;
@@ -519,17 +522,18 @@ int ui_decor_tray_hit(const Decor *d, float px_, float py_) {
 
 /* ---- travel place-picker menu ---- */
 
-/* Three stacked rows near the top-right, under the travel button. */
-#define PM_X   (KZ_W - 88)
-#define PM_Y   24
-#define PM_W   84
-#define PM_ROW 16
+/* Stacked rows near the top-right, under the travel button. */
+#define PM_X     (KZ_W - 88)
+#define PM_Y     24
+#define PM_W     84
+#define PM_ROW   16
+#define PM_COUNT 4
 
-static const char *PM_NAMES[3] = { "Cottage", "Meadow", "Cafe" };
+static const char *PM_NAMES[PM_COUNT] = { "Cottage", "Meadow", "Cafe", "Forest" };
 
 void ui_place_menu(SDL_Renderer *r, int current) {
     /* soft panel */
-    float h = PM_ROW * 3 + 6;
+    float h = PM_ROW * PM_COUNT + 6;
     px_rect_a(r, PM_X + 2, PM_Y + 2, PM_W, h, KZ_COCOA, 40);
     px_rect(r, PM_X, PM_Y, PM_W, h, KZ_CLOUD);
     px_rect(r, PM_X, PM_Y, PM_W, 1, KZ_COCOA);
@@ -537,21 +541,24 @@ void ui_place_menu(SDL_Renderer *r, int current) {
     px_rect(r, PM_X, PM_Y, 1, h, KZ_COCOA);
     px_rect(r, PM_X + PM_W - 1, PM_Y, 1, h, KZ_COCOA);
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < PM_COUNT; i++) {
         float ry = PM_Y + 3 + i * PM_ROW;
         if (i == current) {
             px_rect(r, PM_X + 2, ry, PM_W - 4, PM_ROW - 2, KZ_PETAL_PINK);
         }
         text_draw(r, PM_NAMES[i], PM_X + 8, ry + 4, KZ_COCOA);
         /* a small dot marker in a place-ish color */
-        Color dot = (i == 0) ? KZ_LAVENDER : (i == 1) ? KZ_MINT : KZ_BUTTER;
+        Color dot = (i == 0) ? KZ_LAVENDER
+                  : (i == 1) ? KZ_MINT
+                  : (i == 2) ? KZ_BUTTER
+                  : rgb(0x8F, 0xC0, 0xA4);   /* forest green */
         px_rect(r, PM_X + PM_W - 12, ry + 4, 5, 5, dot);
     }
 }
 
 int ui_place_menu_hit(float px_, float py_) {
     if (px_ < PM_X || px_ > PM_X + PM_W) return -1;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < PM_COUNT; i++) {
         float ry = PM_Y + 3 + i * PM_ROW;
         if (py_ >= ry && py_ <= ry + PM_ROW) return i;
     }

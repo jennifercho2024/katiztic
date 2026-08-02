@@ -73,12 +73,21 @@ static const Chord CAFE[] = {
     { G3, G4, B4, E4, { G4, B4, D5, E5 } },   /* G-ish           */
     { C4, E4, G4, B4, { E4, G4, B4, C5 } },   /* Cmaj7 resolve   */
 };
+/* Forest: wistful and hushed — a minor-leaning drift, the sound of a quiet
+ * wood waiting for its color to come back. */
+static const Chord FOREST[] = {
+    { A3, A4, C5, E5, { A4, C5, E5, C5 } },   /* Am — the ache    */
+    { F3, F4, A4, C5, { F4, A4, C5, A4 } },   /* F — soft comfort */
+    { C4, C4, E4, G4, { E4, G4, C5, G4 } },   /* C — a warm turn  */
+    { G3, G4, B4, D5, { G4, B4, D5, B4 } },   /* G — gentle hope  */
+};
 
-static const Chord *THEMES[MUSIC_THEME_COUNT] = { COTTAGE, MEADOW, CAFE };
+static const Chord *THEMES[MUSIC_THEME_COUNT] = { COTTAGE, MEADOW, CAFE, FOREST };
 static const int THEME_LEN[MUSIC_THEME_COUNT] = {
     (int)(sizeof COTTAGE / sizeof COTTAGE[0]),
     (int)(sizeof MEADOW  / sizeof MEADOW[0]),
     (int)(sizeof CAFE    / sizeof CAFE[0]),
+    (int)(sizeof FOREST  / sizeof FOREST[0]),
 };
 
 /* Player state, shared with the audio callback. Kept plain. */

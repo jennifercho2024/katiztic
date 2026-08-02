@@ -36,4 +36,9 @@ void px_rect_a(SDL_Renderer *r, float x, float y, float w, float h,
 void render_set_offset(float x, float y);
 void render_clear_offset(void);
 
+/* Story warmth for the re-coloring magic: 1 = full color, 0 = faded grey.
+ * Zone drawing sets it from the zone's warmth; set it back to 1 for anything
+ * that should keep its color (your cats, the UI). */
+void render_set_warmth(float w);
+
 #endif /* KATIZTIC_RENDER_H */

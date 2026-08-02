@@ -26,12 +26,14 @@
 #include "cottage.h"
 #include "camera.h"
 #include "cafe.h"
+#include "forest.h"
+#include "story.h"
 #include "icon.h"
 #include "music.h"
 
 /* Where the player currently is. Sleeping happens in the cottage; the meadow
  * is the outdoors. Moving between them is a tap on an on-screen button. */
-typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE } Location;
+typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST } Location;
 
 /* Window opens at 4x the logical canvas: 960x640. */
 #define KZ_SCALE  4
@@ -42,6 +44,7 @@ typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE } Location;
 #define KZ_SAVE_PATH "katiztic.sav"
 #define KZ_FRIENDS_PATH "katiztic-friends.sav"
 #define KZ_DECOR_PATH   "katiztic-decor.sav"
+#define KZ_STORY_PATH   "katiztic-story.sav"
 
 /* Fixed timestep so the mood animations run the same on any machine. */
 #define KZ_FPS       60
@@ -134,6 +137,12 @@ int main(int argc, char *argv[]) {
         decor = decor_new();
     }
     /* Items keep exactly the positions you placed them at — no auto-settling. */
+
+    /* The story of the world's warmth — which places have their color back. */
+    Story story;
+    if (!story_load(&story, KZ_STORY_PATH)) {
+        story = story_new();
+    }
     bool decor_open = false;      /* is the décor tray showing?         */
     int  drag_item = -1;          /* décor item being dragged, or -1    */
 
@@ -239,12 +248,17 @@ int main(int argc, char *argv[]) {
                     travel_open = false;
                     if (pick >= 0) {
                         Location newloc = (pick == 0) ? LOC_COTTAGE
-                                        : (pick == 1) ? LOC_MEADOW : LOC_CAFE;
+                                        : (pick == 1) ? LOC_MEADOW
+                                        : (pick == 2) ? LOC_CAFE
+                                        : LOC_FOREST;
                         if (newloc != location) {
+                            /* leaving the forest? keep its warmth safe */
+                            if (location == LOC_FOREST)
+                                story_save(&story, KZ_STORY_PATH);
                             location = newloc;
                             btn_travel.kind = (location == LOC_COTTAGE)
                                               ? KZ_BTN_OUT : KZ_BTN_HOME;
-                            /* Going out (meadow or café) lifts everyone's
+                            /* Going out (anywhere but home) lifts everyone's
                              * happiness — a nice change of scene. */
                             if (newloc != LOC_COTTAGE) {
                                 for (int i = 0; i < roster.count; i++)
@@ -268,6 +282,17 @@ int main(int argc, char *argv[]) {
                                 }
                             } else {
                                 enc = encounter_none();
+                            }
+                            /* First time stepping into the forest: the story
+                             * begins — its color has faded. */
+                            if (location == LOC_FOREST
+                                && !story.seen_intro[STORY_ZONE_FOREST]) {
+                                story.seen_intro[STORY_ZONE_FOREST] = true;
+                                SDL_strlcpy(banner_line,
+                                            "The forest's color has faded...",
+                                            sizeof banner_line);
+                                banner_timer = 320;
+                                story_save(&story, KZ_STORY_PATH);
                             }
                         }
                     }
@@ -515,9 +540,26 @@ int main(int argc, char *argv[]) {
         /* Music follows the place you're in. */
         MusicTheme mt = (location == LOC_COTTAGE) ? MUSIC_COTTAGE
                       : (location == LOC_MEADOW)  ? MUSIC_MEADOW
-                      : MUSIC_CAFE;
+                      : (location == LOC_CAFE)    ? MUSIC_CAFE
+                      : MUSIC_FOREST;
         music_set_theme(mt);
         if (location == LOC_MEADOW) encounter_update(&enc, &friends);
+
+        /* In the forest, your cat's quiet company brings the color back —
+         * faster the deeper her bond and the more friends you've made. */
+        if (location == LOC_FOREST) {
+            story_visit_tick(&story, STORY_ZONE_FOREST,
+                             (int)active->stats.bond,
+                             friends_befriended_count(&friends));
+            if (story_warmth(&story, STORY_ZONE_FOREST) >= 1.0f
+                && !story.celebrated[STORY_ZONE_FOREST]) {
+                story.celebrated[STORY_ZONE_FOREST] = true;
+                SDL_strlcpy(banner_line, "Color returns to the forest!",
+                            sizeof banner_line);
+                banner_timer = 360;
+                story_save(&story, KZ_STORY_PATH);
+            }
+        }
         if (banner_timer > 0) banner_timer--;
 
         /* Celebrate any cat who just leveled up (from care or socializing). */
@@ -570,7 +612,8 @@ int main(int argc, char *argv[]) {
         }
 
         /* ---- draw (back to front) ---- */
-        render_clear_offset();   /* start each frame screen-fixed */
+        render_clear_offset();       /* start each frame screen-fixed... */
+        render_set_warmth(1.0f);     /* ...and at full color */
         SDL_SetRenderDrawColor(renderer, KZ_CLOUD.r, KZ_CLOUD.g, KZ_CLOUD.b, 255);
         SDL_RenderClear(renderer);
 
@@ -615,6 +658,29 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < roster.count; i++)
                 mood_draw(renderer, &roster.cats[i].anim, frame);
             render_clear_offset();   /* UI and everything else is screen-fixed */
+        } else if (location == LOC_FOREST) {
+            /* The forest: a quiet walk, and the heart of the story. The wood
+             * is drawn through the warmth filter — faded grey at first, its
+             * pastels returning as warmth rises. Your cat is drawn at FULL
+             * color on purpose: she carries the warmth, a vivid little
+             * companion in a grey wood, and the world catches up to her. */
+            float save_x = active->anim.cx, save_y = active->anim.cy;
+            Activity save_act = active->anim.act;
+            active->anim.cx = CAT_X;
+            active->anim.cy = CAT_Y;
+            active->anim.act = ACT_SIT;
+            float wm = story_warmth(&story, STORY_ZONE_FOREST);
+            /* never fully colorless — a whisper of pastel remains as a promise */
+            render_set_warmth(0.22f + 0.78f * wm);
+            forest_draw(renderer, frame, is_night);
+            render_set_warmth(1.0f);
+            cat_draw(renderer, &active->anim, col, frame);
+            if (active->shiny)
+                cat_draw_sparkles(renderer, &active->anim, frame);
+            mood_draw(renderer, &active->anim, frame);
+            active->anim.cx = save_x;
+            active->anim.cy = save_y;
+            active->anim.act = save_act;
         } else {
             /* Outdoors is a one-cat outing: just the active cat, at the meadow
              * spot. We save and restore her real position so her roaming spot
@@ -699,6 +765,7 @@ int main(int argc, char *argv[]) {
     roster_save(&roster, KZ_SAVE_PATH);
     friends_save(&friends, KZ_FRIENDS_PATH);
     decor_save(&decor, KZ_DECOR_PATH);
+    story_save(&story, KZ_STORY_PATH);
 
     music_shutdown();
     SDL_DestroyRenderer(renderer);

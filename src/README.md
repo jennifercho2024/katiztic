@@ -58,6 +58,17 @@ the room to place it anywhere you like; drag it back to the tray to put it away.
 Your arrangement is saved. Items fall to rest on the floor (or stack on each
 other) rather than floating. While the tray is open, each item shows its name.
 
+## The story: bringing back the color
+
+The world's warmth is fading in places. Past the meadow lies the **forest** —
+and when you first arrive, its color is gone, faded to soft grey. But cared-for
+cats radiate a quiet magic: stay a while with a cat you've bonded with, and
+color slowly seeps back into the wood, pixel by pixel, until it glows in full
+pastel again. The deeper her bond and the more friends you've made on your
+walks, the faster the warmth returns. Your cat keeps her color the whole time —
+a vivid little companion in a grey wood, with the world catching up to her.
+Once a place is warm again, it stays that way: somewhere you healed together.
+
 ## A bigger home to explore
 
 Your cottage is larger than the screen now. Drag any empty space in the room to
@@ -94,8 +105,9 @@ her and when you take her out to the meadow or café.
 
 Tap the travel button (top-right) to open the place picker and choose where to
 go: your **cottage** (home, where you care for cats and decorate), the
-**meadow** (walks, where you meet and befriend wild cats), or the **café** — a
-cozy social lounge where your cats hang out and play together. Each place has
+**meadow** (walks, where you meet and befriend wild cats), the **café** — a
+cozy social lounge where your cats hang out and play together — or the
+**forest**, a faded wood at the heart of the story. Each place has
 its own look and its own gentle music: warm and settled at home, airy in the
 meadow, and soft and jazzy at the café.
 
@@ -154,6 +166,10 @@ src/
                — plus a camera offset so a whole room can be panned as one
   camera.h/.c  the scrollable view into a room bigger than the screen — panning,
                clamping to the edges, and screen↔room coordinate conversion
+  story.h/.c   the world's warmth — per-zone re-coloring progress that rises as
+               bonded cats visit, with its own save file
+  forest.h/.c  the faded wood past the meadow — the first zone the story
+               touches, drawn through the warmth filter
   scene.h/.c   the meadow — sky gradient, hills, grass, flowers, petals, and the
                four-moment time-of-day table that gives the scene its mood
   cat.h/.c     the cat — a small bundle of state (position, blink, petting glow)
