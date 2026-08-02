@@ -58,6 +58,36 @@ the room to place it anywhere you like; drag it back to the tray to put it away.
 Your arrangement is saved. Items fall to rest on the floor (or stack on each
 other) rather than floating. While the tray is open, each item shows its name.
 
+## The flea market
+
+Travel to the **flea market** (in Satin City) to spend your coins on food: a
+row of striped-awning stalls selling **cat food, milk, treats, and water**.
+Tap a stall to buy one — your coin purse shows in the corner. You earn coins by
+**finishing quests** and by **caring for your cats** (every level-up pays a few
+coins). What you buy stocks your pantry for feeding at home.
+
+## The world map
+
+Tap the travel button to open the **map** — a little world of soft city regions
+with your places dotted inside them. **Pearl City** holds your cottage and the
+meadow; **Satin City** has the café and the street; **Fern Hollow** is home to
+the forest. Move the glowing cursor between places with the **arrow keys** (or
+just tap a place), and the selected spot's name shows on a plaque in the corner.
+Press **A** (or tap the highlighted place) to get a gentle "Go here?" prompt,
+then confirm to travel. The map is the doorway to a growing world — new places
+join a city simply by appearing on it.
+
+## Quests
+
+Tap the **checklist button** (right edge) to open the quest log — gentle goals
+like petting your cats, serving meals, befriending wild cats, growing the
+family, and bringing color back to the faded zones. Each shows its progress,
+and when you complete one, **every cat in the family earns XP**. The everyday
+goals (petting, feeding, grooming) **refresh when you finish them** — a fresh
+one begins with a slightly higher target — so the list never runs dry, while
+the big milestones (recolor the forest, reach level 5) stay done once you've
+earned them. The header tallies how many quests you've completed in all.
+
 ## The story: bringing back the color
 
 The world's warmth is fading in places. Past the meadow lies the **forest** —
@@ -65,7 +95,10 @@ and when you first arrive, its color is gone, faded to soft grey. But cared-for
 cats radiate a quiet magic: stay a while with a cat you've bonded with, and
 color slowly seeps back into the wood, pixel by pixel, until it glows in full
 pastel again. The deeper her bond and the more friends you've made on your
-walks, the faster the warmth returns. Your cat keeps her color the whole time —
+walks, the faster the warmth returns — and **petting her** in a faded place
+makes her magic flare, a visible burst of color. The **street** past the
+village is the second faded zone: a lane of pastel house fronts where she
+strolls the pavement beside you as the color comes home. Your cat keeps her color the whole time —
 a vivid little companion in a grey wood, with the world catching up to her.
 Once a place is warm again, it stays that way: somewhere you healed together.
 
@@ -170,6 +203,15 @@ src/
                bonded cats visit, with its own save file
   forest.h/.c  the faded wood past the meadow — the first zone the story
                touches, drawn through the warmth filter
+  street.h/.c  the village lane — pastel house fronts, lampposts, cobbles; the
+               second faded zone, where your cat strolls the sidewalk
+  pantry.h/.c  your coins and food supplies (cat food, milk, treats, water),
+               with its own save file
+  market.h/.c  the flea market — striped stalls where you spend coins on food
+    worldmap.h/.c the travel map — city regions, place dots, arrow/tap navigation,
+               and the "Go here?" confirmation
+    quests.h/.c  the quest log — gentle goals with progress tracking; finishing
+               one awards XP to the whole family, with its own save file
   scene.h/.c   the meadow — sky gradient, hills, grass, flowers, petals, and the
                four-moment time-of-day table that gives the scene its mood
   cat.h/.c     the cat — a small bundle of state (position, blink, petting glow)

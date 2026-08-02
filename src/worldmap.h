@@ -16,7 +16,7 @@
 
 /* Places must match main's Location enum values (same order). Kept as plain
  * ints here so the map doesn't depend on main.c. */
-#define MAP_PLACE_COUNT 5
+#define MAP_PLACE_COUNT 6
 
 /* A place pinned on the map. */
 typedef struct {

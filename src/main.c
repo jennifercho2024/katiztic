@@ -30,6 +30,8 @@
 #include "street.h"
 #include "story.h"
 #include "worldmap.h"
+#include "pantry.h"
+#include "market.h"
 #include "quests.h"
 #include <math.h>
 #include "icon.h"
@@ -37,7 +39,8 @@
 
 /* Where the player currently is. Sleeping happens in the cottage; the meadow
  * is the outdoors. Moving between them is a tap on an on-screen button. */
-typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST, LOC_STREET } Location;
+typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST, LOC_STREET,
+               LOC_MARKET } Location;
 
 /* Which story zone a location belongs to, or -1 if it isn't one. New zones
  * arrive faded (option A): only these get the warmth treatment. */
@@ -49,20 +52,21 @@ static int story_zone_for(Location l) {
 static const char *STORY_ZONE_NAMES[STORY_ZONE_COUNT] = { "forest", "street" };
 
 #define KZ_QUESTS_PATH  "katiztic-quests.sav"
+#define KZ_PANTRY_PATH  "katiztic-pantry.sav"
 
-/* A quest just completed: every cat earns the reward XP, and a banner
- * celebrates. Kept here so every hook site stays one line. */
-static void quest_fanfare(Roster *ro, Quests *qs, QuestId id,
+/* A quest just completed: every cat earns the reward XP, you earn some coins,
+ * and a banner celebrates. Kept here so every hook site stays one line. */
+static void quest_fanfare(Roster *ro, Quests *qs, Pantry *pan, QuestId id,
                           char *banner, size_t blen, int *banner_timer) {
     const QuestInfo *qi = quest_info(id);
     for (int i = 0; i < ro->count; i++)
         stats_gain_xp(&ro->cats[i].stats, (int)qi->reward_xp);
-    if (qi->repeatable)
-        SDL_snprintf(banner, blen, "Quest done! +%u xp - a new one begins",
-                     (unsigned)qi->reward_xp);
-    else
-        SDL_snprintf(banner, blen, "Quest done! +%u xp for all",
-                     (unsigned)qi->reward_xp);
+    /* coins scale with the quest's worth — a little pocket money for the market */
+    int coins = 3 + (int)qi->reward_xp / 10;
+    pantry_earn(pan, coins);
+    pantry_save(pan, KZ_PANTRY_PATH);
+    SDL_snprintf(banner, blen, "Quest done! +%u xp, +%dc",
+                 (unsigned)qi->reward_xp, coins);
     *banner_timer = 320;
     quests_save(qs, KZ_QUESTS_PATH);   /* progress is never lost */
 }
@@ -189,6 +193,13 @@ int main(int argc, char *argv[]) {
     if (!quests_load(&quests, KZ_QUESTS_PATH)) {
         quests = quests_new();
     }
+
+    /* Your coins and food supplies (the flea market fills this; the cottage
+     * feed array uses it). */
+    Pantry pantry;
+    if (!pantry_load(&pantry, KZ_PANTRY_PATH)) {
+        pantry = pantry_new();
+    }
     bool decor_open = false;      /* is the décor tray showing?         */
     int  drag_item = -1;          /* décor item being dragged, or -1    */
 
@@ -284,13 +295,13 @@ int main(int argc, char *argv[]) {
                 else if (e.key.key == SDLK_F) {
                     stats_feed(&roster_active(&roster)->stats);
                     if (quests_bump(&quests, QUEST_FEED))
-                        quest_fanfare(&roster, &quests, QUEST_FEED, banner_line,
+                        quest_fanfare(&roster, &quests, &pantry, QUEST_FEED, banner_line,
                                       sizeof banner_line, &banner_timer);
                 }
                 else if (e.key.key == SDLK_G) {
                     stats_groom(&roster_active(&roster)->stats);
                     if (quests_bump(&quests, QUEST_GROOM))
-                        quest_fanfare(&roster, &quests, QUEST_GROOM, banner_line,
+                        quest_fanfare(&roster, &quests, &pantry, QUEST_GROOM, banner_line,
                                       sizeof banner_line, &banner_timer);
                 }
                 break;
@@ -498,6 +509,23 @@ int main(int argc, char *argv[]) {
                     banner_timer = 240;
                     press_fx = 8;
                 }
+                /* 3d) at the flea market: tap a stall to buy one of that food */
+                else if (location == LOC_MARKET) {
+                    int stall = market_hit(lx, ly);
+                    if (stall >= 0) {
+                        if (pantry_buy(&pantry, (FoodKind)stall)) {
+                            pantry_save(&pantry, KZ_PANTRY_PATH);
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "Bought %s!",
+                                         food_name((FoodKind)stall));
+                        } else {
+                            SDL_strlcpy(banner_line, "Not enough coins.",
+                                        sizeof banner_line);
+                        }
+                        banner_timer = 180;
+                        press_fx = 8;
+                    }
+                }
                 /* 6) tap a cat. In the cottage the whole family is present, so
                  * a tap can land on any of them: that cat becomes active and
                  * gets petted. In the meadow, only the active cat is there. */
@@ -510,7 +538,7 @@ int main(int argc, char *argv[]) {
                                 cat_pet(&roster.cats[i].anim);
                                 stats_pet(&roster.cats[i].stats);
                                 if (quests_bump(&quests, QUEST_PET))
-                                    quest_fanfare(&roster, &quests, QUEST_PET,
+                                    quest_fanfare(&roster, &quests, &pantry, QUEST_PET,
                                                   banner_line,
                                                   sizeof banner_line,
                                                   &banner_timer);
@@ -542,7 +570,7 @@ int main(int argc, char *argv[]) {
                             cat_pet(&a->anim);
                             stats_pet(&a->stats);   /* petting deepens bond */
                             if (quests_bump(&quests, QUEST_PET))
-                                quest_fanfare(&roster, &quests, QUEST_PET, banner_line,
+                                quest_fanfare(&roster, &quests, &pantry, QUEST_PET, banner_line,
                                               sizeof banner_line,
                                               &banner_timer);
                             /* in a faded zone, petting makes her magic flare:
@@ -704,6 +732,7 @@ int main(int argc, char *argv[]) {
                       : (location == LOC_MEADOW)  ? MUSIC_MEADOW
                       : (location == LOC_CAFE)    ? MUSIC_CAFE
                       : (location == LOC_FOREST)  ? MUSIC_FOREST
+                      : (location == LOC_MARKET)  ? MUSIC_CAFE
                       : MUSIC_STREET;
         music_set_theme(mt);
         if (location == LOC_MEADOW) encounter_update(&enc, &friends);
@@ -752,22 +781,25 @@ int main(int argc, char *argv[]) {
             };
             for (int i = 0; i < 6; i++)
                 if (quests_set(&quests, QIDS[i], QVALS[i]))
-                    quest_fanfare(&roster, &quests, QIDS[i], banner_line,
+                    quest_fanfare(&roster, &quests, &pantry, QIDS[i], banner_line,
                                   sizeof banner_line, &banner_timer);
             if (quests_set(&quests, QUEST_STREET,
                            (story_warmth(&story, STORY_ZONE_STREET) >= 1.0f)
                                ? 1 : 0))
-                quest_fanfare(&roster, &quests, QUEST_STREET, banner_line,
+                quest_fanfare(&roster, &quests, &pantry, QUEST_STREET, banner_line,
                               sizeof banner_line, &banner_timer);
         }
         if (banner_timer > 0) banner_timer--;
 
-        /* Celebrate any cat who just leveled up (from care or socializing). */
+        /* Celebrate any cat who just leveled up (from care or socializing).
+         * Leveling earns a few coins too — caring for your cats pays off. */
         for (int i = 0; i < roster.count; i++) {
             Uint16 lv = roster.cats[i].stats.level;
             if (lv > prev_level[i]) {
+                pantry_earn(&pantry, 5);
+                pantry_save(&pantry, KZ_PANTRY_PATH);
                 SDL_snprintf(banner_line, sizeof banner_line,
-                             "%s reached level %u!",
+                             "%s reached level %u!  +5c",
                              roster.cats[i].name, (unsigned)lv);
                 banner_timer = 240;
             }
@@ -803,7 +835,10 @@ int main(int argc, char *argv[]) {
         CatColors col = active->shiny ? cat_shiny_colors()
                                       : cattype_colors(active->type);
         bool is_night = (meadow.time == KZ_NIGHT || meadow.time == KZ_DUSK);
-        if (location == LOC_COTTAGE || location == LOC_CAFE) {
+        if (location == LOC_MARKET) {
+            /* The flea market: a shop screen, no roaming cats here. */
+            market_draw(renderer, &pantry, frame);
+        } else if (location == LOC_COTTAGE || location == LOC_CAFE) {
             /* Indoor places where the family roams and socializes. */
             if (location == LOC_COTTAGE) {
                 /* Pan the whole cottage by the camera offset. */
@@ -963,6 +998,7 @@ int main(int argc, char *argv[]) {
     decor_save(&decor, KZ_DECOR_PATH);
     story_save(&story, KZ_STORY_PATH);
     quests_save(&quests, KZ_QUESTS_PATH);
+    pantry_save(&pantry, KZ_PANTRY_PATH);
 
     music_shutdown();
     SDL_DestroyRenderer(renderer);
