@@ -4,6 +4,7 @@
 #include "palette.h"
 #include "cattype.h"
 #include "text.h"
+#include "decor.h"
 
 /* ---- button icon glyphs, ~9x9, drawn centered in the button ---- */
 
@@ -58,6 +59,14 @@ static void glyph_heart_big(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 4, y + 7, 1, 1, c);
 }
 
+static void glyph_chair(SDL_Renderer *r, float x, float y, Color c) {
+    /* a little armchair silhouette */
+    px_rect(r, x + 1, y,     7, 4, c);   /* back */
+    px_rect(r, x,     y + 3, 9, 3, c);   /* seat + arms */
+    px_rect(r, x + 1, y + 6, 2, 2, c);   /* legs */
+    px_rect(r, x + 6, y + 6, 2, 2, c);
+}
+
 bool ui_button_hit(const Button *b, float px_, float py_) {
     return px_ >= b->x && px_ <= b->x + b->w
         && py_ >= b->y && py_ <= b->y + b->h;
@@ -83,6 +92,7 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
         case KZ_BTN_SLEEP:   glyph_moon(r,  gx, gy, KZ_COCOA); break;
         case KZ_BTN_TREAT:   glyph_fish(r,  gx, gy, rgb(0xE8,0x8B,0x6B)); break;
         case KZ_BTN_FRIENDS: glyph_heart_big(r, gx, gy, KZ_PETAL_PINK); break;
+        case KZ_BTN_DECOR:   glyph_chair(r, gx, gy, KZ_COCOA); break;
     }
 }
 
@@ -358,4 +368,66 @@ void ui_friends_list(SDL_Renderer *r, const Friends *f) {
         }
     }
     text_draw_centered(r, "tap to close", KZ_W / 2.0f, y + h - 9, KZ_COCOA);
+}
+
+/* ---- décor tray ---- */
+
+const Button KZ_DECOR_BUTTON = { KZ_W - 24, 44, 20, 16, KZ_BTN_DECOR };
+
+void ui_decor_button_draw(SDL_Renderer *r, bool pressed) {
+    ui_button_draw(r, &KZ_DECOR_BUTTON, pressed);
+}
+bool ui_decor_button_hit(float px_, float py_) {
+    return ui_button_hit(&KZ_DECOR_BUTTON, px_, py_);
+}
+
+/* Tray geometry: a strip across the bottom, above the roster strip. */
+#define TRAY_H     30
+#define TRAY_Y     (KZ_H - TRAY_H - 26)   /* sits above the roster strip */
+#define TRAY_SLOT  30
+
+float ui_decor_tray_top(void) { return (float)TRAY_Y; }
+
+static float tray_slot_x(int visible_index) {
+    return 6.0f + visible_index * (TRAY_SLOT + 2);
+}
+
+void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame) {
+    /* backing strip */
+    px_rect_a(r, 0, TRAY_Y - 2, KZ_W, TRAY_H + 2, KZ_CLOUD, 235);
+    px_rect(r, 0, TRAY_Y - 2, KZ_W, 1, KZ_COCOA);
+
+    text_draw(r, "drag to place", 6, TRAY_Y - 10, KZ_COCOA);
+
+    int vis = 0;
+    for (int i = 0; i < DECOR_COUNT; i++) {
+        if (!d->items[i].owned) continue;
+        float sx = tray_slot_x(vis);
+        /* slot */
+        px_rect(r, sx, (float)TRAY_Y + 2, TRAY_SLOT, TRAY_SLOT - 4, KZ_CLOUD);
+        px_rect(r, sx, (float)TRAY_Y + 2, TRAY_SLOT, 1, KZ_COCOA);
+        px_rect(r, sx, (float)TRAY_Y + TRAY_SLOT - 3, TRAY_SLOT, 1, KZ_COCOA);
+        px_rect(r, sx, (float)TRAY_Y + 2, 1, TRAY_SLOT - 4, KZ_COCOA);
+        px_rect(r, sx + TRAY_SLOT - 1, (float)TRAY_Y + 2, 1, TRAY_SLOT - 4, KZ_COCOA);
+        /* a small preview of the item, centered-ish in the slot */
+        decor_draw_one(r, (DecorKind)i, sx + 8, (float)TRAY_Y + 6, frame);
+        /* a check if it's currently placed in the room */
+        if (d->items[i].placed) {
+            px_rect(r, sx + TRAY_SLOT - 6, (float)TRAY_Y + 3, 3, 1, KZ_MINT);
+            px_rect(r, sx + TRAY_SLOT - 4, (float)TRAY_Y + 4, 1, 2, KZ_MINT);
+        }
+        vis++;
+    }
+}
+
+int ui_decor_tray_hit(const Decor *d, float px_, float py_) {
+    if (py_ < TRAY_Y + 2 || py_ > TRAY_Y + TRAY_SLOT - 2) return -1;
+    int vis = 0;
+    for (int i = 0; i < DECOR_COUNT; i++) {
+        if (!d->items[i].owned) continue;
+        float sx = tray_slot_x(vis);
+        if (px_ >= sx && px_ <= sx + TRAY_SLOT) return i;
+        vis++;
+    }
+    return -1;
 }

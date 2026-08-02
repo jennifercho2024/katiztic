@@ -44,6 +44,15 @@ These friends are *not* your cats — they live out in the world. Your own famil
 (up to 5, adopted with the **+**) is separate. Befriending is the warm social
 reward of walking, not a way to collect cats.
 
+## Cottage décor
+
+At home, tap the chair button (top-right) to open the décor tray. You unlock
+cozy items by playing — a plant and cushion to start, a lamp once a cat's bond
+is high, a picture once you've made a friend, a rug once you have three cats, a
+cat tower at a very high bond. Drag an item from the tray into the room to place
+it anywhere you like; drag it back to the tray to put it away. Your arrangement
+is saved. Décor is pure coziness — it just makes the home yours.
+
 The five types — Sunny, Dreamy, Playful, Gentle, Clever — each have a signature
 pastel color, so a team *looks* like a chosen aesthetic. Each cat keeps her own
 bond, mood, energy, and growth. The active cat's card (top-left) now shows her
@@ -89,6 +98,9 @@ src/
                own save file (separate from your roster)
   encounter.h/.c the wild cat visiting the meadow — who shows up, where she sits,
                and how she edges closer as she trusts you
+  decor.h/.c   collectible cottage décor — the catalog, milestone unlocks, and
+               drag-to-place with its own save file
+  icon.h/.c    the window/dock icon, embedded as raw pixels (no image file)
   roster.h/.c  your family of up to 5 cats — each with a name, type, stats, and
                animation state; the active selection, adopting, and save/load
   cat.h/.c     one cat's animation state (blink, pet glow) and how it's drawn,
@@ -102,11 +114,10 @@ src/
 ## Roadmap
 
 Done: the *feeling*, the **care loop**, the **cottage & day cycle**, a **team of
-up to 5 cats**, a **pixel font**, and now **befriending cats on walks** — meeting
-wild cats in the meadow, building trust with treats, and keeping a friends list.
-Next: more zones and gentle quests, cottage décor, and the soft main story. An
-iOS port comes once the game feels ready to ship; the touch-first input
-throughout means that port stays a swap, not a rewrite.
+up to 5 cats**, a **pixel font**, **befriending cats on walks**, and **cottage
+décor** (unlock cozy items and arrange them by dragging). Next: more zones and
+gentle quests, and the soft main story. An iOS port comes once the game feels
+ready to ship; the touch-first input throughout means that port stays a swap.
 
 ### Design notes
 

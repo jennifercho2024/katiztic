@@ -1,0 +1,77 @@
+/* decor.h — cozy things to collect and arrange in your cottage.
+ *
+ * Décor items are unlocked by milestones you reach through normal play (a
+ * strong bond, befriending cats, growing your family). Once unlocked, you can
+ * place an item anywhere in the room by dragging it, and its position is
+ * remembered. Décor is pure coziness — it has no stats effect, it just makes
+ * the home feel like yours.
+ */
+#ifndef KATIZTIC_DECOR_H
+#define KATIZTIC_DECOR_H
+
+#include <SDL3/SDL.h>
+
+/* The catalog of items. Keep this list and DECOR_INFO in decor.c in sync. */
+typedef enum {
+    DECOR_PLANT,     /* a potted plant                 */
+    DECOR_LAMP,      /* a soft floor lamp              */
+    DECOR_PICTURE,   /* a framed wall picture          */
+    DECOR_TOWER,     /* a cat tower                    */
+    DECOR_CUSHION,   /* a round floor cushion          */
+    DECOR_RUG2,      /* a second little rug            */
+    DECOR_COUNT
+} DecorKind;
+
+/* How an item is unlocked. Checked against the player's progress. */
+typedef enum {
+    UNLOCK_START,        /* available from the beginning        */
+    UNLOCK_BOND,         /* a cat's bond reaches the threshold  */
+    UNLOCK_FRIENDS,      /* befriend N cats on walks            */
+    UNLOCK_FAMILY,       /* have N cats in your roster          */
+} UnlockKind;
+
+typedef struct {
+    DecorKind   kind;
+    const char *name;
+    UnlockKind  unlock;
+    int         threshold;   /* meaning depends on unlock kind */
+} DecorInfo;
+
+const DecorInfo *decor_info(DecorKind k);
+
+/* One placed item's saved state. */
+typedef struct {
+    bool  owned;     /* unlocked yet?                    */
+    bool  placed;    /* currently shown in the room?     */
+    float x, y;      /* position in logical 240x160 space */
+} DecorItem;
+
+typedef struct {
+    DecorItem items[DECOR_COUNT];
+} Decor;
+
+/* A fresh décor set: nothing placed, only START items owned. */
+Decor decor_new(void);
+
+/* Re-check unlocks against current progress; newly-unlocked items become
+ * owned (but not auto-placed). Returns the number newly unlocked this call,
+ * so the caller can celebrate ("You unlocked a plant!"). */
+int decor_check_unlocks(Decor *d, int max_bond, int friends_count,
+                        int family_count);
+
+/* Drawing: render every placed item into the cottage. */
+void decor_draw(SDL_Renderer *r, const Decor *d, Uint64 frame);
+
+/* Hit-test: which placed item is at (px,py), or -1. Topmost (last drawn)
+ * wins so dragging grabs what you see. */
+int  decor_hit(const Decor *d, float px, float py);
+
+/* Draw one item at an arbitrary spot (used for the drag ghost + the tray). */
+void decor_draw_one(SDL_Renderer *r, DecorKind k, float x, float y,
+                    Uint64 frame);
+
+/* ---- persistence: its own save file ---- */
+bool decor_save(const Decor *d, const char *path);
+bool decor_load(Decor *out, const char *path);
+
+#endif /* KATIZTIC_DECOR_H */

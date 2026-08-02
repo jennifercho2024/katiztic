@@ -19,6 +19,7 @@
 #include "roster.h"
 #include "friends.h"
 #include "encounter.h"
+#include "decor.h"
 #include "ui.h"
 #include "cottage.h"
 #include "icon.h"
@@ -35,6 +36,7 @@ typedef enum { LOC_COTTAGE, LOC_MEADOW } Location;
 /* Where the cat's stats are saved between sessions. */
 #define KZ_SAVE_PATH "katiztic.sav"
 #define KZ_FRIENDS_PATH "katiztic-friends.sav"
+#define KZ_DECOR_PATH   "katiztic-decor.sav"
 
 /* Fixed timestep so the mood animations run the same on any machine. */
 #define KZ_FPS       60
@@ -96,6 +98,15 @@ int main(int argc, char *argv[]) {
     if (!friends_load(&friends, KZ_FRIENDS_PATH)) {
         friends = friends_new();
     }
+
+    /* Cottage décor — collectibles you unlock and arrange. */
+    Decor decor;
+    if (!decor_load(&decor, KZ_DECOR_PATH)) {
+        decor = decor_new();
+    }
+    bool decor_open = false;      /* is the décor tray showing?         */
+    int  drag_item = -1;          /* décor item being dragged, or -1    */
+    bool drag_from_tray = false;  /* did the drag start in the tray?    */
 
     /* The wild cat currently visiting the meadow (if any), the banner line
      * that describes the moment, and whether the friends-list overlay is open. */
@@ -188,6 +199,31 @@ int main(int argc, char *argv[]) {
                     friends_open = true;
                     press_fx = 8;
                     break;
+                }
+
+                /* 0b) décor button (cottage only): toggle the décor tray */
+                if (location == LOC_COTTAGE && ui_decor_button_hit(lx, ly)) {
+                    decor_open = !decor_open;
+                    press_fx = 8;
+                    break;
+                }
+
+                /* 0c) while the décor tray is open, taps drive dragging:
+                 *  - grab an owned item from the tray to place a fresh copy,
+                 *  - or grab an already-placed item in the room to move it. */
+                if (location == LOC_COTTAGE && decor_open) {
+                    int tray = ui_decor_tray_hit(&decor, lx, ly);
+                    if (tray >= 0) {
+                        drag_item = tray;
+                        drag_from_tray = true;
+                        break;
+                    }
+                    int placed = decor_hit(&decor, lx, ly);
+                    if (placed >= 0) {
+                        drag_item = placed;
+                        drag_from_tray = false;
+                        break;
+                    }
                 }
 
                 /* 1) tap the name on the stat card -> start renaming */
@@ -300,6 +336,41 @@ int main(int argc, char *argv[]) {
                 }
                 break;
             }
+
+            case SDL_EVENT_MOUSE_MOTION: {
+                /* While dragging a décor item, follow the pointer. */
+                if (drag_item >= 0) {
+                    float lx, ly;
+                    SDL_RenderCoordinatesFromWindow(renderer, e.motion.x,
+                                                    e.motion.y, &lx, &ly);
+                    /* center the item on the pointer-ish */
+                    decor.items[drag_item].x = lx - 8;
+                    decor.items[drag_item].y = ly - 8;
+                    decor.items[drag_item].placed = true;  /* show it as it moves */
+                }
+                break;
+            }
+
+            case SDL_EVENT_MOUSE_BUTTON_UP: {
+                if (drag_item >= 0) {
+                    float lx, ly;
+                    SDL_RenderCoordinatesFromWindow(renderer, e.button.x,
+                                                    e.button.y, &lx, &ly);
+                    /* Dropped back onto the tray -> put it away (unplace).
+                     * Dropped in the room -> keep it placed where it landed. */
+                    if (ly >= ui_decor_tray_top()) {
+                        decor.items[drag_item].placed = false;
+                    } else {
+                        decor.items[drag_item].placed = true;
+                        decor.items[drag_item].x = lx - 8;
+                        decor.items[drag_item].y = ly - 8;
+                    }
+                    decor_save(&decor, KZ_DECOR_PATH);
+                    drag_item = -1;
+                    drag_from_tray = false;
+                }
+                break;
+            }
             default: break;
             }
         }
@@ -314,6 +385,24 @@ int main(int argc, char *argv[]) {
         if (press_fx > 0) press_fx--;
         if (location == LOC_MEADOW) encounter_update(&enc, &friends);
         if (banner_timer > 0) banner_timer--;
+
+        /* Décor unlocks: check current progress. If something new unlocks,
+         * announce it in the banner. */
+        {
+            int max_bond = 0;
+            for (int i = 0; i < roster.count; i++)
+                if (roster.cats[i].stats.bond > max_bond)
+                    max_bond = roster.cats[i].stats.bond;
+            int fcount = friends_befriended_count(&friends);
+            int newly = decor_check_unlocks(&decor, max_bond, fcount,
+                                            roster.count);
+            if (newly > 0) {
+                SDL_strlcpy(banner_line, "You unlocked new decor!",
+                            sizeof banner_line);
+                banner_timer = 240;
+                decor_save(&decor, KZ_DECOR_PATH);
+            }
+        }
 
         /* Sleep fade: at the darkest midpoint, the whole family wakes rested.
          * Refreshing every cat (not just the active one) gives sleeping a
@@ -339,6 +428,7 @@ int main(int argc, char *argv[]) {
         bool is_night = (meadow.time == KZ_NIGHT);
         if (location == LOC_COTTAGE) {
             cottage_draw(renderer, frame, is_night);
+            decor_draw(renderer, &decor, frame);   /* décor sits in the room */
             /* The whole family lounges at home. Draw each cat at its spot,
              * back-to-front by row so nearer cats overlap farther ones, and
              * draw the active cat last so she sits on top with her hearts. */
@@ -373,7 +463,14 @@ int main(int argc, char *argv[]) {
         if (location == LOC_COTTAGE)
             ui_button_draw(renderer, &btn_sleep, press_fx > 0);
         ui_friends_button_draw(renderer, press_fx > 0);   /* friends list */
+        if (location == LOC_COTTAGE)
+            ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray   */
         ui_roster_draw(renderer, &roster);                /* the family strip */
+
+        /* Décor tray, when open (cottage only). */
+        if (location == LOC_COTTAGE && decor_open) {
+            ui_decor_tray(renderer, &decor, frame);
+        }
 
         /* Encounter UI: the treat button and the dialogue banner, when a wild
          * cat is visiting on a walk. */
@@ -413,6 +510,7 @@ int main(int argc, char *argv[]) {
     /* Save the whole family and your friends so they remember you next time. */
     roster_save(&roster, KZ_SAVE_PATH);
     friends_save(&friends, KZ_FRIENDS_PATH);
+    decor_save(&decor, KZ_DECOR_PATH);
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

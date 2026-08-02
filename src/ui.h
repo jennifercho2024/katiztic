@@ -31,6 +31,7 @@ typedef enum {
     KZ_BTN_SLEEP,   /* a moon — sleep                          */
     KZ_BTN_TREAT,   /* a fish treat — offer to a wild cat      */
     KZ_BTN_FRIENDS, /* a heart — open the friends list         */
+    KZ_BTN_DECOR,   /* a chair — open the décor tray           */
 } ButtonKind;
 
 typedef struct {
@@ -74,6 +75,25 @@ bool ui_friends_button_hit(float px, float py);
  * friends marked. Returns nothing; tapping anywhere closes it (handled in
  * main). */
 void ui_friends_list(SDL_Renderer *r, const Friends *f);
+
+/* ---- décor tray ----
+ * A décor button (top-right) opens a tray along the bottom showing the items
+ * you own. Drag one out into the room to place it. */
+extern const Button KZ_DECOR_BUTTON;
+void ui_decor_button_draw(SDL_Renderer *r, bool pressed);
+bool ui_decor_button_hit(float px, float py);
+
+/* Draw the tray of owned items. Returns via out-params the tray's top y so
+ * main can tell "dragged out of the tray into the room". */
+#include "decor.h"
+void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame);
+
+/* Which owned item's tray slot is at (px,py), or -1. Only owned items appear. */
+int  ui_decor_tray_hit(const Decor *d, float px, float py);
+
+/* The y-coordinate of the top of the tray (things dropped above it land in
+ * the room; things below are still "in the tray"). */
+float ui_decor_tray_top(void);
 
 /* Draw a small centered hint bar near the bottom (e.g. "F feed  G groom").
  * `flash` > 0 briefly highlights the panel to acknowledge an action. */
