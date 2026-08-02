@@ -45,8 +45,9 @@ void roster_select(Roster *ro, int i) {
 
 bool roster_adopt(Roster *ro, CatType type, float cat_x, float cat_y) {
     if (ro->count >= KZ_MAX_CATS) return false;
-    /* Pick a name not already in use, falling back to type name + number. */
-    const char *name = DEFAULT_NAMES[ro->count % DEFAULT_NAME_COUNT];
+    /* A random name so each new cat is a little surprise (not tied to how many
+     * you have, which would repeat the same name as you release and re-adopt). */
+    const char *name = DEFAULT_NAMES[SDL_rand(DEFAULT_NAME_COUNT)];
     ro->cats[ro->count] = make_cat(type, name, cat_x, cat_y);
     ro->active = ro->count;   /* focus the newcomer */
     ro->count++;
@@ -75,8 +76,8 @@ void roster_rename(Roster *ro, int i, const char *name) {
  * instead of stacking. Chosen to sit on the floor/rug, clear of the bed and
  * window. Up to KZ_MAX_CATS spots. */
 void roster_home_spot(int i, float *x, float *y) {
-    static const float SX[KZ_MAX_CATS] = { 140.0f, 200.0f, 100.0f, 240.0f, 180.0f };
-    static const float SY[KZ_MAX_CATS] = { 185.0f, 175.0f, 190.0f, 195.0f, 205.0f };
+    static const float SX[KZ_MAX_CATS] = { 140.0f, 200.0f, 100.0f, 240.0f, 180.0f, 120.0f, 220.0f };
+    static const float SY[KZ_MAX_CATS] = { 185.0f, 175.0f, 190.0f, 195.0f, 205.0f, 210.0f, 188.0f };
     if (i < 0 || i >= KZ_MAX_CATS) { *x = 120.0f; *y = 132.0f; return; }
     *x = SX[i];
     *y = SY[i];

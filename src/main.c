@@ -344,8 +344,8 @@ int main(int argc, char *argv[]) {
                 /* 2) roster strip: select a cat, or adopt a new one. */
                 int slot = ui_roster_hit(&roster, lx, ly);
                 if (slot == -2) {
-                    /* adopt: cycle through types by how many you have */
-                    CatType t = (CatType)(roster.count % KZ_TYPE_COUNT);
+                    /* a random type, so each adoption is a fresh surprise */
+                    CatType t = (CatType)SDL_rand(KZ_TYPE_COUNT);
                     if (roster_adopt(&roster, t, CAT_X, CAT_Y)) {
                         /* new cat starts at level 1; seed its tracker */
                         int ni = roster.count - 1;

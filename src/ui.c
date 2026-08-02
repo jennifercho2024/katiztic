@@ -223,6 +223,12 @@ void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
     }
     text_draw(r, cattype_name(cat->type), x + 4, y + 10,
               cattype_colors(cat->type).dark);
+    /* shiny cats are marked with a golden "shiny" tag by the type */
+    if (cat->shiny) {
+        float tx = x + 4 + text_width(cattype_name(cat->type)) + 4;
+        Color gold = rgb(0xE0, 0xB0, 0x40);
+        text_draw(r, "shiny", tx, y + 10, gold);
+    }
     px_rect(r, x + 3, y + 17, w - 6, 1, KZ_COCOA);   /* divider */
 
     float rx = x + 5, ry = y + 21;
@@ -318,7 +324,17 @@ void ui_roster_draw(SDL_Renderer *r, const Roster *ro) {
             px_rect(r, x + RS_SLOT-1 - t, y + t,             1, RS_SLOT - 2*t, border);
         }
 
-        portrait(r, x, y, cattype_colors(ro->cats[i].type));
+        CatColors pc = ro->cats[i].shiny ? cat_shiny_colors()
+                                         : cattype_colors(ro->cats[i].type);
+        portrait(r, x, y, pc);
+
+        /* shiny cats get a little gold sparkle in the corner of their slot */
+        if (ro->cats[i].shiny) {
+            float sx = x + RS_SLOT - 6, sy = y + 3;
+            Color gold = rgb(0xFF, 0xE8, 0x9A);
+            px_rect(r, sx,     sy - 1, 1, 3, gold);
+            px_rect(r, sx - 1, sy,     3, 1, gold);
+        }
     }
 
     /* "+" adopt slot, if there's room */

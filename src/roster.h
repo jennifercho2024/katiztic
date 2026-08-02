@@ -15,7 +15,7 @@
 #include "cattype.h"
 #include "stats.h"
 
-#define KZ_MAX_CATS   5
+#define KZ_MAX_CATS   7
 #define KZ_NAME_LEN   12   /* including the null terminator */
 
 typedef struct {
