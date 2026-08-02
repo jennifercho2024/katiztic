@@ -106,10 +106,11 @@ bool ui_decor_button_hit(float px, float py);
 /* Draw the tray of owned items. Returns via out-params the tray's top y so
  * main can tell "dragged out of the tray into the room". */
 #include "decor.h"
-void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame);
+void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame, int scroll);
 
 /* Which owned item's tray slot is at (px,py), or -1. Only owned items appear. */
-int  ui_decor_tray_hit(const Decor *d, float px, float py);
+int  ui_decor_tray_hit(const Decor *d, float px, float py, int scroll);
+int  ui_decor_tray_count(const Decor *d);
 
 /* The y-coordinate of the top of the tray (things dropped above it land in
  * the room; things below are still "in the tray"). */

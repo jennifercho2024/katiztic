@@ -29,11 +29,24 @@ typedef enum {
     QUEST_COUNT
 } QuestId;
 
+/* A small icon shown at the left of each quest, hinting its kind. */
+typedef enum {
+    QICON_PAW,     /* care: pet / general affection   */
+    QICON_FISH,    /* feeding                          */
+    QICON_SPARKLE, /* grooming                         */
+    QICON_HEART,   /* friendship / befriending         */
+    QICON_CATS,    /* family / cats together           */
+    QICON_STAR,    /* leveling / achievement           */
+    QICON_CUP,     /* the café                         */
+    QICON_LEAF,    /* the world / re-coloring zones    */
+} QuestIcon;
+
 typedef struct {
     const char *desc;      /* short line for the quest list      */
     Uint16      target;    /* progress needed to complete        */
     Uint16      reward_xp; /* XP granted to EVERY cat on finish  */
     bool        repeatable;/* resets with a fresh target vs. one-time */
+    QuestIcon   icon;      /* the kind-of-quest symbol           */
 } QuestInfo;
 
 typedef struct {

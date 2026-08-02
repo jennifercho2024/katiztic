@@ -140,6 +140,9 @@ int main(int argc, char *argv[]) {
      * it can never happen by accident. */
     bool release_open = false;
     bool quests_open = false;    /* is the quest log showing? */
+    int  tray_scroll = 0;        /* horizontal scroll of the décor tray */
+    bool tray_swiping = false;
+    float tray_swipe_x = 0;
     int  quests_scroll = 0;      /* first visible quest row       */
     float quests_drag_y = 0;     /* last pointer y while swiping   */
     bool quests_dragging = false;
@@ -391,11 +394,18 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* 0c) while the décor tray is open, a tap on a tray slot grabs
-                 * a fresh copy of that item to drag out into the room. */
+                 * a fresh copy of that item to drag out into the room. A press
+                 * on the tray strip that misses a slot starts a sideways swipe
+                 * to scroll through items. */
                 if (location == LOC_COTTAGE && decor_open) {
-                    int tray = ui_decor_tray_hit(&decor, lx, ly);
+                    int tray = ui_decor_tray_hit(&decor, lx, ly, tray_scroll);
                     if (tray >= 0) {
                         drag_item = tray;
+                        break;
+                    }
+                    if (ly >= ui_decor_tray_top() - 2) {
+                        tray_swiping = true;
+                        tray_swipe_x = lx;
                         break;
                     }
                 }
@@ -476,6 +486,22 @@ int main(int argc, char *argv[]) {
                     banner_timer = 240;
                     press_fx = 8;
                 }
+                /* 3c) pet the visiting wild cat directly (meadow only) — some
+                 * cats warm to a gentle hand as much as to a treat. */
+                else if (location == LOC_MEADOW && enc.present
+                         && encounter_hit(&enc, lx, ly)) {
+                    friends_meet(&friends, enc.name, enc.type);
+                    bool now_friend = friends_pet(&friends, enc.name);
+                    friends_save(&friends, KZ_FRIENDS_PATH);
+                    if (now_friend)
+                        SDL_snprintf(banner_line, sizeof banner_line,
+                                     "%s is your friend now!", enc.name);
+                    else
+                        SDL_snprintf(banner_line, sizeof banner_line,
+                                     "%s leans into your hand.", enc.name);
+                    banner_timer = 240;
+                    press_fx = 8;
+                }
                 /* 6) tap a cat. In the cottage the whole family is present, so
                  * a tap can land on any of them: that cat becomes active and
                  * gets petted. In the meadow, only the active cat is there. */
@@ -538,6 +564,18 @@ int main(int argc, char *argv[]) {
                 float lx, ly;
                 SDL_RenderCoordinatesFromWindow(renderer, e.motion.x,
                                                 e.motion.y, &lx, &ly);
+                /* Swiping the décor tray scrolls it left/right. */
+                if (tray_swiping) {
+                    float dx = lx - tray_swipe_x;
+                    int count = ui_decor_tray_count(&decor);
+                    int fits = 7;   /* about how many slots fit across */
+                    int maxs = count - fits; if (maxs < 0) maxs = 0;
+                    if (dx < -16) { tray_scroll++; tray_swipe_x = lx; }
+                    if (dx >  16) { tray_scroll--; tray_swipe_x = lx; }
+                    if (tray_scroll < 0) tray_scroll = 0;
+                    if (tray_scroll > maxs) tray_scroll = maxs;
+                    break;
+                }
                 /* Swiping the open quest log scrolls it. */
                 if (quests_dragging) {
                     float dy = ly - quests_drag_y;
@@ -569,6 +607,7 @@ int main(int argc, char *argv[]) {
             }
 
             case SDL_EVENT_MOUSE_BUTTON_UP: {
+                if (tray_swiping) { tray_swiping = false; break; }
                 if (quests_dragging) {
                     /* a gesture that never scrolled is a tap -> close */
                     if (!quests_scrolled) quests_open = false;
@@ -845,7 +884,7 @@ int main(int argc, char *argv[]) {
 
         /* Décor tray, when open (cottage only). */
         if (location == LOC_COTTAGE && decor_open) {
-            ui_decor_tray(renderer, &decor, frame);
+            ui_decor_tray(renderer, &decor, frame, tray_scroll);
         }
 
         /* Encounter UI: the treat button and the dialogue banner, when a wild

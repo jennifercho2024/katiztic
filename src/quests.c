@@ -2,17 +2,17 @@
 #include "quests.h"
 
 static const QuestInfo INFO[QUEST_COUNT] = {
-    /* desc                    target reward repeatable */
-    { "Pet cats 15 times",        15,   25,  true  },
-    { "Serve 10 meals",           10,   25,  true  },
-    { "Groom 8 times",             8,   25,  true  },
-    { "Befriend 2 wild cats",      2,   40,  false },
-    { "Grow to 4 cats",            4,   30,  false },
-    { "Reach level 5",             5,   40,  false },
-    { "Visit the cafe",            1,   15,  false },
-    { "See cats play",             1,   15,  false },
-    { "Recolor the forest",        1,   60,  false },
-    { "Recolor the street",        1,   60,  false },
+    /* desc                    target reward repeat  icon        */
+    { "Pet cats 15 times",        15,   25,  true,  QICON_PAW     },
+    { "Serve 10 meals",           10,   25,  true,  QICON_FISH    },
+    { "Groom 8 times",             8,   25,  true,  QICON_SPARKLE },
+    { "Befriend 2 wild cats",      2,   40,  false, QICON_HEART   },
+    { "Grow to 4 cats",            4,   30,  false, QICON_CATS    },
+    { "Reach level 5",             5,   40,  false, QICON_STAR    },
+    { "Visit the cafe",            1,   15,  false, QICON_CUP     },
+    { "See cats play",             1,   15,  false, QICON_CATS    },
+    { "Recolor the forest",        1,   60,  false, QICON_LEAF    },
+    { "Recolor the street",        1,   60,  false, QICON_LEAF    },
 };
 
 const QuestInfo *quest_info(QuestId q) {

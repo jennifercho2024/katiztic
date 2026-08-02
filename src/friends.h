@@ -45,6 +45,10 @@ Friend *friends_meet(Friends *f, const char *name, CatType type);
  * the one that tips them into full friendship (for the "joined" moment). */
 bool friends_offer_treat(Friends *f, const char *name);
 
+/* Pet a wild cat: a gentler trust gain than a treat. Returns true if this pet
+ * is the one that tips her into full friendship. */
+bool friends_pet(Friends *f, const char *name);
+
 /* How many have become full friends. */
 int friends_befriended_count(const Friends *f);
 

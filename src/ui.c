@@ -492,21 +492,32 @@ bool ui_decor_button_hit(float px_, float py_) {
 
 float ui_decor_tray_top(void) { return (float)TRAY_Y; }
 
-static float tray_slot_x(int visible_index) {
-    return 6.0f + visible_index * (TRAY_SLOT + 2);
+static float tray_slot_x(int visible_index, int scroll) {
+    return 6.0f + (visible_index - scroll) * (TRAY_SLOT + 2);
 }
 
-void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame) {
+/* How many owned items are in the tray (for clamping the swipe scroll). */
+int ui_decor_tray_count(const Decor *d) {
+    int n = 0;
+    for (int i = 0; i < DECOR_COUNT; i++)
+        if (d->items[i].owned) n++;
+    return n;
+}
+
+void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame, int scroll) {
     /* backing strip */
     px_rect_a(r, 0, TRAY_Y - 2, KZ_W, TRAY_H + 2, KZ_CLOUD, 235);
     px_rect(r, 0, TRAY_Y - 2, KZ_W, 1, KZ_COCOA);
 
-    text_draw(r, "drag to place", 6, TRAY_Y - 10, KZ_COCOA);
+    text_draw(r, "drag to place  -  swipe tray", 6, TRAY_Y - 10, KZ_COCOA);
 
     int vis = 0;
     for (int i = 0; i < DECOR_COUNT; i++) {
         if (!d->items[i].owned) continue;
-        float sx = tray_slot_x(vis);
+        float sx = tray_slot_x(vis, scroll);
+        vis++;
+        /* skip slots scrolled off either edge */
+        if (sx + TRAY_SLOT < 0 || sx > KZ_W) continue;
         /* slot */
         px_rect(r, sx, (float)TRAY_Y + 2, TRAY_SLOT, TRAY_SLOT - 4, KZ_CLOUD);
         px_rect(r, sx, (float)TRAY_Y + 2, TRAY_SLOT, 1, KZ_COCOA);
@@ -524,18 +535,17 @@ void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame) {
         text_draw_centered(r, decor_info((DecorKind)i)->name,
                            sx + TRAY_SLOT / 2.0f,
                            (float)TRAY_Y + TRAY_SLOT - 1, KZ_COCOA);
-        vis++;
     }
 }
 
-int ui_decor_tray_hit(const Decor *d, float px_, float py_) {
+int ui_decor_tray_hit(const Decor *d, float px_, float py_, int scroll) {
     if (py_ < TRAY_Y + 2 || py_ > TRAY_Y + TRAY_SLOT - 2) return -1;
     int vis = 0;
     for (int i = 0; i < DECOR_COUNT; i++) {
         if (!d->items[i].owned) continue;
-        float sx = tray_slot_x(vis);
-        if (px_ >= sx && px_ <= sx + TRAY_SLOT) return i;
+        float sx = tray_slot_x(vis, scroll);
         vis++;
+        if (px_ >= sx && px_ <= sx + TRAY_SLOT) return i;
     }
     return -1;
 }
@@ -649,6 +659,79 @@ int ui_confirm_release_hit(float px_, float py_) {
 
 /* ---- the quest log overlay ---- */
 
+/* Draw a small (~9px) quest-kind icon at (x,y). Each is a simple pastel glyph. */
+static void quest_icon(SDL_Renderer *r, QuestIcon k, float x, float y) {
+    switch (k) {
+        case QICON_PAW: {   /* a paw: pad + toes */
+            Color c = KZ_PETAL_PINK;
+            px_rect(r, x + 2, y + 4, 5, 4, c);
+            px_rect(r, x + 1, y + 1, 2, 2, c);
+            px_rect(r, x + 4, y,     2, 2, c);
+            px_rect(r, x + 7, y + 1, 1, 2, c);
+            break;
+        }
+        case QICON_FISH: {  /* a little fish */
+            Color c = rgb(0xE8, 0x8B, 0x6B);
+            px_rect(r, x, y + 3, 6, 4, c);
+            px_rect(r, x + 6, y + 2, 2, 2, c);
+            px_rect(r, x + 6, y + 6, 2, 2, c);
+            px_rect(r, x + 1, y + 4, 1, 1, KZ_CLOUD);
+            break;
+        }
+        case QICON_SPARKLE: {  /* a four-point sparkle */
+            Color c = KZ_BUTTER;
+            px_rect(r, x + 3, y,     1, 9, c);
+            px_rect(r, x,     y + 4, 9, 1, c);
+            px_rect(r, x + 2, y + 3, 3, 3, KZ_CLOUD);
+            break;
+        }
+        case QICON_HEART: {
+            Color c = KZ_HEART;
+            px_rect(r, x + 1, y + 1, 2, 1, c);
+            px_rect(r, x + 5, y + 1, 2, 1, c);
+            px_rect(r, x,     y + 2, 8, 2, c);
+            px_rect(r, x + 1, y + 4, 6, 1, c);
+            px_rect(r, x + 2, y + 5, 4, 1, c);
+            px_rect(r, x + 3, y + 6, 2, 1, c);
+            break;
+        }
+        case QICON_CATS: {  /* two tiny cat heads */
+            Color c = KZ_LAVENDER;
+            px_rect(r, x,     y + 2, 1, 2, c);
+            px_rect(r, x + 3, y + 2, 1, 2, c);
+            px_rect(r, x,     y + 4, 4, 4, c);
+            px_rect(r, x + 5, y,     1, 2, c);
+            px_rect(r, x + 8, y,     1, 2, c);
+            px_rect(r, x + 5, y + 2, 4, 4, c);
+            break;
+        }
+        case QICON_STAR: {
+            Color c = rgb(0xF2, 0xD0, 0x7A);
+            px_rect(r, x + 4, y,     1, 9, c);
+            px_rect(r, x,     y + 3, 9, 1, c);
+            px_rect(r, x + 1, y + 1, 7, 5, c);
+            break;
+        }
+        case QICON_CUP: {   /* a coffee cup */
+            Color c = rgb(0xC0, 0x98, 0x88);
+            px_rect(r, x + 1, y + 2, 6, 5, KZ_CLOUD);
+            px_rect(r, x + 1, y + 2, 6, 1, c);
+            px_rect(r, x + 7, y + 3, 2, 2, c);
+            px_rect(r, x + 2, y,     3, 1, KZ_CLOUD);
+            break;
+        }
+        case QICON_LEAF:
+        default: {          /* a leaf: the world / re-coloring */
+            Color c = KZ_MINT;
+            px_rect(r, x + 1, y + 1, 6, 6, c);
+            px_rect(r, x,     y + 4, 3, 3, c);
+            px_rect(r, x + 4, y,     3, 3, c);
+            px_rect(r, x + 3, y + 3, 3, 1, rgb(0x8F, 0xC0, 0xA4));
+            break;
+        }
+    }
+}
+
 void ui_quests_list(SDL_Renderer *r, const Quests *q, int scroll) {
     /* dim the scene */
     px_rect_a(r, 0, 0, KZ_W, KZ_H, rgb(0x3B, 0x30, 0x50), 150);
@@ -684,21 +767,24 @@ void ui_quests_list(SDL_Renderer *r, const Quests *q, int scroll) {
         const QuestInfo *in = quest_info((QuestId)i);
         float ry = list_top + v * ROW_H;
 
+        /* the kind-of-quest icon at the very left */
+        quest_icon(r, in->icon, x + 8, ry + 1);
+
         if (q->done[i]) {
             /* mint check box (milestones that are permanently complete) */
-            px_rect(r, x + 8, ry + 1, 8, 8, KZ_MINT);
-            px_rect(r, x + 10, ry + 4, 1, 2, KZ_CLOUD);
-            px_rect(r, x + 11, ry + 5, 1, 2, KZ_CLOUD);
-            px_rect(r, x + 12, ry + 3, 1, 3, KZ_CLOUD);
-            text_draw(r, in->desc, x + 22, ry + 1, rgb(0xB0, 0x9E, 0xA8));
+            px_rect(r, x + 20, ry + 1, 8, 8, KZ_MINT);
+            px_rect(r, x + 22, ry + 4, 1, 2, KZ_CLOUD);
+            px_rect(r, x + 23, ry + 5, 1, 2, KZ_CLOUD);
+            px_rect(r, x + 24, ry + 3, 1, 3, KZ_CLOUD);
+            text_draw(r, in->desc, x + 34, ry + 1, rgb(0xB0, 0x9E, 0xA8));
         } else {
             /* empty box */
-            px_rect(r, x + 8, ry + 1, 8, 8, KZ_CLOUD);
-            px_rect(r, x + 8,  ry + 1, 8, 1, KZ_COCOA);
-            px_rect(r, x + 8,  ry + 8, 8, 1, KZ_COCOA);
-            px_rect(r, x + 8,  ry + 1, 1, 8, KZ_COCOA);
-            px_rect(r, x + 15, ry + 1, 1, 8, KZ_COCOA);
-            text_draw(r, in->desc, x + 22, ry + 1, KZ_COCOA);
+            px_rect(r, x + 20, ry + 1, 8, 8, KZ_CLOUD);
+            px_rect(r, x + 20, ry + 1, 8, 1, KZ_COCOA);
+            px_rect(r, x + 20, ry + 8, 8, 1, KZ_COCOA);
+            px_rect(r, x + 20, ry + 1, 1, 8, KZ_COCOA);
+            px_rect(r, x + 27, ry + 1, 1, 8, KZ_COCOA);
+            text_draw(r, in->desc, x + 34, ry + 1, KZ_COCOA);
             /* progress toward the LIVE target (repeatables grow each round) */
             char prog[16];
             SDL_snprintf(prog, sizeof prog, "%u/%u",

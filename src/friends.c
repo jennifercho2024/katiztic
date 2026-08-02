@@ -29,6 +29,21 @@ Friend *friends_meet(Friends *f, const char *name, CatType type) {
     return nf;
 }
 
+bool friends_pet(Friends *f, const char *name) {
+    Friend *fr = friends_find(f, name);
+    if (!fr) return false;
+
+    int t = (int)fr->trust + 8;           /* gentler than a treat */
+    if (t > KZ_TRUST_FULL) t = KZ_TRUST_FULL;
+    fr->trust = (Uint8)t;
+
+    if (!fr->befriended && fr->trust >= KZ_TRUST_FULL) {
+        fr->befriended = true;
+        return true;
+    }
+    return false;
+}
+
 bool friends_offer_treat(Friends *f, const char *name) {
     Friend *fr = friends_find(f, name);
     if (!fr) return false;
