@@ -649,11 +649,11 @@ int ui_confirm_release_hit(float px_, float py_) {
 
 /* ---- the quest log overlay ---- */
 
-void ui_quests_list(SDL_Renderer *r, const Quests *q) {
+void ui_quests_list(SDL_Renderer *r, const Quests *q, int scroll) {
     /* dim the scene */
     px_rect_a(r, 0, 0, KZ_W, KZ_H, rgb(0x3B, 0x30, 0x50), 150);
 
-    float w = 190, h = 150;
+    float w = 208, h = 150;
     float x = (KZ_W - w) / 2.0f, y = (KZ_H - h) / 2.0f;
     px_rect(r, x, y, w, h, KZ_CLOUD);
     px_rect(r, x,         y,         w, 1, KZ_COCOA);
@@ -661,36 +661,63 @@ void ui_quests_list(SDL_Renderer *r, const Quests *q) {
     px_rect(r, x,         y,         1, h, KZ_COCOA);
     px_rect(r, x + w - 1, y,         1, h, KZ_COCOA);
 
+    /* header, at 2x scale */
     char head[24];
-    SDL_snprintf(head, sizeof head, "Quests  %d/%d",
+    SDL_snprintf(head, sizeof head, "Quests %d/%d",
                  quests_done_count(q), (int)QUEST_COUNT);
-    text_draw(r, head, x + 6, y + 5, KZ_COCOA);
-    px_rect(r, x + 5, y + 13, w - 10, 1, KZ_COCOA);
+    text_draw_scaled(r, head, x + 8, y + 6, KZ_COCOA, 2);
+    px_rect(r, x + 6, y + 22, w - 12, 1, KZ_COCOA);
 
-    for (int i = 0; i < QUEST_COUNT; i++) {
+    /* rows: bigger font, a scrolling window of the list */
+    const int ROW_H = 22;               /* room for 2x text + spacing */
+    const int VIS   = 5;                /* how many rows fit at once   */
+    float list_top  = y + 27;
+    int maxscroll = QUEST_COUNT - VIS;
+    if (maxscroll < 0) maxscroll = 0;
+    if (scroll < 0) scroll = 0;
+    if (scroll > maxscroll) scroll = maxscroll;
+
+    for (int v = 0; v < VIS; v++) {
+        int i = scroll + v;
+        if (i >= QUEST_COUNT) break;
         const QuestInfo *in = quest_info((QuestId)i);
-        float ry = y + 17 + i * 12;
+        float ry = list_top + v * ROW_H;
 
         if (q->done[i]) {
-            /* a mint check in a little box, and the line in a softer tone */
-            px_rect(r, x + 6, ry, 6, 6, KZ_MINT);
-            px_rect(r, x + 7, ry + 3, 1, 2, KZ_CLOUD);
-            px_rect(r, x + 8, ry + 4, 1, 1, KZ_CLOUD);
-            px_rect(r, x + 9, ry + 2, 1, 2, KZ_CLOUD);
-            text_draw(r, in->desc, x + 16, ry, rgb(0xB0, 0x9E, 0xA8));
+            /* mint check box */
+            px_rect(r, x + 8, ry + 2, 12, 12, KZ_MINT);
+            px_rect(r, x + 11, ry + 8, 2, 3, KZ_CLOUD);
+            px_rect(r, x + 13, ry + 10, 2, 2, KZ_CLOUD);
+            px_rect(r, x + 15, ry + 5, 2, 4, KZ_CLOUD);
+            text_draw_scaled(r, in->desc, x + 26, ry + 2,
+                             rgb(0xB0, 0x9E, 0xA8), 2);
         } else {
-            /* empty box, the line, and progress like "3/15" on the right */
-            px_rect(r, x + 6, ry, 6, 6, KZ_CLOUD);
-            px_rect(r, x + 6, ry, 6, 1, KZ_COCOA);
-            px_rect(r, x + 6, ry + 5, 6, 1, KZ_COCOA);
-            px_rect(r, x + 6, ry, 1, 6, KZ_COCOA);
-            px_rect(r, x + 11, ry, 1, 6, KZ_COCOA);
-            text_draw(r, in->desc, x + 16, ry, KZ_COCOA);
+            /* empty box */
+            px_rect(r, x + 8, ry + 2, 12, 12, KZ_CLOUD);
+            px_rect(r, x + 8,  ry + 2,  12, 1, KZ_COCOA);
+            px_rect(r, x + 8,  ry + 13, 12, 1, KZ_COCOA);
+            px_rect(r, x + 8,  ry + 2,  1, 12, KZ_COCOA);
+            px_rect(r, x + 19, ry + 2,  1, 12, KZ_COCOA);
+            text_draw_scaled(r, in->desc, x + 26, ry + 2, KZ_COCOA, 2);
             char prog[16];
             SDL_snprintf(prog, sizeof prog, "%u/%u",
                          (unsigned)q->progress[i], (unsigned)in->target);
-            text_draw(r, prog, x + w - 6 - text_width(prog), ry, KZ_COCOA);
+            text_draw_scaled(r, prog,
+                             x + w - 10 - text_width_scaled(prog, 2),
+                             ry + 2, KZ_COCOA, 2);
         }
     }
-    text_draw_centered(r, "tap to close", KZ_W / 2.0f, y + h - 9, KZ_COCOA);
+
+    /* a little scrollbar on the right if the list overflows */
+    if (maxscroll > 0) {
+        float track_x = x + w - 5, track_y = list_top, track_h = VIS * ROW_H;
+        px_rect(r, track_x, track_y, 2, track_h, rgb(0xE0, 0xD6, 0xE0));
+        float thumb_h = track_h * (float)VIS / (float)QUEST_COUNT;
+        float thumb_y = track_y
+                      + (track_h - thumb_h) * (float)scroll / (float)maxscroll;
+        px_rect(r, track_x, thumb_y, 2, thumb_h, KZ_PETAL_PINK);
+    }
+
+    text_draw_centered(r, "swipe to scroll  -  tap to close",
+                       KZ_W / 2.0f, y + h - 9, KZ_COCOA);
 }

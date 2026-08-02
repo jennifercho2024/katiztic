@@ -94,7 +94,7 @@ void ui_friends_list(SDL_Renderer *r, const Friends *f);
 extern const Button KZ_QUESTS_BUTTON;
 void ui_quests_button_draw(SDL_Renderer *r, bool pressed);
 bool ui_quests_button_hit(float px, float py);
-void ui_quests_list(SDL_Renderer *r, const Quests *q);
+void ui_quests_list(SDL_Renderer *r, const Quests *q, int scroll);
 
 /* ---- décor tray ----
  * A décor button (top-right) opens a tray along the bottom showing the items

@@ -26,6 +26,11 @@ float text_draw(SDL_Renderer *r, const char *s, float x, float y, Color c);
 /* Pixel width a string would occupy, for centering/right-aligning. */
 float text_width(const char *s);
 
+/* Bigger text at an integer scale (2 = double). */
+float text_draw_scaled(SDL_Renderer *r, const char *s, float x, float y,
+                       Color c, int scale);
+float text_width_scaled(const char *s, int scale);
+
 /* Draw centered on `cx`. Convenience for labels and titles. */
 void text_draw_centered(SDL_Renderer *r, const char *s, float cx, float y,
                         Color c);

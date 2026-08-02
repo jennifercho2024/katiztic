@@ -136,7 +136,10 @@ int main(int argc, char *argv[]) {
      * it can never happen by accident. */
     bool release_open = false;
     bool quests_open = false;    /* is the quest log showing? */
-    Button btn_sleep  = { KZ_W - 48, 4,  20, 16, KZ_BTN_SLEEP };
+    int  quests_scroll = 0;      /* first visible quest row       */
+    float quests_drag_y = 0;     /* last pointer y while swiping   */
+    bool quests_dragging = false;
+    bool quests_scrolled = false;/* did this gesture actually scroll? */
     int    press_fx   = 0;   /* frames of button-press highlight remaining */
 
     /* Load the family, or start with two starter cats if there's no save. */
@@ -201,13 +204,6 @@ int main(int argc, char *argv[]) {
     char edit_buf[KZ_NAME_LEN];
     edit_buf[0] = '\0';
     int  edit_len = 0;
-
-    /* Sleep transition: a brief fade out and back in, so sleeping always feels
-     * like time passed even when the day was already fresh. Counts down from
-     * SLEEP_FADE_FRAMES; the midpoint is when the day actually resets. */
-    #define SLEEP_FADE_FRAMES 60
-    int  sleep_fade = 0;          /* >0 while the fade animation plays   */
-    bool sleep_applied = false;   /* did we apply the reset at midpoint? */
 
     bool   running = true;
     Uint64 frame   = 0;
@@ -282,7 +278,13 @@ int main(int argc, char *argv[]) {
 
                 /* If the friends list is open, any tap just closes it. */
                 if (friends_open) { friends_open = false; break; }
-                if (quests_open) { quests_open = false; break; }
+                if (quests_open) {
+                    /* start a potential swipe; button-up decides tap vs scroll */
+                    quests_dragging = true;
+                    quests_drag_y = ly;
+                    quests_scrolled = false;
+                    break;
+                }
 
                 /* If the release dialog is open, it owns every tap: Yes
                  * releases the active cat; No (or anywhere else) cancels. */
@@ -372,6 +374,7 @@ int main(int argc, char *argv[]) {
                 /* 0b) quests button: open the quest log */
                 if (ui_quests_button_hit(lx, ly)) {
                     quests_open = true;
+                    quests_scroll = 0;
                     press_fx = 8;
                     break;
                 }
@@ -469,23 +472,6 @@ int main(int argc, char *argv[]) {
                     banner_timer = 240;
                     press_fx = 8;
                 }
-                /* 4) sleep button (cottage only): begin the sleep fade */
-                else if (location == LOC_COTTAGE
-                         && ui_button_hit(&btn_sleep, lx, ly)) {
-                    if (sleep_fade == 0) {
-                        sleep_fade = SLEEP_FADE_FRAMES;
-                        sleep_applied = false;
-                    }
-                    press_fx = 8;
-                }
-                /* 5) tapping the bed also sleeps */
-                else if (location == LOC_COTTAGE && cottage_bed_hit(rx, ry)) {
-                    if (sleep_fade == 0) {
-                        sleep_fade = SLEEP_FADE_FRAMES;
-                        sleep_applied = false;
-                    }
-                    press_fx = 8;
-                }
                 /* 6) tap a cat. In the cottage the whole family is present, so
                  * a tap can land on any of them: that cat becomes active and
                  * gets petted. In the meadow, only the active cat is there. */
@@ -548,6 +534,17 @@ int main(int argc, char *argv[]) {
                 float lx, ly;
                 SDL_RenderCoordinatesFromWindow(renderer, e.motion.x,
                                                 e.motion.y, &lx, &ly);
+                /* Swiping the open quest log scrolls it. */
+                if (quests_dragging) {
+                    float dy = ly - quests_drag_y;
+                    if (dy >  11) { quests_scroll--; quests_drag_y = ly; quests_scrolled = true; }
+                    if (dy < -11) { quests_scroll++; quests_drag_y = ly; quests_scrolled = true; }
+                    if (quests_scroll < 0) quests_scroll = 0;
+                    if (quests_scroll > QUEST_COUNT - 5)
+                        quests_scroll = QUEST_COUNT - 5;
+                    if (quests_scroll < 0) quests_scroll = 0;
+                    break;
+                }
                 /* Panning the room: move the camera opposite the drag. */
                 if (cam_dragging) {
                     camera_pan(&cam, cam_last_x - lx, cam_last_y - ly);
@@ -568,6 +565,12 @@ int main(int argc, char *argv[]) {
             }
 
             case SDL_EVENT_MOUSE_BUTTON_UP: {
+                if (quests_dragging) {
+                    /* a gesture that never scrolled is a tap -> close */
+                    if (!quests_scrolled) quests_open = false;
+                    quests_dragging = false;
+                    break;
+                }
                 if (cam_dragging) { cam_dragging = false; break; }
                 if (drag_item >= 0) {
                     float lx, ly;
@@ -716,23 +719,6 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        /* Sleep fade: at the darkest midpoint, the whole family wakes rested.
-         * Refreshing every cat (not just the active one) gives sleeping a
-         * visible, felt consequence — several bars jump up at once. */
-        if (sleep_fade > 0) {
-            sleep_fade--;
-            if (!sleep_applied && sleep_fade <= SLEEP_FADE_FRAMES / 2) {
-                /* time of day now follows the real clock, so sleeping simply
-                 * rests the family rather than skipping to morning */
-                for (int i = 0; i < roster.count; i++) {
-                    roster.cats[i].stats.energy = KZ_STAT_MAX;   /* fully rested */
-                    stats_wake(&roster.cats[i].stats);           /* a mood lift  */
-                }
-                roster_save(&roster, KZ_SAVE_PATH);
-                sleep_applied = true;
-            }
-        }
-
         /* ---- draw (back to front) ---- */
         render_clear_offset();       /* start each frame screen-fixed... */
         render_set_warmth(1.0f);     /* ...and at full color */
@@ -840,8 +826,6 @@ int main(int argc, char *argv[]) {
         ui_draw_panel(renderer, active, 4, 4, editing, edit_buf, frame);
         ui_draw_release_button(renderer, 4, 4, release_open);
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
-        if (location == LOC_COTTAGE)
-            ui_button_draw(renderer, &btn_sleep, press_fx > 0);
         ui_friends_button_draw(renderer, press_fx > 0);
         ui_quests_button_draw(renderer, false);   /* friends list */
         if (location == LOC_COTTAGE)
@@ -869,17 +853,6 @@ int main(int argc, char *argv[]) {
             ui_banner(renderer, banner_line);
         }
 
-        /* Sleep fade overlay: a soft lavender-dark veil that peaks at the
-         * midpoint and eases back out — the unmistakable "you slept" signal. */
-        if (sleep_fade > 0) {
-            int half = SLEEP_FADE_FRAMES / 2;
-            int dist = sleep_fade > half ? (SLEEP_FADE_FRAMES - sleep_fade)
-                                         : sleep_fade;
-            float t = 1.0f - (float)dist / (float)half;   /* 0..1, peak at mid */
-            Uint8 a = (Uint8)(t * 230.0f);
-            px_rect_a(renderer, 0, 0, KZ_W, KZ_H, rgb(0x3B, 0x30, 0x50), a);
-        }
-
         /* Friends list overlay sits above everything when open. */
         if (friends_open) {
             ui_friends_list(renderer, &friends);
@@ -887,7 +860,7 @@ int main(int argc, char *argv[]) {
 
         /* Quest log overlay, above the scene. */
         if (quests_open) {
-            ui_quests_list(renderer, &quests);
+            ui_quests_list(renderer, &quests, quests_scroll);
         }
 
         /* The release confirmation sits above absolutely everything. */

@@ -138,6 +138,33 @@ float text_width(const char *s) {
     return (float)((int)strlen(s) * KZ_CHAR_ADVANCE);
 }
 
+/* Draw text at an integer scale (2 = double size, etc). Each glyph pixel
+ * becomes a scale×scale block. Returns the advance width in pixels. */
+float text_draw_scaled(SDL_Renderer *r, const char *s, float x, float y,
+                       Color c, int scale) {
+    if (scale < 1) scale = 1;
+    float pen = x;
+    for (const char *p = s; *p; p++) {
+        const Glyph *g = glyph_for(*p);
+        for (int row = 0; row < KZ_GLYPH_H; row++) {
+            Uint8 bits = g->row[row];
+            for (int col = 0; col < KZ_GLYPH_W; col++) {
+                if (bits & (0x8 >> col)) {
+                    px_rect(r, pen + col * scale, y + row * scale,
+                            (float)scale, (float)scale, c);
+                }
+            }
+        }
+        pen += (float)(KZ_CHAR_ADVANCE * scale);
+    }
+    return pen - x;
+}
+
+float text_width_scaled(const char *s, int scale) {
+    if (scale < 1) scale = 1;
+    return (float)((int)strlen(s) * KZ_CHAR_ADVANCE * scale);
+}
+
 void text_draw_centered(SDL_Renderer *r, const char *s, float cx, float y,
                         Color c) {
     text_draw(r, s, cx - text_width(s) / 2.0f, y, c);
