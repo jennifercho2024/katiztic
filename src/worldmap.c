@@ -210,16 +210,19 @@ void map_draw(SDL_Renderer *r, int selected, int current, Uint64 frame) {
         }
     }
 
-    /* ---- place pins with an icon above each ---- */
+    /* ---- place pins, each with its label + icon on a chip below ---- */
     for (int i = 0; i < MAP_PLACE_COUNT; i++) {
-        place_icon(r, i, PLACES[i].x, PLACES[i].y - 12);
         Color pin = (i == current) ? KZ_HEART : KZ_COCOA;
         draw_pin(r, PLACES[i].x, PLACES[i].y, pin, i == current);
-        /* label on a soft chip for readability over terrain */
-        float lw = text_width(PLACES[i].name) + 4;
-        px_rect_a(r, PLACES[i].x - lw / 2, PLACES[i].y + 5, lw, 8, KZ_CLOUD, 210);
-        text_draw_centered(r, PLACES[i].name, PLACES[i].x,
-                           PLACES[i].y + 6, KZ_COCOA);
+        /* a chip holding a small icon and the place name, side by side, so the
+         * icon never covers a city name */
+        float tw = text_width(PLACES[i].name);
+        float chip_w = 12 + tw + 6;               /* icon + gap + text + pad */
+        float chip_x = PLACES[i].x - chip_w / 2.0f;
+        float chip_y = PLACES[i].y + 5;
+        px_rect_a(r, chip_x, chip_y, chip_w, 10, KZ_CLOUD, 220);
+        place_icon(r, i, chip_x + 6, chip_y + 5);   /* icon at chip's left */
+        text_draw(r, PLACES[i].name, chip_x + 12, chip_y + 2, KZ_COCOA);
     }
 
     /* ---- the moving cursor: a gently pulsing ring around the selected place ---- */

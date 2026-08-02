@@ -28,6 +28,7 @@
 #include "cafe.h"
 #include "forest.h"
 #include "street.h"
+#include "streetlife.h"
 #include "story.h"
 #include "worldmap.h"
 #include "pantry.h"
@@ -207,6 +208,7 @@ int main(int argc, char *argv[]) {
     /* The wild cat currently visiting the meadow (if any), the banner line
      * that describes the moment, and whether the friends-list overlay is open. */
     Encounter enc = encounter_none();
+    StreetLife streetlife = streetlife_new();   /* people walking their cats */
     char banner_line[48];
     banner_line[0] = '\0';
     int  banner_timer = 0;      /* frames the banner stays up (0 = hidden) */
@@ -593,6 +595,24 @@ int main(int argc, char *argv[]) {
                             press_fx = 8;
                             break;
                         }
+                        /* On the street, tap a passing neighbor to say hi and
+                         * pet their cat — checked before your own cat. */
+                        if (location == LOC_STREET) {
+                            int wk = streetlife_hit(&streetlife, lx, ly);
+                            if (wk >= 0) {
+                                const char *who =
+                                    streetlife_greet(&streetlife, wk);
+                                if (who)
+                                    SDL_snprintf(banner_line, sizeof banner_line,
+                                                 "%s's cat purrs hello!", who);
+                                else
+                                    SDL_strlcpy(banner_line, "Hello there!",
+                                                sizeof banner_line);
+                                banner_timer = 200;
+                                press_fx = 8;
+                                break;
+                            }
+                        }
                         /* Otherwise pet the active cat. She's DRAWN at the
                          * outing spot (her stored position stays her home
                          * roaming spot), so hit-test where she appears. */
@@ -776,6 +796,7 @@ int main(int argc, char *argv[]) {
                       : MUSIC_STREET;
         music_set_theme(mt);
         if (location == LOC_MEADOW) encounter_update(&enc, &friends);
+        if (location == LOC_STREET) streetlife_update(&streetlife, frame);
 
         /* In a faded zone, your cat's quiet company brings the color back —
          * faster the deeper her bond and the more friends you've made. */
@@ -943,6 +964,9 @@ int main(int argc, char *argv[]) {
             if (location == LOC_FOREST) forest_draw(renderer, frame, is_night);
             else                        street_draw(renderer, frame, is_night);
             render_set_warmth(1.0f);
+            /* people walking their cats bring the street to life (full color) */
+            if (location == LOC_STREET)
+                streetlife_draw(renderer, &streetlife, frame, is_night);
             cat_draw(renderer, &active->anim, col, frame);
             if (active->shiny)
                 cat_draw_sparkles(renderer, &active->anim, frame);

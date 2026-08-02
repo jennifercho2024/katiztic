@@ -39,9 +39,9 @@ static void glyph_moon(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 3, y + 7, 3, 1, c);
 }
 
-/* a little globe with latitude/longitude lines */
+/* a compass: a round dial with a red/white needle pointing NE */
 static void glyph_map(SDL_Renderer *r, float x, float y, Color c) {
-    /* round outline (8x8-ish circle) */
+    /* round rim (8x8 circle) */
     px_rect(r, x + 2, y,     4, 1, c);
     px_rect(r, x + 2, y + 7, 4, 1, c);
     px_rect(r, x,     y + 2, 1, 4, c);
@@ -50,16 +50,12 @@ static void glyph_map(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 6, y + 1, 1, 1, c);
     px_rect(r, x + 1, y + 6, 1, 1, c);
     px_rect(r, x + 6, y + 6, 1, 1, c);
-    /* ocean fill */
-    px_rect(r, x + 2, y + 2, 4, 4, rgb(0xAF, 0xD6, 0xEC));
-    px_rect(r, x + 1, y + 3, 1, 2, rgb(0xAF, 0xD6, 0xEC));
-    px_rect(r, x + 6, y + 3, 1, 2, rgb(0xAF, 0xD6, 0xEC));
-    /* little green continents */
-    px_rect(r, x + 2, y + 2, 2, 2, KZ_MINT);
-    px_rect(r, x + 4, y + 4, 2, 2, KZ_MINT);
-    /* equator + meridian lines */
-    px_rect(r, x + 1, y + 3, 6, 1, rgb(0x9A, 0x86, 0x94));
-    px_rect(r, x + 3, y + 1, 1, 6, rgb(0x9A, 0x86, 0x94));
+    /* dial face */
+    px_rect(r, x + 2, y + 2, 4, 4, KZ_CLOUD);
+    /* needle: red pointing up-right (N), white pointing down-left (S) */
+    px_rect(r, x + 4, y + 2, 1, 2, KZ_HEART);       /* red north tip */
+    px_rect(r, x + 3, y + 4, 2, 1, rgb(0x9A, 0x86, 0x94)); /* white south */
+    px_rect(r, x + 3, y + 3, 2, 1, KZ_HEART);       /* needle center */
 }
 
 static void glyph_fish(SDL_Renderer *r, float x, float y, Color c) {
