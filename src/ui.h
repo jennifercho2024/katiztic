@@ -69,6 +69,10 @@ void ui_draw_release_button(SDL_Renderer *r, float panel_x, float panel_y,
 void ui_confirm_release(SDL_Renderer *r, const char *cat_name);
 int  ui_confirm_release_hit(float px, float py);
 
+/* A centered "Go to <place>?" travel confirmation, with Go/No buttons. */
+void ui_confirm_travel(SDL_Renderer *r, const char *place_name);
+int  ui_confirm_travel_hit(float px, float py);
+
 /* ---- encounter UI ----
  * A soft dialogue banner along the bottom with a line of text, used when a
  * wild cat is visiting on a walk. */
@@ -106,11 +110,13 @@ bool ui_decor_button_hit(float px, float py);
 /* Draw the tray of owned items. Returns via out-params the tray's top y so
  * main can tell "dragged out of the tray into the room". */
 #include "decor.h"
-void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame, int scroll);
+void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame, int page);
 
 /* Which owned item's tray slot is at (px,py), or -1. Only owned items appear. */
-int  ui_decor_tray_hit(const Decor *d, float px, float py, int scroll);
+int  ui_decor_tray_hit(const Decor *d, float px, float py, int page);
 int  ui_decor_tray_count(const Decor *d);
+int  ui_decor_tray_pages(const Decor *d);
+bool ui_decor_tray_more_hit(const Decor *d, float px, float py);
 
 /* The y-coordinate of the top of the tray (things dropped above it land in
  * the room; things below are still "in the tray"). */

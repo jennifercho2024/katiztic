@@ -74,6 +74,11 @@ int  decor_hit(const Decor *d, float px, float py);
 void decor_draw_one(SDL_Renderer *r, DecorKind k, float x, float y,
                     Uint64 frame);
 
+/* Draw an item's preview neatly centered inside a tray slot of the given size,
+ * so nothing spills outside the box regardless of the item's shape. */
+void decor_draw_preview(SDL_Renderer *r, DecorKind k, float slot_x,
+                        float slot_y, float slot_w, float slot_h, Uint64 frame);
+
 
 /* ---- persistence: its own save file ---- */
 bool decor_save(const Decor *d, const char *path);

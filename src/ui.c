@@ -489,14 +489,20 @@ bool ui_decor_button_hit(float px_, float py_) {
 #define TRAY_H     38
 #define TRAY_Y     (KZ_H - TRAY_H - 26)   /* sits above the roster strip */
 #define TRAY_SLOT  30
+#define TRAY_PAGE  6                       /* item slots shown per page   */
 
 float ui_decor_tray_top(void) { return (float)TRAY_Y; }
 
-static float tray_slot_x(int visible_index, int scroll) {
-    return 6.0f + (visible_index - scroll) * (TRAY_SLOT + 2);
+static float tray_slot_x(int slot_on_page) {
+    return 6.0f + slot_on_page * (TRAY_SLOT + 2);
 }
 
-/* How many owned items are in the tray (for clamping the swipe scroll). */
+/* The "+more" button lives after the last slot on the page. */
+static float tray_more_x(void) {
+    return tray_slot_x(TRAY_PAGE);
+}
+
+/* How many owned items are in the tray. */
 int ui_decor_tray_count(const Decor *d) {
     int n = 0;
     for (int i = 0; i < DECOR_COUNT; i++)
@@ -504,50 +510,95 @@ int ui_decor_tray_count(const Decor *d) {
     return n;
 }
 
-void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame, int scroll) {
+/* How many pages of items there are (at least 1). */
+int ui_decor_tray_pages(const Decor *d) {
+    int n = ui_decor_tray_count(d);
+    int pages = (n + TRAY_PAGE - 1) / TRAY_PAGE;
+    return pages < 1 ? 1 : pages;
+}
+
+void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame, int page) {
     /* backing strip */
     px_rect_a(r, 0, TRAY_Y - 2, KZ_W, TRAY_H + 2, KZ_CLOUD, 235);
     px_rect(r, 0, TRAY_Y - 2, KZ_W, 1, KZ_COCOA);
 
-    text_draw(r, "drag to place  -  swipe tray", 6, TRAY_Y - 10, KZ_COCOA);
+    int pages = ui_decor_tray_pages(d);
+    if (page < 0) page = 0;
+    if (page >= pages) page = pages - 1;
 
-    int vis = 0;
+    if (pages > 1) {
+        char lbl[28];
+        SDL_snprintf(lbl, sizeof lbl, "drag to place  -  page %d/%d",
+                     page + 1, pages);
+        text_draw(r, lbl, 6, TRAY_Y - 10, KZ_COCOA);
+    } else {
+        text_draw(r, "drag to place", 6, TRAY_Y - 10, KZ_COCOA);
+    }
+
+    /* draw this page's slots */
+    int start = page * TRAY_PAGE;
+    int vis = 0, shown = 0;
     for (int i = 0; i < DECOR_COUNT; i++) {
         if (!d->items[i].owned) continue;
-        float sx = tray_slot_x(vis, scroll);
-        vis++;
-        /* skip slots scrolled off either edge */
-        if (sx + TRAY_SLOT < 0 || sx > KZ_W) continue;
+        int idx = vis++;
+        if (idx < start || idx >= start + TRAY_PAGE) continue;
+        float sx = tray_slot_x(shown++);
         /* slot */
         px_rect(r, sx, (float)TRAY_Y + 2, TRAY_SLOT, TRAY_SLOT - 4, KZ_CLOUD);
         px_rect(r, sx, (float)TRAY_Y + 2, TRAY_SLOT, 1, KZ_COCOA);
         px_rect(r, sx, (float)TRAY_Y + TRAY_SLOT - 3, TRAY_SLOT, 1, KZ_COCOA);
         px_rect(r, sx, (float)TRAY_Y + 2, 1, TRAY_SLOT - 4, KZ_COCOA);
         px_rect(r, sx + TRAY_SLOT - 1, (float)TRAY_Y + 2, 1, TRAY_SLOT - 4, KZ_COCOA);
-        /* a small preview of the item, centered-ish in the slot */
-        decor_draw_one(r, (DecorKind)i, sx + 8, (float)TRAY_Y + 6, frame);
-        /* a check if it's currently placed in the room */
+        decor_draw_preview(r, (DecorKind)i, sx, (float)TRAY_Y + 2,
+                           TRAY_SLOT, TRAY_SLOT - 4, frame);
         if (d->items[i].placed) {
             px_rect(r, sx + TRAY_SLOT - 6, (float)TRAY_Y + 3, 3, 1, KZ_MINT);
             px_rect(r, sx + TRAY_SLOT - 4, (float)TRAY_Y + 4, 1, 2, KZ_MINT);
         }
-        /* the item's name, centered just under its slot */
         text_draw_centered(r, decor_info((DecorKind)i)->name,
                            sx + TRAY_SLOT / 2.0f,
                            (float)TRAY_Y + TRAY_SLOT - 1, KZ_COCOA);
     }
+
+    /* the "+more" button (only when there's more than one page) */
+    if (pages > 1) {
+        float mx = tray_more_x();
+        px_rect(r, mx, (float)TRAY_Y + 2, TRAY_SLOT, TRAY_SLOT - 4, KZ_BUTTER);
+        px_rect(r, mx, (float)TRAY_Y + 2, TRAY_SLOT, 1, KZ_COCOA);
+        px_rect(r, mx, (float)TRAY_Y + TRAY_SLOT - 3, TRAY_SLOT, 1, KZ_COCOA);
+        px_rect(r, mx, (float)TRAY_Y + 2, 1, TRAY_SLOT - 4, KZ_COCOA);
+        px_rect(r, mx + TRAY_SLOT - 1, (float)TRAY_Y + 2, 1, TRAY_SLOT - 4, KZ_COCOA);
+        /* a "+" and the word more */
+        px_rect(r, mx + 8, (float)TRAY_Y + 11, 8, 2, KZ_COCOA);
+        px_rect(r, mx + 11, (float)TRAY_Y + 8, 2, 8, KZ_COCOA);
+        text_draw_centered(r, "more", mx + TRAY_SLOT / 2.0f,
+                           (float)TRAY_Y + TRAY_SLOT - 1, KZ_COCOA);
+    }
 }
 
-int ui_decor_tray_hit(const Decor *d, float px_, float py_, int scroll) {
+int ui_decor_tray_hit(const Decor *d, float px_, float py_, int page) {
     if (py_ < TRAY_Y + 2 || py_ > TRAY_Y + TRAY_SLOT - 2) return -1;
-    int vis = 0;
+    int pages = ui_decor_tray_pages(d);
+    if (page < 0) page = 0;
+    if (page >= pages) page = pages - 1;
+    int start = page * TRAY_PAGE;
+    int vis = 0, shown = 0;
     for (int i = 0; i < DECOR_COUNT; i++) {
         if (!d->items[i].owned) continue;
-        float sx = tray_slot_x(vis, scroll);
-        vis++;
+        int idx = vis++;
+        if (idx < start || idx >= start + TRAY_PAGE) continue;
+        float sx = tray_slot_x(shown++);
         if (px_ >= sx && px_ <= sx + TRAY_SLOT) return i;
     }
     return -1;
+}
+
+/* Did the tap hit the "+more" button? (only meaningful when >1 page) */
+bool ui_decor_tray_more_hit(const Decor *d, float px_, float py_) {
+    if (ui_decor_tray_pages(d) <= 1) return false;
+    if (py_ < TRAY_Y + 2 || py_ > TRAY_Y + TRAY_SLOT - 2) return false;
+    float mx = tray_more_x();
+    return px_ >= mx && px_ <= mx + TRAY_SLOT;
 }
 
 
@@ -806,4 +857,56 @@ void ui_quests_list(SDL_Renderer *r, const Quests *q, int scroll) {
 
     text_draw_centered(r, "swipe to scroll  -  tap to close",
                        KZ_W / 2.0f, y + h - 9, KZ_COCOA);
+}
+/* ---- travel confirmation dialog ("Go here?") ---- */
+
+#define TC_W 156
+#define TC_H 50
+#define TC_X ((KZ_W - TC_W) / 2.0f)
+#define TC_Y 52.0f
+#define TC_BTN_W 44
+#define TC_BTN_H 14
+
+static void tc_btn_pos(int which, float *bx, float *by) {
+    float total = TC_BTN_W * 2 + 14;
+    float x0 = TC_X + (TC_W - total) / 2.0f;
+    *bx = x0 + (float)which * (TC_BTN_W + 14);
+    *by = TC_Y + TC_H - TC_BTN_H - 6;
+}
+
+void ui_confirm_travel(SDL_Renderer *r, const char *place_name) {
+    px_rect_a(r, 0, 0, KZ_W, KZ_H, KZ_COCOA, 70);
+
+    px_rect_a(r, TC_X + 2, TC_Y + 2, TC_W, TC_H, KZ_COCOA, 60);
+    px_rect(r, TC_X, TC_Y, TC_W, TC_H, KZ_CLOUD);
+    px_rect(r, TC_X, TC_Y, TC_W, 1, KZ_COCOA);
+    px_rect(r, TC_X, TC_Y + TC_H - 1, TC_W, 1, KZ_COCOA);
+    px_rect(r, TC_X, TC_Y, 1, TC_H, KZ_COCOA);
+    px_rect(r, TC_X + TC_W - 1, TC_Y, 1, TC_H, KZ_COCOA);
+
+    char line[48];
+    SDL_snprintf(line, sizeof line, "Go to %s?", place_name);
+    text_draw_centered(r, line, TC_X + TC_W / 2.0f, TC_Y + 10, KZ_COCOA);
+
+    for (int b = 0; b < 2; b++) {
+        float bx, by; tc_btn_pos(b, &bx, &by);
+        Color fill = (b == 0) ? KZ_MINT : KZ_PETAL_PINK;
+        px_rect(r, bx, by, TC_BTN_W, TC_BTN_H, fill);
+        px_rect(r, bx, by, TC_BTN_W, 1, KZ_COCOA);
+        px_rect(r, bx, by + TC_BTN_H - 1, TC_BTN_W, 1, KZ_COCOA);
+        px_rect(r, bx, by, 1, TC_BTN_H, KZ_COCOA);
+        px_rect(r, bx + TC_BTN_W - 1, by, 1, TC_BTN_H, KZ_COCOA);
+        text_draw_centered(r, (b == 0) ? "Go (A)" : "No (B)",
+                           bx + TC_BTN_W / 2.0f, by + 4, KZ_COCOA);
+    }
+}
+
+int ui_confirm_travel_hit(float px_, float py_) {
+    for (int b = 0; b < 2; b++) {
+        float bx, by; tc_btn_pos(b, &bx, &by);
+        if (px_ >= bx && px_ <= bx + TC_BTN_W
+            && py_ >= by && py_ <= by + TC_BTN_H)
+            return (b == 0) ? 1 : 0;
+    }
+    return -1;
 }

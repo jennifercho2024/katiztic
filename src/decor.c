@@ -146,6 +146,35 @@ static void draw_milk(SDL_Renderer *r, float x, float y, Uint64 frame) {
     px_rect(r, x, y + 9, 16, 1, rgb(0xB0,0xA0,0xB4)); /* base shadow */
 }
 
+/* Bounding box of each item's art relative to the (x,y) passed to
+ * decor_draw_one: {min-x offset, min-y offset, width, height}. Used to center
+ * previews in the tray so nothing spills out of the slot. */
+typedef struct { float ox, oy, w, h; } DecorBox;
+
+static DecorBox decor_box(DecorKind k) {
+    switch (k) {
+        case DECOR_PLANT:   return (DecorBox){  0, -2, 12, 20 };
+        case DECOR_LAMP:    return (DecorBox){ -2, -4, 16, 23 };
+        case DECOR_PICTURE: return (DecorBox){  0,  0, 18, 14 };
+        case DECOR_TOWER:   return (DecorBox){ -2,  0, 20, 25 };
+        case DECOR_CUSHION: return (DecorBox){  0,  0, 18, 11 };
+        case DECOR_RUG2:    return (DecorBox){  0,  0, 27, 11 };
+        case DECOR_YARN:    return (DecorBox){  0,  0, 14, 11 };
+        case DECOR_MILK:    return (DecorBox){  0,  0, 16, 10 };
+        default:            return (DecorBox){  0,  0, 16, 16 };
+    }
+}
+
+void decor_draw_preview(SDL_Renderer *r, DecorKind k, float slot_x,
+                        float slot_y, float slot_w, float slot_h,
+                        Uint64 frame) {
+    DecorBox b = decor_box(k);
+    /* choose an origin so the item's bounding box is centered in the slot */
+    float ox = slot_x + (slot_w - b.w) / 2.0f - b.ox;
+    float oy = slot_y + (slot_h - b.h) / 2.0f - b.oy;
+    decor_draw_one(r, k, ox, oy, frame);
+}
+
 void decor_draw_one(SDL_Renderer *r, DecorKind k, float x, float y,
                     Uint64 frame) {
     switch (k) {

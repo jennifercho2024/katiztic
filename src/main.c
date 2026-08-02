@@ -29,6 +29,7 @@
 #include "forest.h"
 #include "street.h"
 #include "story.h"
+#include "worldmap.h"
 #include "quests.h"
 #include <math.h>
 #include "icon.h"
@@ -126,7 +127,10 @@ int main(int argc, char *argv[]) {
     /* On-screen buttons, top-right. One is a toggle (home<->out); the sleep
      * button only shows in the cottage. Positions in logical 240x160 space. */
     Button btn_travel = { KZ_W - 24, 4,  20, 16, KZ_BTN_OUT };
-    bool   travel_open = false;   /* is the place-picker menu showing? */
+    bool   map_open = false;      /* is the world map showing?           */
+    int    map_sel = 0;           /* cursor: which place is highlighted   */
+    bool   map_confirm = false;   /* is the "Go here?" dialog up?         */
+    int    do_travel = -1;        /* set to a Location to travel this frame */
 
     /* The cottage is bigger than the screen so you can pan around it. The
      * camera is the view offset into that larger room. */
@@ -140,9 +144,7 @@ int main(int argc, char *argv[]) {
      * it can never happen by accident. */
     bool release_open = false;
     bool quests_open = false;    /* is the quest log showing? */
-    int  tray_scroll = 0;        /* horizontal scroll of the décor tray */
-    bool tray_swiping = false;
-    float tray_swipe_x = 0;
+    int  tray_page = 0;          /* which page of décor items is showing */
     int  quests_scroll = 0;      /* first visible quest row       */
     float quests_drag_y = 0;     /* last pointer y while swiping   */
     bool quests_dragging = false;
@@ -253,6 +255,30 @@ int main(int argc, char *argv[]) {
                 break;
 
             case SDL_EVENT_KEY_DOWN:
+                /* While the map is open, arrows move the cursor and A/Enter
+                 * opens (or confirms) the "Go here?" prompt. Escape closes. */
+                if (map_open) {
+                    if (map_confirm) {
+                        if (e.key.key == SDLK_A || e.key.key == SDLK_RETURN) {
+                            do_travel = map_sel;
+                            map_confirm = false;
+                            map_open = false;
+                        } else if (e.key.key == SDLK_B
+                                   || e.key.key == SDLK_ESCAPE) {
+                            map_confirm = false;
+                        }
+                    } else {
+                        if (e.key.key == SDLK_LEFT)  map_sel = map_move(map_sel, -1, 0);
+                        else if (e.key.key == SDLK_RIGHT) map_sel = map_move(map_sel, 1, 0);
+                        else if (e.key.key == SDLK_UP)    map_sel = map_move(map_sel, 0, -1);
+                        else if (e.key.key == SDLK_DOWN)  map_sel = map_move(map_sel, 0, 1);
+                        else if (e.key.key == SDLK_A || e.key.key == SDLK_RETURN)
+                            map_confirm = true;
+                        else if (e.key.key == SDLK_ESCAPE || e.key.key == SDLK_B)
+                            map_open = false;
+                    }
+                    break;
+                }
                 if (e.key.key == SDLK_ESCAPE || e.key.key == SDLK_Q)
                     running = false;
                 else if (e.key.key == SDLK_F) {
@@ -310,62 +336,30 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* If the place-picker menu is open, it gets first claim on
-                 * taps (it overlaps other buttons on the right edge). */
-                if (travel_open) {
-                    int pick = ui_place_menu_hit(lx, ly);
-                    travel_open = false;
-                    if (pick >= 0) {
-                        Location newloc = (pick == 0) ? LOC_COTTAGE
-                                        : (pick == 1) ? LOC_MEADOW
-                                        : (pick == 2) ? LOC_CAFE
-                                        : (pick == 3) ? LOC_FOREST
-                                        : LOC_STREET;
-                        if (newloc != location) {
-                            /* leaving a story zone? keep its warmth safe */
-                            if (story_zone_for(location) >= 0)
-                                story_save(&story, KZ_STORY_PATH);
-                            location = newloc;
-                            btn_travel.kind = (location == LOC_COTTAGE)
-                                              ? KZ_BTN_OUT : KZ_BTN_HOME;
-                            /* Going out (anywhere but home) lifts everyone's
-                             * happiness — a nice change of scene. */
-                            if (newloc != LOC_COTTAGE) {
-                                for (int i = 0; i < roster.count; i++)
-                                    stats_outing(&roster.cats[i].stats);
-                            }
-                            if (location == LOC_MEADOW) {
-                                enc = encounter_begin(&friends);
-                                if (enc.present) {
-                                    Friend *known = friends_find(&friends, enc.name);
-                                    if (known && known->befriended)
-                                        SDL_snprintf(banner_line, sizeof banner_line,
-                                                     "%s comes to say hello!", enc.name);
-                                    else if (known)
-                                        SDL_snprintf(banner_line, sizeof banner_line,
-                                                     "%s is here again.", enc.name);
-                                    else
-                                        SDL_strlcpy(banner_line,
-                                                    "A shy cat watches you...",
-                                                    sizeof banner_line);
-                                    banner_timer = 240;
-                                }
-                            } else {
-                                enc = encounter_none();
-                            }
-                            /* First time stepping into a faded zone: a
-                             * story moment — its color is gone. */
-                            {
-                                int sz = story_zone_for(location);
-                                if (sz >= 0 && !story.seen_intro[sz]) {
-                                    story.seen_intro[sz] = true;
-                                    SDL_snprintf(banner_line, sizeof banner_line,
-                                                 "The %s's color has faded...",
-                                                 STORY_ZONE_NAMES[sz]);
-                                    banner_timer = 320;
-                                    story_save(&story, KZ_STORY_PATH);
-                                }
-                            }
+                /* The map is open: arrows already moved the cursor (handled in
+                 * the key events). A tap either picks a place dot (selects it)
+                 * or, if it hits the already-selected place, opens the confirm.
+                 * Tapping outside any dot closes the map. */
+                if (map_open) {
+                    int hit = map_hit(lx, ly);
+                    if (hit >= 0) {
+                        if (hit == map_sel) {
+                            map_confirm = true;   /* tapping the selected place */
+                        } else {
+                            map_sel = hit;        /* first tap just selects it  */
+                        }
+                    } else if (!map_confirm) {
+                        map_open = false;         /* tapped empty space: close  */
+                    }
+                    /* if the confirm dialog is up, route the tap to it */
+                    if (map_confirm) {
+                        int ans = ui_confirm_travel_hit(lx, ly);
+                        if (ans == 1) {
+                            do_travel = (Location)map_sel;   /* apply below */
+                            map_confirm = false;
+                            map_open = false;
+                        } else if (ans == 0) {
+                            map_confirm = false;
                         }
                     }
                     break;
@@ -393,19 +387,19 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* 0c) while the décor tray is open, a tap on a tray slot grabs
-                 * a fresh copy of that item to drag out into the room. A press
-                 * on the tray strip that misses a slot starts a sideways swipe
-                 * to scroll through items. */
+                /* 0c) while the décor tray is open: tap the "+more" button to
+                 * flip to the next page of items, or tap a slot to grab a
+                 * fresh copy of that item to drag out into the room. */
                 if (location == LOC_COTTAGE && decor_open) {
-                    int tray = ui_decor_tray_hit(&decor, lx, ly, tray_scroll);
-                    if (tray >= 0) {
-                        drag_item = tray;
+                    if (ui_decor_tray_more_hit(&decor, lx, ly)) {
+                        int pages = ui_decor_tray_pages(&decor);
+                        tray_page = (tray_page + 1) % pages;   /* wrap around */
+                        press_fx = 8;
                         break;
                     }
-                    if (ly >= ui_decor_tray_top() - 2) {
-                        tray_swiping = true;
-                        tray_swipe_x = lx;
+                    int tray = ui_decor_tray_hit(&decor, lx, ly, tray_page);
+                    if (tray >= 0) {
+                        drag_item = tray;
                         break;
                     }
                 }
@@ -465,9 +459,11 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* 3) travel button: open the place-picker menu */
+                /* 3) travel button: open the world map */
                 if (ui_button_hit(&btn_travel, lx, ly)) {
-                    travel_open = true;
+                    map_open = true;
+                    map_confirm = false;
+                    map_sel = (int)location;   /* start on where you are */
                     press_fx = 8;
                     break;
                 }
@@ -564,18 +560,6 @@ int main(int argc, char *argv[]) {
                 float lx, ly;
                 SDL_RenderCoordinatesFromWindow(renderer, e.motion.x,
                                                 e.motion.y, &lx, &ly);
-                /* Swiping the décor tray scrolls it left/right. */
-                if (tray_swiping) {
-                    float dx = lx - tray_swipe_x;
-                    int count = ui_decor_tray_count(&decor);
-                    int fits = 7;   /* about how many slots fit across */
-                    int maxs = count - fits; if (maxs < 0) maxs = 0;
-                    if (dx < -16) { tray_scroll++; tray_swipe_x = lx; }
-                    if (dx >  16) { tray_scroll--; tray_swipe_x = lx; }
-                    if (tray_scroll < 0) tray_scroll = 0;
-                    if (tray_scroll > maxs) tray_scroll = maxs;
-                    break;
-                }
                 /* Swiping the open quest log scrolls it. */
                 if (quests_dragging) {
                     float dy = ly - quests_drag_y;
@@ -607,7 +591,6 @@ int main(int argc, char *argv[]) {
             }
 
             case SDL_EVENT_MOUSE_BUTTON_UP: {
-                if (tray_swiping) { tray_swiping = false; break; }
                 if (quests_dragging) {
                     /* a gesture that never scrolled is a tap -> close */
                     if (!quests_scrolled) quests_open = false;
@@ -640,8 +623,57 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        /* ---- apply a confirmed travel from the map ---- */
+        if (do_travel >= 0) {
+            Location newloc = (Location)do_travel;
+            do_travel = -1;
+            if (newloc != location) {
+                /* leaving a story zone? keep its warmth safe */
+                if (story_zone_for(location) >= 0)
+                    story_save(&story, KZ_STORY_PATH);
+                location = newloc;
+                btn_travel.kind = (location == LOC_COTTAGE)
+                                  ? KZ_BTN_OUT : KZ_BTN_HOME;
+                /* Going out lifts everyone's happiness — a change of scene. */
+                if (newloc != LOC_COTTAGE) {
+                    for (int i = 0; i < roster.count; i++)
+                        stats_outing(&roster.cats[i].stats);
+                }
+                if (location == LOC_MEADOW) {
+                    enc = encounter_begin(&friends);
+                    if (enc.present) {
+                        Friend *known = friends_find(&friends, enc.name);
+                        if (known && known->befriended)
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "%s comes to say hello!", enc.name);
+                        else if (known)
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "%s is here again.", enc.name);
+                        else
+                            SDL_strlcpy(banner_line,
+                                        "A shy cat watches you...",
+                                        sizeof banner_line);
+                        banner_timer = 240;
+                    }
+                } else {
+                    enc = encounter_none();
+                }
+                /* First time into a faded zone: a story moment. */
+                {
+                    int sz = story_zone_for(location);
+                    if (sz >= 0 && !story.seen_intro[sz]) {
+                        story.seen_intro[sz] = true;
+                        SDL_snprintf(banner_line, sizeof banner_line,
+                                     "The %s's color has faded...",
+                                     STORY_ZONE_NAMES[sz]);
+                        banner_timer = 320;
+                        story_save(&story, KZ_STORY_PATH);
+                    }
+                }
+            }
+        }
+
         /* ---- update ---- */
-        if (location == LOC_MEADOW) meadow_update(&meadow);
         OwnedCat *active = roster_active(&roster);
         /* Animate every cat (they all breathe and blink); the active one also
          * carries any petting glow. */
@@ -875,16 +907,9 @@ int main(int argc, char *argv[]) {
             ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray   */
         ui_roster_draw(renderer, &roster);                /* the family strip */
 
-        /* Travel place-picker menu, when open. */
-        if (travel_open) {
-            ui_place_menu(renderer,
-                          location == LOC_COTTAGE ? 0
-                        : location == LOC_MEADOW  ? 1 : 2);
-        }
-
         /* Décor tray, when open (cottage only). */
         if (location == LOC_COTTAGE && decor_open) {
-            ui_decor_tray(renderer, &decor, frame, tray_scroll);
+            ui_decor_tray(renderer, &decor, frame, tray_page);
         }
 
         /* Encounter UI: the treat button and the dialogue banner, when a wild
@@ -909,6 +934,17 @@ int main(int argc, char *argv[]) {
         /* The release confirmation sits above absolutely everything. */
         if (release_open) {
             ui_confirm_release(renderer, roster_active(&roster)->name);
+        }
+
+        /* The world map is a full-screen overlay; its confirm sits on top. */
+        if (map_open) {
+            render_clear_offset();
+            render_set_warmth(1.0f);
+            map_draw(renderer, map_sel, (int)location, frame);
+            if (map_confirm) {
+                const MapPlace *mp = map_place(map_sel);
+                ui_confirm_travel(renderer, mp->name);
+            }
         }
 
         SDL_RenderPresent(renderer);
