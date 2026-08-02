@@ -1,20 +1,37 @@
-/* music.c — see music.h. Procedural cozy music, generated sample by sample.
+/* music.c — see music.h. Procedural cozy lo-fi music, generated per sample.
  *
- * How it works: each theme is a list of chords (sets of note frequencies).
- * We step through the chords slowly; for each, we sum a few soft sine voices
- * shaped by a gentle attack/release envelope, plus a quiet higher "twinkle"
- * melody note. The result is smooth, quiet, and loops forever. All mixing is
- * in floating point, output as stereo F32.
+ * The vibe: dreamy, hazy, warm, and calm — the kind of slow lo-fi you'd
+ * unwind to. It's built from a few ingredients that together give that feel:
+ *
+ *   - soft rounded tones (sine-ish, not sharp square waves)
+ *   - a SLIGHT DETUNE between paired voices — two oscillators a hair apart
+ *     beat gently against each other, the classic warm, woozy lo-fi shimmer
+ *   - long, spacious chords with slow attacks and long release tails, so
+ *     notes bleed into one another (the hazy quality)
+ *   - a quiet, slow BASS PULSE for a gentle head-nod groove, kept low in the
+ *     mix so it's felt more than heard
+ *   - a drifting ARPEGGIO that rolls softly through each chord instead of a
+ *     bright lead poking out
+ *
+ * Everything is deliberately quiet — this is background, not foreground.
+ * Output is stereo F32, generated in the audio callback.
  */
 #include "music.h"
+#include <math.h>
 
+#define KZ_TAU 6.283185307179586
 
-
-#define SR        44100          /* sample rate                        */
-#define CHANS     2              /* stereo                             */
-#define CHORD_SEC 2.6f           /* seconds per chord — slow and calm  */
+#define SR        44100          /* sample rate                          */
+#define CHANS     2              /* stereo                               */
+#define CHORD_SEC 4.4f           /* long, drifting chords — dreamy & slow */
+#define BPM       66.0f          /* slow lo-fi head-nod tempo            */
 
 /* Note frequencies (Hz), a soft major-ish palette. */
+#define C3 130.81f
+#define E3 164.81f
+#define F3 174.61f
+#define G3 196.00f
+#define A3 220.00f
 #define C4 261.63f
 #define D4 293.66f
 #define E4 329.63f
@@ -23,25 +40,30 @@
 #define A4 440.00f
 #define B4 493.88f
 #define C5 523.25f
+#define D5 587.33f
 #define E5 659.25f
-#define G5 783.99f
 
-/* A chord is up to 3 base frequencies plus one melody note. 0 = unused. */
-typedef struct { float a, b, c, mel; } Chord;
+/* A chord: a low bass note, three mid tones for the pad, and a set of notes
+ * the arpeggio drifts through. 0 = unused. */
+typedef struct {
+    float bass;
+    float a, b, c;      /* pad triad */
+    float arp[4];       /* arpeggio notes (rolled through slowly) */
+} Chord;
 
-/* Cottage: warm I–vi–IV–V feel in C, low and settled. */
+/* Cottage: warm, settled — a mellow ii–V–I–vi kind of drift in C. */
 static const Chord COTTAGE[] = {
-    { C4, E4, G4, C5 },
-    { A4, C5, E5, E5 },
-    { F4, A4, C5, A4 },
-    { G4, B4, D4, G5 },
+    { C3, C4, E4, G4, { C4, E4, G4, C5 } },
+    { A3, A4, C5, E5, { A4, C5, E4, A4 } },
+    { F3, F4, A4, C5, { F4, A4, C5, E5 } },
+    { G3, G4, B4, D5, { G4, B4, D5, G4 } },
 };
-/* Meadow: airier, brighter — moves up a little, more open voicings. */
+/* Meadow: a touch brighter and more open, but the same dreamy calm. */
 static const Chord MEADOW[] = {
-    { G4, B4, D4, G5 },
-    { C4, E4, G4, E5 },
-    { D4, F4, A4, A4 },
-    { E4, G4, B4, C5 },
+    { G3, G4, B4, D5, { G4, B4, D5, G4 } },
+    { E3, E4, G4, B4, { E4, G4, B4, E5 } },
+    { C4, C4, E4, G4, { C4, E4, G4, C5 } },
+    { D4, D4, F4, A4, { D4, F4, A4, D5 } },
 };
 
 static const Chord *THEMES[MUSIC_THEME_COUNT] = { COTTAGE, MEADOW };
@@ -50,60 +72,57 @@ static const int THEME_LEN[MUSIC_THEME_COUNT] = {
     (int)(sizeof MEADOW  / sizeof MEADOW[0]),
 };
 
-/* Player state, shared with the audio callback. Kept tiny and plain. */
+/* Player state, shared with the audio callback. Kept plain. */
 typedef struct {
     SDL_AudioStream *stream;
     MusicTheme theme;
-    int   chord_index;      /* which chord we're on                 */
-    Uint64 sample_pos;      /* samples into the current chord       */
-    double phase_a, phase_b, phase_c, phase_mel;  /* oscillator phases */
+    int    chord_index;
+    Uint64 sample_pos;      /* samples into the current chord */
+    /* Oscillator phases. Paired voices (…and their _det detuned twins) give
+     * the warm lo-fi beating. */
+    double ph_a, ph_a_det;
+    double ph_b, ph_b_det;
+    double ph_c, ph_c_det;
+    double ph_bass;
+    double ph_arp, ph_arp_det;
 } Music;
 
 static Music M;
 
-/* Retro chip waveforms. Real 8-bit music (NES, Game Boy) is built from these
- * instead of smooth sines — that's what gives the crunchy, nostalgic sound. */
-typedef enum { WAVE_SQUARE, WAVE_TRIANGLE } Wave;
-
-/* A phase in 0..1 (one full cycle) makes the waveshapes easy to write. */
-static float phase01(double *phase, float freq) {
-    double inc = (double)freq / (double)SR;
-    float p = (float)(*phase);
-    *phase += inc;
-    if (*phase >= 1.0) *phase -= 1.0;
-    return p;
+/* A soft, rounded tone: mostly a sine, with a whisper of the octave above to
+ * give it a little body without any harshness. Advances `phase` (in radians)
+ * and returns the sample scaled by amp. */
+static float tone(double *phase, float freq, float amp) {
+    double inc = KZ_TAU * (double)freq / (double)SR;
+    double p = *phase;
+    float s = (float)(sin(p) + 0.15 * sin(2.0 * p)) * amp;
+    *phase = p + inc;
+    if (*phase > KZ_TAU) *phase -= KZ_TAU;
+    return s;
 }
 
-/* One chip voice at the given waveform. `duty` (for square) sets the pulse
- * width — 0.5 is a full square, 0.25/0.125 give thinner, brighter tones like
- * the classic NES pulse channels. */
-static float voice_wave(double *phase, float freq, float amp,
-                        Wave wave, float duty) {
-    float p = phase01(phase, freq);   /* 0..1 within the cycle */
-    float s;
-    switch (wave) {
-        case WAVE_SQUARE:
-            s = (p < duty) ? 1.0f : -1.0f;
-            break;
-        case WAVE_TRIANGLE:
-        default:
-            /* rise 0->1 over first half, fall 1->0 over second, mapped -1..1 */
-            s = (p < 0.5f) ? (p * 4.0f - 1.0f) : (3.0f - p * 4.0f);
-            break;
-    }
-    return s * amp;
-}
-
-/* Envelope over one chord: gentle rise, long hold, gentle fall (0..1). */
+/* Envelope across one chord: long slow rise, long hold, long release — so the
+ * chords bleed into each other hazily (0..1). */
 static float envelope(Uint64 pos, Uint64 total) {
-    float t = (float)pos / (float)total;         /* 0..1 across the chord */
-    float atk = 0.18f, rel = 0.30f;
-    if (t < atk)          return t / atk;                 /* fade in  */
-    if (t > 1.0f - rel)   return (1.0f - t) / rel;        /* fade out */
-    return 1.0f;                                          /* hold     */
+    float t = (float)pos / (float)total;
+    float atk = 0.30f, rel = 0.40f;
+    if (t < atk)         return t / atk;
+    if (t > 1.0f - rel)  return (1.0f - t) / rel;
+    return 1.0f;
 }
 
-/* The audio callback: fill `additional_amount` bytes of stereo F32. */
+/* A gentle bass pulse: one soft swell per beat, so the groove is felt but soft.
+ * Returns a 0..1 amplitude shaped like a slow heartbeat. */
+static float bass_pulse(Uint64 sample_pos) {
+    float beat_samples = (60.0f / BPM) * SR;
+    float phase = fmodf((float)sample_pos, beat_samples) / beat_samples; /* 0..1 */
+    /* quick soft rise, gentle fall — a mellow thump */
+    float env = phase < 0.15f ? (phase / 0.15f)
+                              : (1.0f - (phase - 0.15f) / 0.85f);
+    if (env < 0) env = 0;
+    return env * env;   /* rounder */
+}
+
 static void SDLCALL feed(void *userdata, SDL_AudioStream *stream,
                          int additional_amount, int total_amount) {
     (void)userdata; (void)total_amount;
@@ -111,13 +130,17 @@ static void SDLCALL feed(void *userdata, SDL_AudioStream *stream,
 
     int frames = additional_amount / (int)(sizeof(float) * CHANS);
     Uint64 chord_samples = (Uint64)(CHORD_SEC * SR);
+    /* arpeggio steps: one note every ~0.55s, drifting slowly */
+    Uint64 arp_step = (Uint64)(0.55f * SR);
 
-    /* Small temp buffer, filled in chunks to avoid a big stack array. */
     enum { CHUNK = 512 };
     float buf[CHUNK * CHANS];
 
     const Chord *theme = THEMES[M.theme];
     int len = THEME_LEN[M.theme];
+
+    /* small detune amounts (Hz) — a hair apart for warmth */
+    const float DET = 0.6f;
 
     while (frames > 0) {
         int n = frames < CHUNK ? frames : CHUNK;
@@ -125,23 +148,34 @@ static void SDLCALL feed(void *userdata, SDL_AudioStream *stream,
             const Chord *ch = &theme[M.chord_index];
             float env = envelope(M.sample_pos, chord_samples);
 
-            /* Base triad — soft triangle waves, quiet, a mellow bed (like the
-             * NES triangle channel). */
             float s = 0.0f;
-            s += voice_wave(&M.phase_a, ch->a, 0.09f, WAVE_TRIANGLE, 0.5f);
-            if (ch->b > 0) s += voice_wave(&M.phase_b, ch->b, 0.07f, WAVE_TRIANGLE, 0.5f);
-            if (ch->c > 0) s += voice_wave(&M.phase_c, ch->c, 0.06f, WAVE_TRIANGLE, 0.5f);
-            /* Melody — a bright pulse/square wave, the classic chiptune lead.
-             * A 25% duty cycle gives that thin, nostalgic NES tone. */
-            if (ch->mel > 0)
-                s += voice_wave(&M.phase_mel, ch->mel, 0.07f, WAVE_SQUARE, 0.25f);
 
-            s *= env * 0.6f;   /* overall gentle level */
+            /* Pad triad — each note is a voice plus a detuned twin, very soft. */
+            s += tone(&M.ph_a,     ch->a,        0.055f);
+            s += tone(&M.ph_a_det, ch->a + DET,  0.055f);
+            s += tone(&M.ph_b,     ch->b,        0.045f);
+            s += tone(&M.ph_b_det, ch->b + DET,  0.045f);
+            s += tone(&M.ph_c,     ch->c,        0.040f);
+            s += tone(&M.ph_c_det, ch->c - DET,  0.040f);
 
-            buf[i * 2 + 0] = s;   /* left  */
-            buf[i * 2 + 1] = s;   /* right */
+            /* Drifting arpeggio — which note depends on time within the chord. */
+            int step = (int)((M.sample_pos / arp_step) % 4);
+            float arpf = ch->arp[step];
+            if (arpf > 0) {
+                s += tone(&M.ph_arp,     arpf,       0.050f);
+                s += tone(&M.ph_arp_det, arpf + DET, 0.050f);
+            }
 
-            /* advance time; move to next chord and loop */
+            /* Soft bass pulse — low and quiet, the head-nod groove. */
+            float bp = bass_pulse(M.sample_pos);
+            s += tone(&M.ph_bass, ch->bass, 0.11f * bp);
+
+            /* Overall level: gentle, background. Chord envelope shapes it. */
+            s *= env * 0.5f;
+
+            buf[i * 2 + 0] = s;
+            buf[i * 2 + 1] = s;
+
             M.sample_pos++;
             if (M.sample_pos >= chord_samples) {
                 M.sample_pos = 0;
@@ -166,7 +200,8 @@ bool music_init(void) {
     M.theme = MUSIC_COTTAGE;
     M.chord_index = 0;
     M.sample_pos = 0;
-    M.phase_a = M.phase_b = M.phase_c = M.phase_mel = 0.0;
+    M.ph_a = M.ph_a_det = M.ph_b = M.ph_b_det = 0.0;
+    M.ph_c = M.ph_c_det = M.ph_bass = M.ph_arp = M.ph_arp_det = 0.0;
 
     SDL_ResumeAudioStreamDevice(M.stream);
     return true;
@@ -174,9 +209,9 @@ bool music_init(void) {
 
 void music_set_theme(MusicTheme theme) {
     if (theme < 0 || theme >= MUSIC_THEME_COUNT) return;
-    if (theme == M.theme) return;      /* no change */
+    if (theme == M.theme) return;
     M.theme = theme;
-    M.chord_index = 0;                 /* start the new progression fresh */
+    M.chord_index = 0;
     M.sample_pos = 0;
 }
 
