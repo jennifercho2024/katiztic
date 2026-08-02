@@ -54,6 +54,15 @@ it anywhere you like; drag it back to the tray to put it away. Your arrangement
 is saved. While the tray is open, each placed item shows its name so you know
 what everything is. Décor is pure coziness — it just makes the home yours.
 
+## Places to go
+
+Tap the travel button (top-right) to open the place picker and choose where to
+go: your **cottage** (home, where you care for cats and decorate), the
+**meadow** (walks, where you meet and befriend wild cats), or the **café** — a
+cozy social lounge where your cats hang out and play together. Each place has
+its own look and its own gentle music: warm and settled at home, airy in the
+meadow, and soft and jazzy at the café.
+
 ## A living home
 
 At home your cats aren't just sitting around — each one has a little mind of
@@ -127,6 +136,8 @@ src/
   cat.h/.c     one cat's animation state (blink, pet glow) and how it's drawn,
                in whatever type colors it's given
   cottage.h/.c the home interior — warm room, window, bed you tap to sleep
+  cafe.h/.c    the cat café — a cozy social lounge (counter, tables, cushions)
+               where cats hang out; its own place with its own music
   ui.h/.c      status panel, touch-first buttons, and the roster strip along
                the bottom (tap a portrait to select, + to adopt)
   main.c       window, fixed-60fps loop, location + roster state, tap routing

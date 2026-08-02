@@ -65,11 +65,20 @@ static const Chord MEADOW[] = {
     { C4, C4, E4, G4, { C4, E4, G4, C5 } },
     { D4, D4, F4, A4, { D4, F4, A4, D5 } },
 };
+/* Café: cozy and a little jazzy — warmer 7th-ish colors, an intimate,
+ * social lounge feel. Still slow and soft, just a touch more soulful. */
+static const Chord CAFE[] = {
+    { A3, C4, E4, G4, { C4, E4, G4, B4 } },   /* Am7 warmth      */
+    { D4, F4, A4, C5, { F4, A4, C5, E5 } },   /* Dm7             */
+    { G3, G4, B4, E4, { G4, B4, D5, E5 } },   /* G-ish           */
+    { C4, E4, G4, B4, { E4, G4, B4, C5 } },   /* Cmaj7 resolve   */
+};
 
-static const Chord *THEMES[MUSIC_THEME_COUNT] = { COTTAGE, MEADOW };
+static const Chord *THEMES[MUSIC_THEME_COUNT] = { COTTAGE, MEADOW, CAFE };
 static const int THEME_LEN[MUSIC_THEME_COUNT] = {
     (int)(sizeof COTTAGE / sizeof COTTAGE[0]),
     (int)(sizeof MEADOW  / sizeof MEADOW[0]),
+    (int)(sizeof CAFE    / sizeof CAFE[0]),
 };
 
 /* Player state, shared with the audio callback. Kept plain. */

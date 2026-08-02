@@ -16,8 +16,9 @@
 #include <SDL3/SDL.h>
 
 typedef enum {
-    MUSIC_COTTAGE,   /* warm, settled, home           */
+    MUSIC_COTTAGE,   /* warm, settled, home            */
     MUSIC_MEADOW,    /* airier, open, a little brighter */
+    MUSIC_CAFE,      /* cozy, jazzy-warm, social        */
     MUSIC_THEME_COUNT
 } MusicTheme;
 

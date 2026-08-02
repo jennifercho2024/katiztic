@@ -443,3 +443,45 @@ int ui_decor_tray_hit(const Decor *d, float px_, float py_) {
     }
     return -1;
 }
+
+
+/* ---- travel place-picker menu ---- */
+
+/* Three stacked rows near the top-right, under the travel button. */
+#define PM_X   (KZ_W - 88)
+#define PM_Y   24
+#define PM_W   84
+#define PM_ROW 16
+
+static const char *PM_NAMES[3] = { "Cottage", "Meadow", "Cafe" };
+
+void ui_place_menu(SDL_Renderer *r, int current) {
+    /* soft panel */
+    float h = PM_ROW * 3 + 6;
+    px_rect_a(r, PM_X + 2, PM_Y + 2, PM_W, h, KZ_COCOA, 40);
+    px_rect(r, PM_X, PM_Y, PM_W, h, KZ_CLOUD);
+    px_rect(r, PM_X, PM_Y, PM_W, 1, KZ_COCOA);
+    px_rect(r, PM_X, PM_Y + h - 1, PM_W, 1, KZ_COCOA);
+    px_rect(r, PM_X, PM_Y, 1, h, KZ_COCOA);
+    px_rect(r, PM_X + PM_W - 1, PM_Y, 1, h, KZ_COCOA);
+
+    for (int i = 0; i < 3; i++) {
+        float ry = PM_Y + 3 + i * PM_ROW;
+        if (i == current) {
+            px_rect(r, PM_X + 2, ry, PM_W - 4, PM_ROW - 2, KZ_PETAL_PINK);
+        }
+        text_draw(r, PM_NAMES[i], PM_X + 8, ry + 4, KZ_COCOA);
+        /* a small dot marker in a place-ish color */
+        Color dot = (i == 0) ? KZ_LAVENDER : (i == 1) ? KZ_MINT : KZ_BUTTER;
+        px_rect(r, PM_X + PM_W - 12, ry + 4, 5, 5, dot);
+    }
+}
+
+int ui_place_menu_hit(float px_, float py_) {
+    if (px_ < PM_X || px_ > PM_X + PM_W) return -1;
+    for (int i = 0; i < 3; i++) {
+        float ry = PM_Y + 3 + i * PM_ROW;
+        if (py_ >= ry && py_ <= ry + PM_ROW) return i;
+    }
+    return -1;
+}

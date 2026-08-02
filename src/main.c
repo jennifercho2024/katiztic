@@ -23,12 +23,13 @@
 #include "decor.h"
 #include "ui.h"
 #include "cottage.h"
+#include "cafe.h"
 #include "icon.h"
 #include "music.h"
 
 /* Where the player currently is. Sleeping happens in the cottage; the meadow
  * is the outdoors. Moving between them is a tap on an on-screen button. */
-typedef enum { LOC_COTTAGE, LOC_MEADOW } Location;
+typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE } Location;
 
 /* Window opens at 4x the logical canvas: 960x640. */
 #define KZ_SCALE  4
@@ -89,6 +90,7 @@ int main(int argc, char *argv[]) {
     /* On-screen buttons, top-right. One is a toggle (home<->out); the sleep
      * button only shows in the cottage. Positions in logical 240x160 space. */
     Button btn_travel = { KZ_W - 24, 4,  20, 16, KZ_BTN_OUT };
+    bool   travel_open = false;   /* is the place-picker menu showing? */
     Button btn_sleep  = { KZ_W - 48, 4,  20, 16, KZ_BTN_SLEEP };
     int    press_fx   = 0;   /* frames of button-press highlight remaining */
 
@@ -206,6 +208,42 @@ int main(int argc, char *argv[]) {
                 /* If the friends list is open, any tap just closes it. */
                 if (friends_open) { friends_open = false; break; }
 
+                /* If the place-picker menu is open, it gets first claim on
+                 * taps (it overlaps other buttons on the right edge). */
+                if (travel_open) {
+                    int pick = ui_place_menu_hit(lx, ly);
+                    travel_open = false;
+                    if (pick >= 0) {
+                        Location newloc = (pick == 0) ? LOC_COTTAGE
+                                        : (pick == 1) ? LOC_MEADOW : LOC_CAFE;
+                        if (newloc != location) {
+                            location = newloc;
+                            btn_travel.kind = (location == LOC_COTTAGE)
+                                              ? KZ_BTN_OUT : KZ_BTN_HOME;
+                            if (location == LOC_MEADOW) {
+                                enc = encounter_begin(&friends);
+                                if (enc.present) {
+                                    Friend *known = friends_find(&friends, enc.name);
+                                    if (known && known->befriended)
+                                        SDL_snprintf(banner_line, sizeof banner_line,
+                                                     "%s comes to say hello!", enc.name);
+                                    else if (known)
+                                        SDL_snprintf(banner_line, sizeof banner_line,
+                                                     "%s is here again.", enc.name);
+                                    else
+                                        SDL_strlcpy(banner_line,
+                                                    "A shy cat watches you...",
+                                                    sizeof banner_line);
+                                    banner_timer = 240;
+                                }
+                            } else {
+                                enc = encounter_none();
+                            }
+                        }
+                    }
+                    break;
+                }
+
                 /* 0) friends button: open the friends list */
                 if (ui_friends_button_hit(lx, ly)) {
                     friends_open = true;
@@ -266,33 +304,11 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* 3) travel button: toggle cottage <-> meadow */
+                /* 3) travel button: open the place-picker menu */
                 if (ui_button_hit(&btn_travel, lx, ly)) {
-                    location = (location == LOC_COTTAGE) ? LOC_MEADOW
-                                                         : LOC_COTTAGE;
-                    btn_travel.kind = (location == LOC_COTTAGE) ? KZ_BTN_OUT
-                                                                : KZ_BTN_HOME;
-                    if (location == LOC_MEADOW) {
-                        /* Stepping out for a walk: maybe a cat comes to visit. */
-                        enc = encounter_begin(&friends);
-                        if (enc.present) {
-                            Friend *known = friends_find(&friends, enc.name);
-                            if (known && known->befriended)
-                                SDL_snprintf(banner_line, sizeof banner_line,
-                                             "%s comes to say hello!", enc.name);
-                            else if (known)
-                                SDL_snprintf(banner_line, sizeof banner_line,
-                                             "%s is here again.", enc.name);
-                            else
-                                SDL_strlcpy(banner_line,
-                                            "A shy cat watches you...",
-                                            sizeof banner_line);
-                            banner_timer = 240;
-                        }
-                    } else {
-                        enc = encounter_none();   /* leave the visitor behind */
-                    }
+                    travel_open = true;
                     press_fx = 8;
+                    break;
                 }
                 /* 3b) offer a treat to the visiting cat (meadow only) */
                 else if (location == LOC_MEADOW && enc.present
@@ -398,13 +414,16 @@ int main(int argc, char *argv[]) {
          * carries any petting glow. */
         for (int i = 0; i < roster.count; i++)
             cat_update(&roster.cats[i].anim);
-        /* At home, the whole family roams and does their own thing. */
-        if (location == LOC_COTTAGE)
+        /* At home and at the café, the whole family roams and socializes. */
+        if (location == LOC_COTTAGE || location == LOC_CAFE)
             behavior_update(&roster, frame);
         if (press_fx > 0) press_fx--;
 
         /* Music follows the place you're in. */
-        music_set_theme(location == LOC_COTTAGE ? MUSIC_COTTAGE : MUSIC_MEADOW);
+        MusicTheme mt = (location == LOC_COTTAGE) ? MUSIC_COTTAGE
+                      : (location == LOC_MEADOW)  ? MUSIC_MEADOW
+                      : MUSIC_CAFE;
+        music_set_theme(mt);
         if (location == LOC_MEADOW) encounter_update(&enc, &friends);
         if (banner_timer > 0) banner_timer--;
 
@@ -448,15 +467,18 @@ int main(int argc, char *argv[]) {
 
         CatColors col = cattype_colors(active->type);
         bool is_night = (meadow.time == KZ_NIGHT);
-        if (location == LOC_COTTAGE) {
-            cottage_draw(renderer, frame, is_night);
-            decor_draw(renderer, &decor, frame);   /* décor sits in the room */
-            /* The whole family roams the room, each doing her own thing.
-             * Draw them sorted by y so nearer (lower) cats overlap farther
-             * ones; the active cat is drawn among them at her real position. */
+        if (location == LOC_COTTAGE || location == LOC_CAFE) {
+            /* Indoor places where the family roams and socializes. */
+            if (location == LOC_COTTAGE) {
+                cottage_draw(renderer, frame, is_night);
+                decor_draw(renderer, &decor, frame);   /* décor only at home */
+            } else {
+                cafe_draw(renderer, frame);
+            }
+            /* Draw the roaming cats sorted by y so nearer (lower) cats overlap
+             * farther ones. */
             int order[KZ_MAX_CATS];
             for (int i = 0; i < roster.count; i++) order[i] = i;
-            /* simple insertion sort by cy (ascending: back to front) */
             for (int a = 1; a < roster.count; a++) {
                 int key = order[a];
                 float ky = roster.cats[key].anim.cy;
@@ -500,6 +522,13 @@ int main(int argc, char *argv[]) {
         if (location == LOC_COTTAGE)
             ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray   */
         ui_roster_draw(renderer, &roster);                /* the family strip */
+
+        /* Travel place-picker menu, when open. */
+        if (travel_open) {
+            ui_place_menu(renderer,
+                          location == LOC_COTTAGE ? 0
+                        : location == LOC_MEADOW  ? 1 : 2);
+        }
 
         /* Décor tray, when open (cottage only). */
         if (location == LOC_COTTAGE && decor_open) {

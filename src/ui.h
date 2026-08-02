@@ -99,6 +99,13 @@ float ui_decor_tray_top(void);
  * `flash` > 0 briefly highlights the panel to acknowledge an action. */
 void ui_draw_hint(SDL_Renderer *r);
 
+/* ---- travel place-picker ----
+ * Tapping the travel button opens a small menu of the three places. Draw the
+ * menu (highlighting `current`), and hit-test a tap. Returns 0=cottage,
+ * 1=meadow, 2=cafe, or -1 for no hit (a tap outside closes it). */
+void ui_place_menu(SDL_Renderer *r, int current);
+int  ui_place_menu_hit(float px, float py);
+
 /* ---- roster strip ----
  * A row of little cat portraits along the bottom, each in its type's color,
  * with the active cat highlighted, plus a "+" slot to adopt if there's room.
