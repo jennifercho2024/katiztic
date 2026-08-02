@@ -382,7 +382,7 @@ bool ui_decor_button_hit(float px_, float py_) {
 }
 
 /* Tray geometry: a strip across the bottom, above the roster strip. */
-#define TRAY_H     30
+#define TRAY_H     38
 #define TRAY_Y     (KZ_H - TRAY_H - 26)   /* sits above the roster strip */
 #define TRAY_SLOT  30
 
@@ -416,6 +416,10 @@ void ui_decor_tray(SDL_Renderer *r, const Decor *d, Uint64 frame) {
             px_rect(r, sx + TRAY_SLOT - 6, (float)TRAY_Y + 3, 3, 1, KZ_MINT);
             px_rect(r, sx + TRAY_SLOT - 4, (float)TRAY_Y + 4, 1, 2, KZ_MINT);
         }
+        /* the item's name, centered just under its slot */
+        text_draw_centered(r, decor_info((DecorKind)i)->name,
+                           sx + TRAY_SLOT / 2.0f,
+                           (float)TRAY_Y + TRAY_SLOT - 1, KZ_COCOA);
         vis++;
     }
 }

@@ -51,7 +51,15 @@ cozy items by playing — a plant and cushion to start, a lamp once a cat's bond
 is high, a picture once you've made a friend, a rug once you have three cats, a
 cat tower at a very high bond. Drag an item from the tray into the room to place
 it anywhere you like; drag it back to the tray to put it away. Your arrangement
-is saved. Décor is pure coziness — it just makes the home yours.
+is saved. While the tray is open, each placed item shows its name so you know
+what everything is. Décor is pure coziness — it just makes the home yours.
+
+## Music
+
+Each place has its own gentle, synthesized theme — a warm progression at home
+in the cottage, an airier one out in the meadow — so the music shifts with
+where you are. It's generated in code from soft sine tones (no audio files),
+quiet and calm by design, matching the game's cozy GBA feel.
 
 The five types — Sunny, Dreamy, Playful, Gentle, Clever — each have a signature
 pastel color, so a team *looks* like a chosen aesthetic. Each cat keeps her own
@@ -101,6 +109,8 @@ src/
   decor.h/.c   collectible cottage décor — the catalog, milestone unlocks, and
                drag-to-place with its own save file
   icon.h/.c    the window/dock icon, embedded as raw pixels (no image file)
+  music.h/.c   procedural cozy music — a synthesized theme per location, soft
+               sine tones generated in code (no audio files)
   roster.h/.c  your family of up to 5 cats — each with a name, type, stats, and
                animation state; the active selection, adopting, and save/load
   cat.h/.c     one cat's animation state (blink, pet glow) and how it's drawn,

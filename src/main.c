@@ -23,6 +23,7 @@
 #include "ui.h"
 #include "cottage.h"
 #include "icon.h"
+#include "music.h"
 
 /* Where the player currently is. Sleeping happens in the cottage; the meadow
  * is the outdoors. Moving between them is a tap on an on-screen button. */
@@ -45,7 +46,7 @@ typedef enum { LOC_COTTAGE, LOC_MEADOW } Location;
 int main(int argc, char *argv[]) {
     (void)argc; (void)argv;
 
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
         return 1;
     }
@@ -65,6 +66,9 @@ int main(int argc, char *argv[]) {
         SDL_SetWindowIcon(window, icon);
         SDL_DestroySurface(icon);   /* SDL copied it; we can free ours */
     }
+
+    /* Start the cozy music. If audio can't open, the game just runs silent. */
+    music_init();
 
     /* The GBA scaling: draw at 240x160, present at integer multiples. */
     SDL_SetRenderLogicalPresentation(renderer, KZ_W, KZ_H,
@@ -383,6 +387,9 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < roster.count; i++)
             cat_update(&roster.cats[i].anim);
         if (press_fx > 0) press_fx--;
+
+        /* Music follows the place you're in. */
+        music_set_theme(location == LOC_COTTAGE ? MUSIC_COTTAGE : MUSIC_MEADOW);
         if (location == LOC_MEADOW) encounter_update(&enc, &friends);
         if (banner_timer > 0) banner_timer--;
 
@@ -512,6 +519,7 @@ int main(int argc, char *argv[]) {
     friends_save(&friends, KZ_FRIENDS_PATH);
     decor_save(&decor, KZ_DECOR_PATH);
 
+    music_shutdown();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
