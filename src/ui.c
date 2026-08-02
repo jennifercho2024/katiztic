@@ -39,22 +39,27 @@ static void glyph_moon(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 3, y + 7, 3, 1, c);
 }
 
-/* a folded travel map with a dotted route and a little pin */
+/* a little globe with latitude/longitude lines */
 static void glyph_map(SDL_Renderer *r, float x, float y, Color c) {
-    /* outline of a folded map (9x8) */
-    px_rect(r, x,     y,     9, 1, c);
-    px_rect(r, x,     y + 7, 9, 1, c);
-    px_rect(r, x,     y,     1, 8, c);
-    px_rect(r, x + 8, y,     1, 8, c);
-    /* fold lines */
-    px_rect(r, x + 3, y + 1, 1, 6, rgb(0xC8, 0xB2, 0xBE));
-    px_rect(r, x + 6, y + 1, 1, 6, rgb(0xC8, 0xB2, 0xBE));
-    /* a dotted route */
-    px_rect(r, x + 2, y + 5, 1, 1, KZ_PETAL_PINK);
-    px_rect(r, x + 4, y + 4, 1, 1, KZ_PETAL_PINK);
-    px_rect(r, x + 5, y + 2, 1, 1, KZ_PETAL_PINK);
-    /* destination pin */
-    px_rect(r, x + 6, y + 2, 2, 2, KZ_HEART);
+    /* round outline (8x8-ish circle) */
+    px_rect(r, x + 2, y,     4, 1, c);
+    px_rect(r, x + 2, y + 7, 4, 1, c);
+    px_rect(r, x,     y + 2, 1, 4, c);
+    px_rect(r, x + 7, y + 2, 1, 4, c);
+    px_rect(r, x + 1, y + 1, 1, 1, c);
+    px_rect(r, x + 6, y + 1, 1, 1, c);
+    px_rect(r, x + 1, y + 6, 1, 1, c);
+    px_rect(r, x + 6, y + 6, 1, 1, c);
+    /* ocean fill */
+    px_rect(r, x + 2, y + 2, 4, 4, rgb(0xAF, 0xD6, 0xEC));
+    px_rect(r, x + 1, y + 3, 1, 2, rgb(0xAF, 0xD6, 0xEC));
+    px_rect(r, x + 6, y + 3, 1, 2, rgb(0xAF, 0xD6, 0xEC));
+    /* little green continents */
+    px_rect(r, x + 2, y + 2, 2, 2, KZ_MINT);
+    px_rect(r, x + 4, y + 4, 2, 2, KZ_MINT);
+    /* equator + meridian lines */
+    px_rect(r, x + 1, y + 3, 6, 1, rgb(0x9A, 0x86, 0x94));
+    px_rect(r, x + 3, y + 1, 1, 6, rgb(0x9A, 0x86, 0x94));
 }
 
 static void glyph_fish(SDL_Renderer *r, float x, float y, Color c) {
@@ -103,6 +108,14 @@ static void glyph_quests(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 5, y + 6, 4, 2, c);
 }
 
+/* a food bowl with kibble — the feed array button */
+static void glyph_bowl(SDL_Renderer *r, float x, float y, Color c) {
+    px_rect(r, x,     y + 4, 9, 4, c);
+    px_rect(r, x + 1, y + 3, 7, 1, rgb(0xE0, 0xBC, 0xCC));
+    px_rect(r, x + 2, y + 1, 2, 2, rgb(0xB0, 0x86, 0x62));
+    px_rect(r, x + 5, y + 2, 2, 1, rgb(0xB0, 0x86, 0x62));
+}
+
 bool ui_button_hit(const Button *b, float px_, float py_) {
     return px_ >= b->x && px_ <= b->x + b->w
         && py_ >= b->y && py_ <= b->y + b->h;
@@ -129,6 +142,7 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
         case KZ_BTN_TREAT:   glyph_fish(r,  gx, gy, rgb(0xE8,0x8B,0x6B)); break;
         case KZ_BTN_FRIENDS: glyph_two_cats(r, gx, gy, KZ_PETAL_PINK, KZ_CAT_OUTLINE); break;
         case KZ_BTN_QUESTS:  glyph_quests(r, gx, gy, KZ_BUTTER); break;
+        case KZ_BTN_FEED:    glyph_bowl(r, gx, gy, KZ_PETAL_PINK); break;
         case KZ_BTN_DECOR:   glyph_chair(r, gx, gy, KZ_COCOA); break;
     }
 }
@@ -502,6 +516,95 @@ void ui_decor_button_draw(SDL_Renderer *r, bool pressed) {
 bool ui_decor_button_hit(float px_, float py_) {
     return ui_button_hit(&KZ_DECOR_BUTTON, px_, py_);
 }
+
+const Button KZ_FEED_BUTTON = { KZ_W - 24, 84, 20, 16, KZ_BTN_FEED };
+
+void ui_feed_button_draw(SDL_Renderer *r, bool pressed) {
+    ui_button_draw(r, &KZ_FEED_BUTTON, pressed);
+}
+bool ui_feed_button_hit(float px_, float py_) {
+    return ui_button_hit(&KZ_FEED_BUTTON, px_, py_);
+}
+
+/* ---- the feed array: a tray of foods to give the active cat ---- */
+#define FEED_H     40
+#define FEED_Y     (KZ_H - FEED_H - 26)
+#define FEED_SLOT  54
+
+static float feed_slot_x(int i) { return 6.0f + i * (FEED_SLOT + 2); }
+
+/* a small food icon for the feed tray */
+static void feed_food_icon(SDL_Renderer *r, FoodKind f, float x, float y) {
+    switch (f) {
+        case FOOD_KIBBLE: {
+            px_rect(r, x, y + 5, 16, 5, rgb(0xC8, 0x9C, 0xB0));
+            px_rect(r, x + 1, y + 4, 14, 2, rgb(0xE0, 0xBC, 0xCC));
+            px_rect(r, x + 3, y + 2, 3, 2, rgb(0xB0, 0x86, 0x62));
+            px_rect(r, x + 8, y + 2, 3, 2, rgb(0xB0, 0x86, 0x62));
+            break;
+        }
+        case FOOD_MILK: {
+            px_rect(r, x + 4, y, 9, 11, KZ_CLOUD);
+            px_rect(r, x + 4, y, 9, 1, rgb(0xC8, 0xD8, 0xE8));
+            px_rect(r, x + 6, y + 4, 5, 3, rgb(0x9C, 0xC0, 0xD8));
+            break;
+        }
+        case FOOD_TREAT: {
+            Color t = rgb(0xE8, 0xA6, 0x8B);
+            px_rect(r, x + 3, y + 3, 5, 5, t);
+            px_rect(r, x + 8, y + 2, 4, 7, t);
+            px_rect(r, x + 12, y + 4, 3, 3, t);
+            break;
+        }
+        case FOOD_WATER:
+        default: {
+            px_rect(r, x + 4, y, 8, 11, rgb(0xD6, 0xEC, 0xF6));
+            px_rect(r, x + 4, y + 5, 8, 6, rgb(0xAF, 0xD6, 0xEC));
+            break;
+        }
+    }
+}
+
+float ui_feed_tray_top(void) { return (float)FEED_Y; }
+
+void ui_feed_tray(SDL_Renderer *r, const Pantry *p, Uint64 frame) {
+    (void)frame;
+    px_rect_a(r, 0, FEED_Y - 2, KZ_W, FEED_H + 2, KZ_CLOUD, 235);
+    px_rect(r, 0, FEED_Y - 2, KZ_W, 1, KZ_COCOA);
+    text_draw(r, "feed - tap a food", 6, FEED_Y - 10, KZ_COCOA);
+
+    for (int i = 0; i < FOOD_COUNT; i++) {
+        float x = feed_slot_x(i);
+        bool have = p->stock[i] > 0;
+        /* slot */
+        px_rect(r, x, (float)FEED_Y + 2, FEED_SLOT, FEED_H - 4,
+                have ? KZ_CLOUD : rgb(0xE4, 0xDC, 0xE0));
+        px_rect(r, x, (float)FEED_Y + 2, FEED_SLOT, 1, KZ_COCOA);
+        px_rect(r, x, (float)FEED_Y + FEED_H - 3, FEED_SLOT, 1, KZ_COCOA);
+        px_rect(r, x, (float)FEED_Y + 2, 1, FEED_H - 4, KZ_COCOA);
+        px_rect(r, x + FEED_SLOT - 1, (float)FEED_Y + 2, 1, FEED_H - 4, KZ_COCOA);
+        /* icon */
+        feed_food_icon(r, (FoodKind)i, x + 6, (float)FEED_Y + 5);
+        /* name + count */
+        text_draw(r, food_name((FoodKind)i), x + 24, (float)FEED_Y + 6,
+                  have ? KZ_COCOA : rgb(0xB0, 0x9E, 0xA8));
+        char cnt[16];
+        SDL_snprintf(cnt, sizeof cnt, "x%u", (unsigned)p->stock[i]);
+        text_draw(r, cnt, x + 24, (float)FEED_Y + 16,
+                  have ? rgb(0x9A, 0x7A, 0x5A) : rgb(0xB0, 0x9E, 0xA8));
+    }
+}
+
+int ui_feed_tray_hit(const Pantry *p, float px_, float py_) {
+    (void)p;
+    if (py_ < FEED_Y + 2 || py_ > FEED_Y + FEED_H - 2) return -1;
+    for (int i = 0; i < FOOD_COUNT; i++) {
+        float x = feed_slot_x(i);
+        if (px_ >= x && px_ <= x + FEED_SLOT) return i;
+    }
+    return -1;
+}
+
 
 /* Tray geometry: a strip across the bottom, above the roster strip. */
 #define TRAY_H     38

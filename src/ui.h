@@ -33,6 +33,7 @@ typedef enum {
     KZ_BTN_FRIENDS, /* a heart — open the friends list         */
     KZ_BTN_DECOR,   /* a chair — open the décor tray           */
     KZ_BTN_QUESTS,  /* a checklist — open the quest log        */
+    KZ_BTN_FEED,    /* a bowl — open the feed array            */
 } ButtonKind;
 
 typedef struct {
@@ -99,6 +100,16 @@ extern const Button KZ_QUESTS_BUTTON;
 void ui_quests_button_draw(SDL_Renderer *r, bool pressed);
 bool ui_quests_button_hit(float px, float py);
 void ui_quests_list(SDL_Renderer *r, const Quests *q, int scroll);
+
+/* ---- feed array: a bowl button and the food tray (cottage only) ---- */
+#include "pantry.h"
+extern const Button KZ_FEED_BUTTON;
+void ui_feed_button_draw(SDL_Renderer *r, bool pressed);
+bool ui_feed_button_hit(float px, float py);
+void ui_feed_tray(SDL_Renderer *r, const Pantry *p, Uint64 frame);
+/* which food slot (FoodKind) a tap hit, or -1 */
+int  ui_feed_tray_hit(const Pantry *p, float px, float py);
+float ui_feed_tray_top(void);
 
 /* ---- décor tray ----
  * A décor button (top-right) opens a tray along the bottom showing the items

@@ -201,6 +201,7 @@ int main(int argc, char *argv[]) {
         pantry = pantry_new();
     }
     bool decor_open = false;      /* is the décor tray showing?         */
+    bool feed_open = false;       /* is the feed array showing?         */
     int  drag_item = -1;          /* décor item being dragged, or -1    */
 
     /* The wild cat currently visiting the meadow (if any), the banner line
@@ -391,7 +392,47 @@ int main(int argc, char *argv[]) {
                 /* 0b) décor button (cottage only): toggle the décor tray */
                 if (location == LOC_COTTAGE && ui_decor_button_hit(lx, ly)) {
                     decor_open = !decor_open;
+                    if (decor_open) feed_open = false;   /* one tray at a time */
                     press_fx = 8;
+                    break;
+                }
+
+                /* 0b2) feed button (cottage only): toggle the feed array */
+                if (location == LOC_COTTAGE && ui_feed_button_hit(lx, ly)) {
+                    feed_open = !feed_open;
+                    if (feed_open) decor_open = false;
+                    press_fx = 8;
+                    break;
+                }
+
+                /* 0b3) feed array open: tap a food to give it to the active cat */
+                if (location == LOC_COTTAGE && feed_open) {
+                    int food = ui_feed_tray_hit(&pantry, lx, ly);
+                    if (food >= 0) {
+                        if (pantry_use(&pantry, (FoodKind)food)) {
+                            OwnedCat *a = roster_active(&roster);
+                            stats_feed_food(&a->stats, food);
+                            cat_pet(&a->anim);   /* a happy wiggle */
+                            pantry_save(&pantry, KZ_PANTRY_PATH);
+                            roster_save(&roster, KZ_SAVE_PATH);
+                            if (quests_bump(&quests, QUEST_FEED))
+                                quest_fanfare(&roster, &quests, &pantry, QUEST_FEED,
+                                              banner_line, sizeof banner_line,
+                                              &banner_timer);
+                            else {
+                                SDL_snprintf(banner_line, sizeof banner_line,
+                                             "%s enjoys the %s.", a->name,
+                                             food_name((FoodKind)food));
+                                banner_timer = 180;
+                            }
+                        } else {
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "No %s left - buy more at the market.",
+                                         food_name((FoodKind)food));
+                            banner_timer = 200;
+                        }
+                        press_fx = 8;
+                    }
                     break;
                 }
 
@@ -937,13 +978,20 @@ int main(int argc, char *argv[]) {
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
         ui_friends_button_draw(renderer, press_fx > 0);
         ui_quests_button_draw(renderer, false);   /* friends list */
-        if (location == LOC_COTTAGE)
+        if (location == LOC_COTTAGE) {
             ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray   */
+            ui_feed_button_draw(renderer, press_fx > 0);   /* feed array   */
+        }
         ui_roster_draw(renderer, &roster);                /* the family strip */
 
         /* Décor tray, when open (cottage only). */
         if (location == LOC_COTTAGE && decor_open) {
             ui_decor_tray(renderer, &decor, frame, tray_page);
+        }
+
+        /* Feed array, when open (cottage only). */
+        if (location == LOC_COTTAGE && feed_open) {
+            ui_feed_tray(renderer, &pantry, frame);
         }
 
         /* Encounter UI: the treat button and the dialogue banner, when a wild

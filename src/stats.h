@@ -36,6 +36,10 @@ Stats stats_new(void);
 /* Care actions. Each returns nothing; they just nudge stats up (capped)
  * and advance growth a touch. */
 void stats_feed(Stats *s);    /* +energy, +a little mood            */
+
+/* Feed a specific food (FoodKind as int): each gives a different stat blend.
+ * Returns XP gained. */
+int  stats_feed_food(Stats *s, int food);
 void stats_groom(Stats *s);   /* +mood, +bond                       */
 void stats_pet(Stats *s);     /* +bond (called when the cat is pet) */
 

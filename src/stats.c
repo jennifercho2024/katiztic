@@ -71,6 +71,40 @@ void stats_feed(Stats *s) {
     stats_gain_xp(s, 4);
 }
 
+/* Feeding a specific food from the array: each gives a slightly different
+ * blend of energy/mood/bond so the choice matters a little. Returns the XP
+ * gained so the caller can report level-ups. */
+int stats_feed_food(Stats *s, int food /* FoodKind */) {
+    int xp = 4;
+    switch (food) {
+        case 0:  /* cat food: hearty — the main meal */
+            s->energy = bump(s->energy, 18);
+            s->mood   = bump(s->mood, 4);
+            xp = 5;
+            break;
+        case 1:  /* milk: comforting — mood and a little bond */
+            s->energy = bump(s->energy, 8);
+            s->mood   = bump(s->mood, 10);
+            s->bond   = bump(s->bond, 3);
+            xp = 4;
+            break;
+        case 2:  /* treat: a joyful bond-builder */
+            s->mood   = bump(s->mood, 8);
+            s->bond   = bump(s->bond, 8);
+            xp = 6;
+            break;
+        case 3:  /* water: refreshing — a gentle energy top-up */
+        default:
+            s->energy = bump(s->energy, 12);
+            s->mood   = bump(s->mood, 2);
+            xp = 2;
+            break;
+    }
+    grow(s);
+    stats_gain_xp(s, xp);
+    return xp;
+}
+
 void stats_groom(Stats *s) {
     s->mood = bump(s->mood, 12);
     s->bond = bump(s->bond, 6);
