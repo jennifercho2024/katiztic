@@ -199,8 +199,6 @@ int main(int argc, char *argv[]) {
             case SDL_EVENT_KEY_DOWN:
                 if (e.key.key == SDLK_ESCAPE || e.key.key == SDLK_Q)
                     running = false;
-                else if (e.key.key == SDLK_SPACE || e.key.key == SDLK_T)
-                    meadow_cycle_time(&meadow);
                 else if (e.key.key == SDLK_F)
                     stats_feed(&roster_active(&roster)->stats);
                 else if (e.key.key == SDLK_G)
@@ -437,10 +435,23 @@ int main(int argc, char *argv[]) {
             cat_update(&roster.cats[i].anim);
             mood_update(&roster.cats[i].anim, &roster.cats[i].stats);
         }
-        /* At home and at the café, the whole family roams and socializes. */
-        if (location == LOC_COTTAGE || location == LOC_CAFE)
-            behavior_update(&roster, frame);
+        /* At home and at the café, the whole family roams and socializes.
+         * Décor (yarn/milk to react to) exists only in the cottage. */
+        if (location == LOC_COTTAGE)
+            behavior_update(&roster, &decor, frame);
+        else if (location == LOC_CAFE)
+            behavior_update(&roster, NULL, frame);
         if (press_fx > 0) press_fx--;
+
+        /* Time of day follows the real clock: the world lightens and darkens
+         * with the actual time where you are. */
+        {
+            SDL_Time now;
+            SDL_DateTime dt;
+            if (SDL_GetCurrentTime(&now) && SDL_TimeToDateTime(now, &dt, true)) {
+                meadow.time = time_from_hour(dt.hour);
+            }
+        }
 
         /* Music follows the place you're in. */
         MusicTheme mt = (location == LOC_COTTAGE) ? MUSIC_COTTAGE
@@ -465,13 +476,15 @@ int main(int argc, char *argv[]) {
         /* Décor unlocks: check current progress. If something new unlocks,
          * announce it in the banner. */
         {
-            int max_bond = 0;
-            for (int i = 0; i < roster.count; i++)
+            int max_bond = 0, total_levels = 0;
+            for (int i = 0; i < roster.count; i++) {
                 if (roster.cats[i].stats.bond > max_bond)
                     max_bond = roster.cats[i].stats.bond;
+                total_levels += roster.cats[i].stats.level;
+            }
             int fcount = friends_befriended_count(&friends);
             int newly = decor_check_unlocks(&decor, max_bond, fcount,
-                                            roster.count);
+                                            roster.count, total_levels);
             if (newly > 0) {
                 SDL_strlcpy(banner_line, "You unlocked new decor!",
                             sizeof banner_line);
@@ -486,7 +499,8 @@ int main(int argc, char *argv[]) {
         if (sleep_fade > 0) {
             sleep_fade--;
             if (!sleep_applied && sleep_fade <= SLEEP_FADE_FRAMES / 2) {
-                meadow.time = KZ_DAWN;
+                /* time of day now follows the real clock, so sleeping simply
+                 * rests the family rather than skipping to morning */
                 for (int i = 0; i < roster.count; i++) {
                     roster.cats[i].stats.energy = KZ_STAT_MAX;   /* fully rested */
                     stats_wake(&roster.cats[i].stats);           /* a mood lift  */
@@ -501,7 +515,7 @@ int main(int argc, char *argv[]) {
         SDL_RenderClear(renderer);
 
         CatColors col = cattype_colors(active->type);
-        bool is_night = (meadow.time == KZ_NIGHT);
+        bool is_night = (meadow.time == KZ_NIGHT || meadow.time == KZ_DUSK);
         if (location == LOC_COTTAGE || location == LOC_CAFE) {
             /* Indoor places where the family roams and socializes. */
             if (location == LOC_COTTAGE) {

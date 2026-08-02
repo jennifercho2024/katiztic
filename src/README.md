@@ -49,10 +49,22 @@ reward of walking, not a way to collect cats.
 At home, tap the chair button (top-right) to open the décor tray. You unlock
 cozy items by playing — a plant and cushion to start, a lamp once a cat's bond
 is high, a picture once you've made a friend, a rug once you have three cats, a
-cat tower at a very high bond. Drag an item from the tray into the room to place
-it anywhere you like; drag it back to the tray to put it away. Your arrangement
-is saved. While the tray is open, each placed item shows its name so you know
-what everything is. Décor is pure coziness — it just makes the home yours.
+cat tower at a very high bond. Two special items are **earned rewards** for
+being social: **yarn** (after befriending a couple of cats) and a saucer of
+**milk** (once your cats have leveled up through socializing and care). Place
+them like any décor — and your cats notice them: a cat near the yarn bats at
+it, and one near the milk stops to lap it up. Drag an item from the tray into
+the room to place it anywhere you like; drag it back to the tray to put it away.
+Your arrangement is saved. Items fall to rest on the floor (or stack on each
+other) rather than floating. While the tray is open, each item shows its name.
+
+## Day & night
+
+The world follows your real clock. Take a walk in the morning and the meadow
+glows with dawn; midday is bright, evening turns golden at dusk, and after dark
+it's night — the cottage dims in the evening too. It all shifts automatically
+with the actual time of day where you are, so the game feels connected to your
+own day.
 
 ## Levels & happiness
 

@@ -25,6 +25,11 @@ typedef enum { KZ_DAWN, KZ_NOON, KZ_DUSK, KZ_NIGHT, KZ_TIME_COUNT } TimeIndex;
 
 const TimeOfDay *time_of_day(TimeIndex i);
 
+/* Map a real local hour (0–23) to a time-of-day phase, so the game's lighting
+ * follows the actual time of day: dawn in the early morning, noon through the
+ * day, dusk in the evening, night after dark. */
+TimeIndex time_from_hour(int hour);
+
 /* Drifting petals live with the scene. A fixed pool, no allocation. */
 #define KZ_PETAL_COUNT 14
 typedef struct { float x, y, speed, drift; int size; } Petal;

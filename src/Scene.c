@@ -34,6 +34,14 @@ static const TimeOfDay TIMES[KZ_TIME_COUNT] = {
 
 const TimeOfDay *time_of_day(TimeIndex i) { return &TIMES[i]; }
 
+TimeIndex time_from_hour(int hour) {
+    /* Simple, cozy mapping of the day. */
+    if (hour >= 5  && hour < 8)  return KZ_DAWN;   /* early morning glow */
+    if (hour >= 8  && hour < 17) return KZ_NOON;   /* bright daytime     */
+    if (hour >= 17 && hour < 20) return KZ_DUSK;   /* golden evening     */
+    return KZ_NIGHT;                                /* 20:00–05:00 dark   */
+}
+
 Meadow meadow_make(void) {
     Meadow m;
     m.time = KZ_DUSK;  /* open on the dusk vibe from the mockup */

@@ -14,6 +14,8 @@ static const DecorInfo INFO[DECOR_COUNT] = {
     { DECOR_PICTURE, "Picture", UNLOCK_FRIENDS, 1  },  /* 1 friend made    */
     { DECOR_RUG2,    "Rug",     UNLOCK_FAMILY,  3  },  /* 3 cats owned     */
     { DECOR_TOWER,   "Tower",   UNLOCK_BOND,    90 },  /* a cat bond >= 90 */
+    { DECOR_YARN,    "Yarn",    UNLOCK_FRIENDS, 2  },  /* 2 friends made   */
+    { DECOR_MILK,    "Milk",    UNLOCK_LEVEL,   8  },  /* total levels >= 8 */
 };
 
 const DecorInfo *decor_info(DecorKind k) {
@@ -42,7 +44,7 @@ Decor decor_new(void) {
 }
 
 int decor_check_unlocks(Decor *d, int max_bond, int friends_count,
-                        int family_count) {
+                        int family_count, int total_levels) {
     int newly = 0;
     for (int i = 0; i < DECOR_COUNT; i++) {
         if (d->items[i].owned) continue;
@@ -53,6 +55,7 @@ int decor_check_unlocks(Decor *d, int max_bond, int friends_count,
             case UNLOCK_BOND:    ok = (max_bond      >= in->threshold); break;
             case UNLOCK_FRIENDS: ok = (friends_count >= in->threshold); break;
             case UNLOCK_FAMILY:  ok = (family_count  >= in->threshold); break;
+            case UNLOCK_LEVEL:   ok = (total_levels  >= in->threshold); break;
         }
         if (ok) { d->items[i].owned = true; newly++; }
     }
@@ -115,6 +118,34 @@ static void draw_rug2(SDL_Renderer *r, float x, float y, Uint64 frame) {
     px_rect(r, x + 6, y + 6, 18, 2, KZ_PETAL_PINK);
 }
 
+static void draw_yarn(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    (void)frame;
+    Color yarn = rgb(0xE8, 0x9C, 0xB4);   /* rosy pink yarn */
+    Color dark = rgb(0xD0, 0x82, 0x9C);
+    /* a round ball */
+    px_rect(r, x + 2, y + 1, 8, 1, yarn);
+    px_rect(r, x + 1, y + 2, 10, 8, yarn);
+    px_rect(r, x + 2, y + 10, 8, 1, yarn);
+    /* wound-thread lines */
+    px_rect(r, x + 2, y + 3, 8, 1, dark);
+    px_rect(r, x + 3, y + 6, 7, 1, dark);
+    px_rect(r, x + 2, y + 8, 6, 1, dark);
+    /* a little loose end trailing off */
+    px_rect(r, x + 10, y + 8, 3, 1, yarn);
+    px_rect(r, x + 12, y + 9, 2, 1, yarn);
+}
+
+static void draw_milk(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    (void)frame;
+    /* a shallow saucer of milk */
+    Color saucer = rgb(0xC8, 0xB8, 0xC8);
+    Color milk   = KZ_CLOUD;
+    px_rect(r, x, y + 6, 16, 4, saucer);      /* dish */
+    px_rect(r, x + 1, y + 4, 14, 2, milk);     /* milk surface */
+    px_rect(r, x + 3, y + 3, 10, 1, milk);     /* little meniscus */
+    px_rect(r, x, y + 9, 16, 1, rgb(0xB0,0xA0,0xB4)); /* base shadow */
+}
+
 void decor_draw_one(SDL_Renderer *r, DecorKind k, float x, float y,
                     Uint64 frame) {
     switch (k) {
@@ -124,6 +155,8 @@ void decor_draw_one(SDL_Renderer *r, DecorKind k, float x, float y,
         case DECOR_TOWER:   draw_tower(r, x, y, frame);   break;
         case DECOR_CUSHION: draw_cushion(r, x, y, frame); break;
         case DECOR_RUG2:    draw_rug2(r, x, y, frame);    break;
+        case DECOR_YARN:    draw_yarn(r, x, y, frame);    break;
+        case DECOR_MILK:    draw_milk(r, x, y, frame);    break;
         default: break;
     }
 }
@@ -137,6 +170,8 @@ static void item_size(DecorKind k, float *w, float *h) {
         case DECOR_TOWER:   *w = 20; *h = 25; break;
         case DECOR_CUSHION: *w = 18; *h = 11; break;
         case DECOR_RUG2:    *w = 30; *h = 14; break;
+        case DECOR_YARN:    *w = 14; *h = 12; break;
+        case DECOR_MILK:    *w = 16; *h = 10; break;
         default:            *w = 16; *h = 16; break;
     }
 }

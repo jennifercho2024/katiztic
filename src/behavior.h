@@ -13,13 +13,13 @@
 
 #include <SDL3/SDL.h>
 #include "cat.h"   /* Activity enum lives here */
-
-/* Forward declaration to avoid a circular include with roster.h. */
-struct Roster;
+#include "roster.h"
+#include "decor.h"
 
 /* Advance every cat's behavior one frame: tick activity timers, move walkers
- * toward their targets, and pair up nearby cats to play. Cats roam within the
- * cottage floor area, so bounds are passed in. */
-void behavior_update(struct Roster *ro, Uint64 frame);
+ * toward their targets, pair up nearby cats to play, and let cats notice and
+ * react to placed yarn (bat at it) and milk (lap it). `decor` may be NULL in
+ * places without décor (the meadow, café). */
+void behavior_update(Roster *ro, Decor *decor, Uint64 frame);
 
 #endif /* KATIZTIC_BEHAVIOR_H */

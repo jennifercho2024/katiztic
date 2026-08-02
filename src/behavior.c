@@ -1,6 +1,7 @@
 /* behavior.c — see behavior.h. The cats' little brains. */
 #include "behavior.h"
 #include "roster.h"
+#include "decor.h"
 #include <math.h>
 
 /* The cottage floor area cats roam within (logical 240x160 space). Kept clear
@@ -44,8 +45,7 @@ static float dist(const Cat *a, const Cat *b) {
     return sqrtf(dx * dx + dy * dy);
 }
 
-void behavior_update(struct Roster *ro_opaque, Uint64 frame) {
-    Roster *ro = (Roster *)ro_opaque;
+void behavior_update(Roster *ro, Decor *decor, Uint64 frame) {
     (void)frame;
 
     /* First pass: advance each cat's own activity. */
@@ -101,6 +101,38 @@ void behavior_update(struct Roster *ro_opaque, Uint64 frame) {
                 stats_gain_xp(&ro->cats[i].stats, 6);
                 stats_gain_xp(&ro->cats[j].stats, 6);
                 break;
+            }
+        }
+    }
+
+    /* Fourth pass: cats notice placed yarn and milk and react to them. A calm
+     * cat near yarn bats at it (a little play bounce); near milk she laps it
+     * (a grooming pose). Only when décor exists here (the cottage). */
+    if (decor) {
+        for (int i = 0; i < ro->count; i++) {
+            Cat *c = &ro->cats[i].anim;
+            if (c->act != ACT_SIT && c->act != ACT_WALK) continue;
+
+            for (int k = 0; k < DECOR_COUNT; k++) {
+                if (!decor->items[k].placed) continue;
+                DecorKind kind = (DecorKind)k;
+                if (kind != DECOR_YARN && kind != DECOR_MILK) continue;
+
+                float ix = decor->items[k].x + 8;   /* item center-ish */
+                float iy = decor->items[k].y + 6;
+                float dx = ix - c->cx, dy = iy - c->cy;
+                float d = sqrtf(dx * dx + dy * dy);
+                if (d <= 22.0f && SDL_rand(150) == 0) {
+                    c->facing = (dx >= 0) ? 1 : -1;
+                    if (kind == DECOR_YARN) {
+                        c->act = ACT_PLAY;         /* bat at the yarn */
+                    } else {
+                        c->act = ACT_GROOM;        /* lap the milk    */
+                    }
+                    c->act_timer = 180 + SDL_rand(120);
+                    stats_gain_xp(&ro->cats[i].stats, 3);  /* a little joy */
+                    break;
+                }
             }
         }
     }

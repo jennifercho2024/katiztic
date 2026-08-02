@@ -19,6 +19,8 @@ typedef enum {
     DECOR_TOWER,     /* a cat tower                    */
     DECOR_CUSHION,   /* a round floor cushion          */
     DECOR_RUG2,      /* a second little rug            */
+    DECOR_YARN,      /* a ball of yarn — cats bat at it (earned)   */
+    DECOR_MILK,      /* a saucer of milk — cats lap it (earned)    */
     DECOR_COUNT
 } DecorKind;
 
@@ -28,6 +30,7 @@ typedef enum {
     UNLOCK_BOND,         /* a cat's bond reaches the threshold  */
     UNLOCK_FRIENDS,      /* befriend N cats on walks            */
     UNLOCK_FAMILY,       /* have N cats in your roster          */
+    UNLOCK_LEVEL,        /* total levels across cats (socializing + care) */
 } UnlockKind;
 
 typedef struct {
@@ -55,9 +58,10 @@ Decor decor_new(void);
 
 /* Re-check unlocks against current progress; newly-unlocked items become
  * owned (but not auto-placed). Returns the number newly unlocked this call,
- * so the caller can celebrate ("You unlocked a plant!"). */
+ * so the caller can celebrate. `total_levels` is the sum of all cats' levels
+ * (rises with socializing and care), gating the earned social items. */
 int decor_check_unlocks(Decor *d, int max_bond, int friends_count,
-                        int family_count);
+                        int family_count, int total_levels);
 
 /* Drawing: render every placed item into the cottage. */
 void decor_draw(SDL_Renderer *r, const Decor *d, Uint64 frame);
