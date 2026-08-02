@@ -347,31 +347,28 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* The map is open: arrows already moved the cursor (handled in
-                 * the key events). A tap either picks a place dot (selects it)
-                 * or, if it hits the already-selected place, opens the confirm.
-                 * Tapping outside any dot closes the map. */
+                /* The map is open. If the confirm dialog is up, route taps to
+                 * it. Otherwise a single tap on any place selects it AND opens
+                 * its "Go here?" confirm right away; tapping empty space closes
+                 * the map. */
                 if (map_open) {
-                    int hit = map_hit(lx, ly);
-                    if (hit >= 0) {
-                        if (hit == map_sel) {
-                            map_confirm = true;   /* tapping the selected place */
-                        } else {
-                            map_sel = hit;        /* first tap just selects it  */
-                        }
-                    } else if (!map_confirm) {
-                        map_open = false;         /* tapped empty space: close  */
-                    }
-                    /* if the confirm dialog is up, route the tap to it */
                     if (map_confirm) {
                         int ans = ui_confirm_travel_hit(lx, ly);
                         if (ans == 1) {
-                            do_travel = (Location)map_sel;   /* apply below */
+                            do_travel = (Location)map_sel;
                             map_confirm = false;
                             map_open = false;
                         } else if (ans == 0) {
                             map_confirm = false;
                         }
+                        break;
+                    }
+                    int hit = map_hit(lx, ly);
+                    if (hit >= 0) {
+                        map_sel = hit;          /* one tap selects... */
+                        map_confirm = true;     /* ...and opens the confirm */
+                    } else {
+                        map_open = false;       /* tapped empty space: close */
                     }
                     break;
                 }
@@ -493,22 +490,6 @@ int main(int argc, char *argv[]) {
                     banner_timer = 240;
                     press_fx = 8;
                 }
-                /* 3c) pet the visiting wild cat directly (meadow only) — some
-                 * cats warm to a gentle hand as much as to a treat. */
-                else if (location == LOC_MEADOW && enc.present
-                         && encounter_hit(&enc, lx, ly)) {
-                    friends_meet(&friends, enc.name, enc.type);
-                    bool now_friend = friends_pet(&friends, enc.name);
-                    friends_save(&friends, KZ_FRIENDS_PATH);
-                    if (now_friend)
-                        SDL_snprintf(banner_line, sizeof banner_line,
-                                     "%s is your friend now!", enc.name);
-                    else
-                        SDL_snprintf(banner_line, sizeof banner_line,
-                                     "%s leans into your hand.", enc.name);
-                    banner_timer = 240;
-                    press_fx = 8;
-                }
                 /* 3d) at the flea market: tap a stall to buy one of that food */
                 else if (location == LOC_MARKET) {
                     int stall = market_hit(lx, ly);
@@ -553,9 +534,27 @@ int main(int argc, char *argv[]) {
                             cam_last_y = ly;
                         }
                     } else {
-                        /* Outdoors she's DRAWN at the outing spot (her stored
-                         * position stays her home roaming spot), so hit-test
-                         * where she actually appears on screen. */
+                        /* In the meadow, a visiting wild cat can be petted —
+                         * check her first (she's drawn at her own spot). */
+                        if (location == LOC_MEADOW && enc.present
+                            && encounter_hit(&enc, lx, ly)) {
+                            friends_meet(&friends, enc.name, enc.type);
+                            bool now_friend = friends_pet(&friends, enc.name);
+                            friends_save(&friends, KZ_FRIENDS_PATH);
+                            cat_pet(&enc.anim);   /* she reacts with a happy glow */
+                            if (now_friend)
+                                SDL_snprintf(banner_line, sizeof banner_line,
+                                             "%s is your friend now!", enc.name);
+                            else
+                                SDL_snprintf(banner_line, sizeof banner_line,
+                                             "%s leans into your hand.", enc.name);
+                            banner_timer = 240;
+                            press_fx = 8;
+                            break;
+                        }
+                        /* Otherwise pet the active cat. She's DRAWN at the
+                         * outing spot (her stored position stays her home
+                         * roaming spot), so hit-test where she appears. */
                         OwnedCat *a = roster_active(&roster);
                         float hx = CAT_X, hy = CAT_Y;
                         if (location == LOC_STREET) {

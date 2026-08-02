@@ -39,6 +39,24 @@ static void glyph_moon(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 3, y + 7, 3, 1, c);
 }
 
+/* a folded travel map with a dotted route and a little pin */
+static void glyph_map(SDL_Renderer *r, float x, float y, Color c) {
+    /* outline of a folded map (9x8) */
+    px_rect(r, x,     y,     9, 1, c);
+    px_rect(r, x,     y + 7, 9, 1, c);
+    px_rect(r, x,     y,     1, 8, c);
+    px_rect(r, x + 8, y,     1, 8, c);
+    /* fold lines */
+    px_rect(r, x + 3, y + 1, 1, 6, rgb(0xC8, 0xB2, 0xBE));
+    px_rect(r, x + 6, y + 1, 1, 6, rgb(0xC8, 0xB2, 0xBE));
+    /* a dotted route */
+    px_rect(r, x + 2, y + 5, 1, 1, KZ_PETAL_PINK);
+    px_rect(r, x + 4, y + 4, 1, 1, KZ_PETAL_PINK);
+    px_rect(r, x + 5, y + 2, 1, 1, KZ_PETAL_PINK);
+    /* destination pin */
+    px_rect(r, x + 6, y + 2, 2, 2, KZ_HEART);
+}
+
 static void glyph_fish(SDL_Renderer *r, float x, float y, Color c) {
     /* little side-on fish: body + tail */
     px_rect(r, x + 1, y + 3, 6, 3, c);   /* body */
@@ -105,8 +123,8 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
     float gx = b->x + (b->w - 9) / 2.0f;
     float gy = b->y + (b->h - 9) / 2.0f;
     switch (b->kind) {
-        case KZ_BTN_HOME:    glyph_house(r, gx, gy, KZ_COCOA); break;
-        case KZ_BTN_OUT:     glyph_sun(r,   gx, gy, KZ_COCOA); break;
+        case KZ_BTN_HOME:    glyph_map(r, gx, gy, KZ_COCOA); break;
+        case KZ_BTN_OUT:     glyph_map(r, gx, gy, KZ_COCOA); break;
         case KZ_BTN_SLEEP:   glyph_moon(r,  gx, gy, KZ_COCOA); break;
         case KZ_BTN_TREAT:   glyph_fish(r,  gx, gy, rgb(0xE8,0x8B,0x6B)); break;
         case KZ_BTN_FRIENDS: glyph_two_cats(r, gx, gy, KZ_PETAL_PINK, KZ_CAT_OUTLINE); break;

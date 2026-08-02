@@ -22,7 +22,7 @@ static const MapPlace PLACES[MAP_PLACE_COUNT] = {
     { "Cafe",     1, 176,  46 },   /* Satin City, upper */
     { "Forest",   2,  62, 122 },   /* Fern Hollow, left */
     { "Street",   1, 210,  70 },   /* Satin City, lower */
-    { "Market",   1, 176,  74 },   /* Satin City, mid — the flea market */
+    { "Market",   1, 208,  46 },   /* Satin City, upper-right — the flea market */
 };
 
 int             map_place_count(void)   { return MAP_PLACE_COUNT; }
@@ -86,6 +86,57 @@ static void map_tree(SDL_Renderer *r, float x, float y, Uint64 frame, int seed) 
     px_rect(r, x + 1, y + 4, 2, 4, rgb(0xA8, 0x86, 0x8E));       /* trunk */
     px_rect(r, x - 2 + sway, y - 2, 8, 6, rgb(0x9C, 0xC6, 0xA4)); /* canopy */
     px_rect(r, x - 1 + sway, y - 4, 6, 4, rgb(0xB6, 0xDA, 0xBC));
+}
+
+/* a small icon above each place, hinting what it is */
+static void place_icon(SDL_Renderer *r, int place, float x, float y) {
+    /* place order matches Location: 0 Cottage,1 Meadow,2 Cafe,3 Forest,
+     * 4 Street,5 Market */
+    switch (place) {
+        case 0: {  /* cottage: a little house */
+            px_rect(r, x - 5, y - 1, 10, 6, rgb(0xE8, 0xC6, 0xB4));   /* wall */
+            px_rect(r, x - 6, y - 4, 12, 3, rgb(0xC8, 0x8B, 0x8B));   /* roof */
+            px_rect(r, x - 1, y + 1, 3, 4, rgb(0xA8, 0x86, 0x8E));    /* door */
+            break;
+        }
+        case 1: {  /* meadow: grass tufts + flower */
+            Color g = rgb(0x8F, 0xC0, 0x7A);
+            px_rect(r, x - 5, y + 2, 2, 3, g);
+            px_rect(r, x - 1, y + 1, 2, 4, g);
+            px_rect(r, x + 3, y + 2, 2, 3, g);
+            px_rect(r, x + 1, y - 2, 2, 2, KZ_PETAL_PINK);            /* flower */
+            break;
+        }
+        case 2: {  /* cafe: a cup with steam */
+            px_rect(r, x - 4, y, 8, 5, KZ_CLOUD);
+            px_rect(r, x - 4, y, 8, 1, rgb(0xC0, 0x98, 0x88));
+            px_rect(r, x + 4, y + 1, 2, 2, rgb(0xC0, 0x98, 0x88));    /* handle */
+            px_rect(r, x - 2, y - 3, 1, 2, rgb(0xCF, 0xC2, 0xD0));    /* steam */
+            px_rect(r, x + 1, y - 3, 1, 2, rgb(0xCF, 0xC2, 0xD0));
+            break;
+        }
+        case 3: {  /* forest: a pine tree */
+            Color t = rgb(0x7C, 0xA8, 0x86);
+            px_rect(r, x - 1, y + 2, 2, 3, rgb(0xA8, 0x86, 0x6E));    /* trunk */
+            px_rect(r, x - 4, y, 8, 2, t);
+            px_rect(r, x - 3, y - 2, 6, 2, t);
+            px_rect(r, x - 1, y - 4, 2, 2, t);
+            break;
+        }
+        case 4: {  /* street: a lamppost */
+            px_rect(r, x, y - 4, 2, 9, rgb(0x8A, 0x7A, 0x88));        /* pole */
+            px_rect(r, x - 2, y - 5, 6, 3, KZ_BUTTER);               /* lamp */
+            break;
+        }
+        case 5:
+        default: {  /* market: a striped stall awning */
+            px_rect(r, x - 5, y - 3, 3, 4, KZ_PETAL_PINK);
+            px_rect(r, x - 2, y - 3, 3, 4, KZ_CLOUD);
+            px_rect(r, x + 1, y - 3, 3, 4, KZ_PETAL_PINK);
+            px_rect(r, x - 5, y + 1, 10, 3, rgb(0xC6, 0xA6, 0x8E));   /* counter */
+            break;
+        }
+    }
 }
 
 void map_draw(SDL_Renderer *r, int selected, int current, Uint64 frame) {
@@ -159,8 +210,9 @@ void map_draw(SDL_Renderer *r, int selected, int current, Uint64 frame) {
         }
     }
 
-    /* ---- place pins ---- */
+    /* ---- place pins with an icon above each ---- */
     for (int i = 0; i < MAP_PLACE_COUNT; i++) {
+        place_icon(r, i, PLACES[i].x, PLACES[i].y - 12);
         Color pin = (i == current) ? KZ_HEART : KZ_COCOA;
         draw_pin(r, PLACES[i].x, PLACES[i].y, pin, i == current);
         /* label on a soft chip for readability over terrain */

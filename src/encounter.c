@@ -79,7 +79,11 @@ void encounter_update(Encounter *e, const Friends *f) {
 
 bool encounter_hit(const Encounter *e, float px_, float py_) {
     if (!e->present) return false;
-    return cat_hit(&e->anim, px_, py_);
+    /* A generous box around the visiting cat so taps land easily — she's a
+     * small sprite off to the side, so we're forgiving here. */
+    float dx = px_ - e->anim.cx;
+    float dy = py_ - e->anim.cy;
+    return dx > -16 && dx < 16 && dy > -20 && dy < 24;
 }
 
 void encounter_draw(SDL_Renderer *r, const Encounter *e, Uint64 frame) {
