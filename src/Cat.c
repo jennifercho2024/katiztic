@@ -16,7 +16,8 @@ static int roll_next_blink(void) {
 
 Cat cat_make(float cx, float cy) {
     Cat c = { cx, cy, 0, roll_next_blink(), 0,
-              ACT_SIT, 120, cx, cy, 1, (Uint64)SDL_rand(100000) };
+              ACT_SIT, 120, cx, cy, 1, (Uint64)SDL_rand(100000),
+              0, 120 + SDL_rand(240), 0 };
     return c;
 }
 

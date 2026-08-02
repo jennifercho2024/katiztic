@@ -33,6 +33,9 @@ typedef struct {
     float tx, ty;      /* wander target (for ACT_WALK)                */
     int   facing;      /* -1 faces left, +1 faces right               */
     Uint64 act_seed;   /* per-cat phase offset so they're not in sync */
+    int   mood_timer;  /* frames a mood bubble is showing (0 = none)  */
+    int   mood_next;   /* frames until the next bubble may appear      */
+    int   mood_kind;   /* which emoji is showing (see mood.h)          */
 } Cat;
 
 /* Place a cat at a spot. */

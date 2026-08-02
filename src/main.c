@@ -18,6 +18,7 @@
 #include "stats.h"
 #include "roster.h"
 #include "behavior.h"
+#include "mood.h"
 #include "friends.h"
 #include "encounter.h"
 #include "decor.h"
@@ -427,8 +428,10 @@ int main(int argc, char *argv[]) {
         OwnedCat *active = roster_active(&roster);
         /* Animate every cat (they all breathe and blink); the active one also
          * carries any petting glow. */
-        for (int i = 0; i < roster.count; i++)
+        for (int i = 0; i < roster.count; i++) {
             cat_update(&roster.cats[i].anim);
+            mood_update(&roster.cats[i].anim, &roster.cats[i].stats);
+        }
         /* At home and at the café, the whole family roams and socializes. */
         if (location == LOC_COTTAGE || location == LOC_CAFE)
             behavior_update(&roster, frame);
@@ -521,6 +524,9 @@ int main(int argc, char *argv[]) {
                 cat_draw(renderer, &roster.cats[i].anim,
                          cattype_colors(roster.cats[i].type), frame);
             }
+            /* mood bubbles float above everyone */
+            for (int i = 0; i < roster.count; i++)
+                mood_draw(renderer, &roster.cats[i].anim, frame);
         } else {
             /* Outdoors is a one-cat outing: just the active cat, at the meadow
              * spot. We save and restore her real position so her roaming spot
@@ -534,6 +540,7 @@ int main(int argc, char *argv[]) {
             meadow_draw(renderer, &meadow, frame);
             encounter_draw(renderer, &enc, frame);   /* the visitor, if present */
             cat_draw(renderer, &active->anim, col, frame);
+            mood_draw(renderer, &active->anim, frame);
             meadow_draw_wash(renderer, &meadow);   /* mood overlay, on top */
             active->anim.cx = save_x;
             active->anim.cy = save_y;

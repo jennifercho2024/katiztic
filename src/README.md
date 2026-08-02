@@ -82,6 +82,11 @@ bouncing at each other. Every cat roams independently, so the cottage feels
 like a room full of cats each doing her own thing. It's all just for the cozy
 feel — it doesn't affect stats.
 
+Every so often a little **mood bubble** drifts up over a cat showing how she
+feels — a heart when she's content, a music note while playing, a sparkle when
+grooming, sleepy z's while napping, or a fish when she's a bit hungry. They
+appear everywhere, a gentle glimpse of each cat's inner life.
+
 ## Music
 
 Each place has its own gentle, synthesized theme — a warm progression at home
@@ -141,6 +146,8 @@ src/
                sine tones generated in code (no audio files)
   behavior.h/.c the cats' little brains at home — picking activities (wander,
                groom, sleep, play together), roaming, and pairing up to play
+  mood.h/.c    emoji thought bubbles — picks an emoji from a cat's activity and
+               stats, and drifts it up over her head
   roster.h/.c  your family of up to 5 cats — each with a name, type, stats, and
                animation state; the active selection, adopting, and save/load
   cat.h/.c     one cat's animation state (blink, pet glow) and how it's drawn,
