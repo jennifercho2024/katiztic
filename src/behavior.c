@@ -65,7 +65,7 @@ void behavior_update(struct Roster *ro_opaque, Uint64 frame) {
             if (d < 1.5f || c->act_timer <= 0) {
                 choose_activity(c);                /* arrived (or gave up) */
             } else {
-                float sp = 0.45f;                  /* gentle stroll speed */
+                float sp = 0.28f;                  /* slow, cozy stroll */
                 c->cx += dx / d * sp;
                 c->cy += dy / d * sp;
                 c->facing = (dx >= 0) ? 1 : -1;

@@ -203,11 +203,17 @@ void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
     text_draw(r, lvl, rx, ly2, KZ_COCOA);
     /* XP bar to the right of the level text */
     float bx = rx + 24, bw = 30, bh = 5;
-    Uint16 need = stats_xp_for_level(s->level);
-    float frac = need > 0 ? (float)s->xp / (float)need : 0.0f;
-    if (frac > 1.0f) frac = 1.0f;
-    px_rect(r, bx, ly2, bw, bh, KZ_CLOUD);
-    if (frac > 0) px_rect(r, bx, ly2, bw * frac, bh, KZ_LAVENDER);
+    if (s->level >= 100) {
+        /* maxed out: a full bar with a soft glow */
+        px_rect(r, bx, ly2, bw, bh, KZ_LAVENDER);
+        text_draw(r, "MAX", bx + 8, ly2, KZ_COCOA);
+    } else {
+        Uint16 need = stats_xp_for_level(s->level);
+        float frac = need > 0 ? (float)s->xp / (float)need : 0.0f;
+        if (frac > 1.0f) frac = 1.0f;
+        px_rect(r, bx, ly2, bw, bh, KZ_CLOUD);
+        if (frac > 0) px_rect(r, bx, ly2, bw * frac, bh, KZ_LAVENDER);
+    }
     px_rect(r, bx,          ly2,          bw, 1, KZ_COCOA);
     px_rect(r, bx,          ly2 + bh - 1, bw, 1, KZ_COCOA);
     px_rect(r, bx,          ly2,          1,  bh, KZ_COCOA);

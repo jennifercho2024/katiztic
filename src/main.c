@@ -120,6 +120,10 @@ int main(int argc, char *argv[]) {
     if (!decor_load(&decor, KZ_DECOR_PATH)) {
         decor = decor_new();
     }
+    /* Settle any already-placed items so they rest on a surface (older saves
+     * may have them floating). */
+    for (int i = 0; i < DECOR_COUNT; i++)
+        decor_settle(&decor, i);
     bool decor_open = false;      /* is the décor tray showing?         */
     int  drag_item = -1;          /* décor item being dragged, or -1    */
 
@@ -413,6 +417,7 @@ int main(int argc, char *argv[]) {
                         decor.items[drag_item].placed = true;
                         decor.items[drag_item].x = lx - 8;
                         decor.items[drag_item].y = ly - 8;
+                        decor_settle(&decor, drag_item);   /* let it fall to rest */
                     }
                     decor_save(&decor, KZ_DECOR_PATH);
                     drag_item = -1;

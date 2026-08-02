@@ -141,6 +141,42 @@ static void item_size(DecorKind k, float *w, float *h) {
     }
 }
 
+/* The cottage floor line (matches cottage.c). Items rest with their base here
+ * unless they land on top of another item. Pictures are wall décor and hang
+ * where dropped (they don't fall). */
+#define DECOR_FLOOR_Y 138.0f
+
+void decor_settle(Decor *d, int index) {
+    if (index < 0 || index >= DECOR_COUNT) return;
+    DecorItem *it = &d->items[index];
+    if (!it->placed) return;
+
+    /* Pictures hang on the wall — no gravity. */
+    if ((DecorKind)index == DECOR_PICTURE) return;
+
+    float w, h; item_size((DecorKind)index, &w, &h);
+    float x = it->x;
+
+    /* Start by resting on the floor: base (y + h) sits at the floor line. */
+    float rest_top = DECOR_FLOOR_Y - h;
+
+    /* If this item horizontally overlaps another placed item whose top is
+     * higher (smaller y) than the floor, rest on top of that item instead —
+     * simple stacking. */
+    for (int j = 0; j < DECOR_COUNT; j++) {
+        if (j == index || !d->items[j].placed) continue;
+        if ((DecorKind)j == DECOR_PICTURE) continue;
+        float jw, jh; item_size((DecorKind)j, &jw, &jh);
+        float jx = d->items[j].x, jtop = d->items[j].y;
+        bool overlap = (x + w > jx) && (x < jx + jw);
+        if (overlap) {
+            float on_top = jtop - h;          /* sit on that item's top */
+            if (on_top < rest_top) rest_top = on_top;
+        }
+    }
+    it->y = rest_top;
+}
+
 void decor_draw(SDL_Renderer *r, const Decor *d, Uint64 frame) {
     for (int i = 0; i < DECOR_COUNT; i++) {
         if (d->items[i].placed)

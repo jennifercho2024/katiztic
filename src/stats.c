@@ -46,15 +46,16 @@ Uint16 stats_xp_for_level(Uint16 level) {
 
 int stats_gain_xp(Stats *s, int amount) {
     if (amount <= 0) return 0;
+    if (s->level >= 100) { s->xp = 0; return 0; }   /* max level reached */
     int levels = 0;
     int xp = (int)s->xp + amount;
-    /* roll over as many levels as the XP covers */
-    while (xp >= (int)stats_xp_for_level(s->level)) {
+    /* roll over as many levels as the XP covers, stopping at the cap */
+    while (s->level < 100 && xp >= (int)stats_xp_for_level(s->level)) {
         xp -= (int)stats_xp_for_level(s->level);
-        if (s->level < 65000) s->level++;   /* effectively no cap */
+        s->level++;
         levels++;
     }
-    s->xp = (Uint16)xp;
+    s->xp = (s->level >= 100) ? 0 : (Uint16)xp;   /* no partial XP at max */
     return levels;
 }
 

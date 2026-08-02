@@ -22,7 +22,7 @@ typedef struct {
     Uint8 energy;   /* restored by feeding                                  */
     Uint8 growth;   /* slow long-term "care given" meter                    */
     Uint32 care_given; /* running count of care actions, feeds growth       */
-    Uint16 level;   /* the cat's level — starts at 1, no cap                */
+    Uint16 level;   /* the cat's level — starts at 1, caps at 100          */
     Uint16 xp;      /* experience toward the next level                     */
 } Stats;
 

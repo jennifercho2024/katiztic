@@ -59,7 +59,7 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
     bool  eyes_closed = false; /* sleeping / grooming close the eyes     */
     switch (cat->act) {
         case ACT_PLAY:
-            act_bob = -fabsf(sinf((float)frame * 0.35f)) * 4.0f;  /* bouncing */
+            act_bob = -fabsf(sinf((float)frame * 0.14f)) * 2.5f;  /* slow, soft bounce */
             break;
         case ACT_GROOM:
             head_dip = 3.0f;
