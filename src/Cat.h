@@ -12,11 +12,27 @@
 #include <SDL3/SDL.h>
 #include "cattype.h"
 
+/* What a cat is currently doing — drives both its behavior and how it's drawn.
+ * (The logic that transitions between these lives in behavior.c.) */
+typedef enum {
+    ACT_SIT,      /* sitting still, breathing (the default resting pose) */
+    ACT_WALK,     /* strolling toward a target spot                      */
+    ACT_GROOM,    /* licking / grooming in place                         */
+    ACT_SLEEP,    /* curled up napping                                   */
+    ACT_PLAY,     /* batting at a nearby cat                             */
+} Activity;
+
 typedef struct {
     float cx, cy;      /* center of the cat, in logical pixels        */
     int   blink;       /* frames of blink remaining (0 = eyes open)   */
     int   next_blink;  /* frames until the next blink begins          */
     int   pet;         /* frames of petting glow remaining (0 = calm) */
+    /* --- behavior state (managed by behavior.c) --- */
+    Activity act;      /* what she's doing right now                  */
+    int   act_timer;   /* frames left in the current activity         */
+    float tx, ty;      /* wander target (for ACT_WALK)                */
+    int   facing;      /* -1 faces left, +1 faces right               */
+    Uint64 act_seed;   /* per-cat phase offset so they're not in sync */
 } Cat;
 
 /* Place a cat at a spot. */

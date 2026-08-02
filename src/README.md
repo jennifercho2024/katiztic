@@ -54,6 +54,15 @@ it anywhere you like; drag it back to the tray to put it away. Your arrangement
 is saved. While the tray is open, each placed item shows its name so you know
 what everything is. Décor is pure coziness — it just makes the home yours.
 
+## A living home
+
+At home your cats aren't just sitting around — each one has a little mind of
+her own. They wander the room, groom themselves, curl up for naps (with tiny
+drifting z's), and when two of them drift close they'll pair up and play,
+bouncing at each other. Every cat roams independently, so the cottage feels
+like a room full of cats each doing her own thing. It's all just for the cozy
+feel — it doesn't affect stats.
+
 ## Music
 
 Each place has its own gentle, synthesized theme — a warm progression at home
@@ -111,6 +120,8 @@ src/
   icon.h/.c    the window/dock icon, embedded as raw pixels (no image file)
   music.h/.c   procedural cozy music — a synthesized theme per location, soft
                sine tones generated in code (no audio files)
+  behavior.h/.c the cats' little brains at home — picking activities (wander,
+               groom, sleep, play together), roaming, and pairing up to play
   roster.h/.c  your family of up to 5 cats — each with a name, type, stats, and
                animation state; the active selection, adopting, and save/load
   cat.h/.c     one cat's animation state (blink, pet glow) and how it's drawn,

@@ -17,6 +17,7 @@
 #include "cattype.h"
 #include "stats.h"
 #include "roster.h"
+#include "behavior.h"
 #include "friends.h"
 #include "encounter.h"
 #include "decor.h"
@@ -95,6 +96,14 @@ int main(int argc, char *argv[]) {
     Roster roster;
     if (!roster_load(&roster, KZ_SAVE_PATH, CAT_X, CAT_Y)) {
         roster = roster_new(CAT_X, CAT_Y);
+    }
+    /* Spread the cats to distinct spots so they don't begin stacked; from
+     * there their own wandering takes over. */
+    for (int i = 0; i < roster.count; i++) {
+        float hx, hy;
+        roster_home_spot(i, &hx, &hy);
+        roster.cats[i].anim.cx = hx;
+        roster.cats[i].anim.cy = hy;
     }
 
     /* Friends met on walks — a separate collection and save file. */
@@ -385,10 +394,13 @@ int main(int argc, char *argv[]) {
         /* ---- update ---- */
         if (location == LOC_MEADOW) meadow_update(&meadow);
         OwnedCat *active = roster_active(&roster);
-        /* Animate every cat (they all breathe and blink at home); the active
-         * one also carries any petting glow. */
+        /* Animate every cat (they all breathe and blink); the active one also
+         * carries any petting glow. */
         for (int i = 0; i < roster.count; i++)
             cat_update(&roster.cats[i].anim);
+        /* At home, the whole family roams and does their own thing. */
+        if (location == LOC_COTTAGE)
+            behavior_update(&roster, frame);
         if (press_fx > 0) press_fx--;
 
         /* Music follows the place you're in. */
@@ -439,32 +451,44 @@ int main(int argc, char *argv[]) {
         if (location == LOC_COTTAGE) {
             cottage_draw(renderer, frame, is_night);
             decor_draw(renderer, &decor, frame);   /* décor sits in the room */
-            /* The whole family lounges at home. Draw each cat at its spot,
-             * back-to-front by row so nearer cats overlap farther ones, and
-             * draw the active cat last so she sits on top with her hearts. */
-            for (int i = 0; i < roster.count; i++) {
-                if (i == roster.active) continue;
-                float hx, hy;
-                roster_home_spot(i, &hx, &hy);
-                roster.cats[i].anim.cx = hx;
-                roster.cats[i].anim.cy = hy;
+            /* The whole family roams the room, each doing her own thing.
+             * Draw them sorted by y so nearer (lower) cats overlap farther
+             * ones; the active cat is drawn among them at her real position. */
+            int order[KZ_MAX_CATS];
+            for (int i = 0; i < roster.count; i++) order[i] = i;
+            /* simple insertion sort by cy (ascending: back to front) */
+            for (int a = 1; a < roster.count; a++) {
+                int key = order[a];
+                float ky = roster.cats[key].anim.cy;
+                int b = a - 1;
+                while (b >= 0 && roster.cats[order[b]].anim.cy > ky) {
+                    order[b + 1] = order[b];
+                    b--;
+                }
+                order[b + 1] = key;
+            }
+            for (int k = 0; k < roster.count; k++) {
+                int i = order[k];
                 cat_draw(renderer, &roster.cats[i].anim,
                          cattype_colors(roster.cats[i].type), frame);
             }
-            float ax, ay;
-            roster_home_spot(roster.active, &ax, &ay);
-            active->anim.cx = ax;
-            active->anim.cy = ay;
-            cat_draw(renderer, &active->anim, col, frame);
         } else {
-            /* Outdoors is a one-cat outing: just the active cat, at the
-             * meadow spot. A visiting wild cat (if any) sits off to the side. */
+            /* Outdoors is a one-cat outing: just the active cat, at the meadow
+             * spot. We save and restore her real position so her roaming spot
+             * back home isn't clobbered by the walk. A visiting wild cat (if
+             * any) sits off to the side. */
+            float save_x = active->anim.cx, save_y = active->anim.cy;
+            Activity save_act = active->anim.act;
             active->anim.cx = CAT_X;
             active->anim.cy = CAT_Y;
+            active->anim.act = ACT_SIT;      /* she sits calmly on the walk */
             meadow_draw(renderer, &meadow, frame);
             encounter_draw(renderer, &enc, frame);   /* the visitor, if present */
             cat_draw(renderer, &active->anim, col, frame);
             meadow_draw_wash(renderer, &meadow);   /* mood overlay, on top */
+            active->anim.cx = save_x;
+            active->anim.cy = save_y;
+            active->anim.act = save_act;
         }
 
         /* ---- UI (both locations) ---- */
