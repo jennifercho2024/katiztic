@@ -62,6 +62,12 @@ bool ui_release_hit(float panel_x, float panel_y, float px, float py);
 void ui_draw_release_button(SDL_Renderer *r, float panel_x, float panel_y,
                             bool armed);
 
+/* A centered "Are you sure?" dialog for releasing a cat, with Yes/No buttons.
+ * Draw it on top of everything; hit returns 1 = Yes, 0 = No, -1 = neither
+ * (a tap outside also reads as No in the caller). */
+void ui_confirm_release(SDL_Renderer *r, const char *cat_name);
+int  ui_confirm_release_hit(float px, float py);
+
 /* ---- encounter UI ----
  * A soft dialogue banner along the bottom with a line of text, used when a
  * wild cat is visiting on a walk. */

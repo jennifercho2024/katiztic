@@ -27,13 +27,24 @@
 #include "camera.h"
 #include "cafe.h"
 #include "forest.h"
+#include "street.h"
 #include "story.h"
+#include <math.h>
 #include "icon.h"
 #include "music.h"
 
 /* Where the player currently is. Sleeping happens in the cottage; the meadow
  * is the outdoors. Moving between them is a tap on an on-screen button. */
-typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST } Location;
+typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST, LOC_STREET } Location;
+
+/* Which story zone a location belongs to, or -1 if it isn't one. New zones
+ * arrive faded (option A): only these get the warmth treatment. */
+static int story_zone_for(Location l) {
+    if (l == LOC_FOREST) return (int)STORY_ZONE_FOREST;
+    if (l == LOC_STREET) return (int)STORY_ZONE_STREET;
+    return -1;
+}
+static const char *STORY_ZONE_NAMES[STORY_ZONE_COUNT] = { "forest", "street" };
 
 /* Window opens at 4x the logical canvas: 960x640. */
 #define KZ_SCALE  4
@@ -105,9 +116,9 @@ int main(int argc, char *argv[]) {
     bool cam_dragging = false;    /* panning the room right now? */
     float cam_last_x = 0, cam_last_y = 0;
 
-    /* Releasing a cat needs a confirm tap so it can't happen by accident:
-     * first tap arms it (shows "sure?"), second tap within the window does it. */
-    int release_confirm = 0;      /* frames left in the confirm window (0 = off) */
+    /* Releasing a cat asks a proper "Are you sure?" with Yes/No buttons, so
+     * it can never happen by accident. */
+    bool release_open = false;
     Button btn_sleep  = { KZ_W - 48, 4,  20, 16, KZ_BTN_SLEEP };
     int    press_fx   = 0;   /* frames of button-press highlight remaining */
 
@@ -241,6 +252,23 @@ int main(int argc, char *argv[]) {
                 /* If the friends list is open, any tap just closes it. */
                 if (friends_open) { friends_open = false; break; }
 
+                /* If the release dialog is open, it owns every tap: Yes
+                 * releases the active cat; No (or anywhere else) cancels. */
+                if (release_open) {
+                    int ans = ui_confirm_release_hit(lx, ly);
+                    release_open = false;
+                    if (ans == 1) {
+                        if (roster_release(&roster, roster.active)) {
+                            roster_save(&roster, KZ_SAVE_PATH);
+                            SDL_strlcpy(banner_line, "Released to the world.",
+                                        sizeof banner_line);
+                            banner_timer = 200;
+                        }
+                    }
+                    press_fx = 8;
+                    break;
+                }
+
                 /* If the place-picker menu is open, it gets first claim on
                  * taps (it overlaps other buttons on the right edge). */
                 if (travel_open) {
@@ -250,10 +278,11 @@ int main(int argc, char *argv[]) {
                         Location newloc = (pick == 0) ? LOC_COTTAGE
                                         : (pick == 1) ? LOC_MEADOW
                                         : (pick == 2) ? LOC_CAFE
-                                        : LOC_FOREST;
+                                        : (pick == 3) ? LOC_FOREST
+                                        : LOC_STREET;
                         if (newloc != location) {
-                            /* leaving the forest? keep its warmth safe */
-                            if (location == LOC_FOREST)
+                            /* leaving a story zone? keep its warmth safe */
+                            if (story_zone_for(location) >= 0)
                                 story_save(&story, KZ_STORY_PATH);
                             location = newloc;
                             btn_travel.kind = (location == LOC_COTTAGE)
@@ -283,16 +312,18 @@ int main(int argc, char *argv[]) {
                             } else {
                                 enc = encounter_none();
                             }
-                            /* First time stepping into the forest: the story
-                             * begins — its color has faded. */
-                            if (location == LOC_FOREST
-                                && !story.seen_intro[STORY_ZONE_FOREST]) {
-                                story.seen_intro[STORY_ZONE_FOREST] = true;
-                                SDL_strlcpy(banner_line,
-                                            "The forest's color has faded...",
-                                            sizeof banner_line);
-                                banner_timer = 320;
-                                story_save(&story, KZ_STORY_PATH);
+                            /* First time stepping into a faded zone: a
+                             * story moment — its color is gone. */
+                            {
+                                int sz = story_zone_for(location);
+                                if (sz >= 0 && !story.seen_intro[sz]) {
+                                    story.seen_intro[sz] = true;
+                                    SDL_snprintf(banner_line, sizeof banner_line,
+                                                 "The %s's color has faded...",
+                                                 STORY_ZONE_NAMES[sz]);
+                                    banner_timer = 320;
+                                    story_save(&story, KZ_STORY_PATH);
+                                }
                             }
                         }
                     }
@@ -327,20 +358,9 @@ int main(int argc, char *argv[]) {
                  * checked in SCREEN coords BEFORE any room-space hit-tests —
                  * otherwise a décor item sitting under the card (in room space)
                  * would swallow the tap. */
-                /* release ("×") button: two-tap confirm */
+                /* release ("×") button: opens the Are-you-sure dialog */
                 if (ui_release_hit(4, 4, lx, ly)) {
-                    if (release_confirm > 0) {
-                        int idx = roster.active;
-                        if (roster_release(&roster, idx)) {
-                            roster_save(&roster, KZ_SAVE_PATH);
-                            SDL_strlcpy(banner_line, "Released to the world.",
-                                        sizeof banner_line);
-                            banner_timer = 200;
-                        }
-                        release_confirm = 0;
-                    } else {
-                        release_confirm = 90;   /* arm: ~1.5s to confirm */
-                    }
+                    release_open = true;
                     press_fx = 8;
                     break;
                 }
@@ -449,10 +469,27 @@ int main(int argc, char *argv[]) {
                             cam_last_y = ly;
                         }
                     } else {
+                        /* Outdoors she's DRAWN at the outing spot (her stored
+                         * position stays her home roaming spot), so hit-test
+                         * where she actually appears on screen. */
                         OwnedCat *a = roster_active(&roster);
-                        if (cat_hit(&a->anim, lx, ly)) {
+                        float hx = CAT_X, hy = CAT_Y;
+                        if (location == LOC_STREET) {
+                            hx = CAT_X + sinf((float)frame * 0.008f) * 26.0f;
+                            hy = 96.0f;
+                        }
+                        float sx0 = a->anim.cx, sy0 = a->anim.cy;
+                        a->anim.cx = hx; a->anim.cy = hy;
+                        bool hit_out = cat_hit(&a->anim, lx, ly);
+                        a->anim.cx = sx0; a->anim.cy = sy0;
+                        if (hit_out) {
                             cat_pet(&a->anim);
                             stats_pet(&a->stats);   /* petting deepens bond */
+                            /* in a faded zone, petting makes her magic flare:
+                             * a visible burst of color returns */
+                            int sz = story_zone_for(location);
+                            if (sz >= 0)
+                                story_pet_boost(&story, (StoryZone)sz);
                         }
                     }
                 }
@@ -525,7 +562,6 @@ int main(int argc, char *argv[]) {
         else if (location == LOC_CAFE)
             behavior_update(&roster, NULL, frame);
         if (press_fx > 0) press_fx--;
-        if (release_confirm > 0) release_confirm--;
 
         /* Time of day follows the real clock: the world lightens and darkens
          * with the actual time where you are. */
@@ -541,23 +577,28 @@ int main(int argc, char *argv[]) {
         MusicTheme mt = (location == LOC_COTTAGE) ? MUSIC_COTTAGE
                       : (location == LOC_MEADOW)  ? MUSIC_MEADOW
                       : (location == LOC_CAFE)    ? MUSIC_CAFE
-                      : MUSIC_FOREST;
+                      : (location == LOC_FOREST)  ? MUSIC_FOREST
+                      : MUSIC_STREET;
         music_set_theme(mt);
         if (location == LOC_MEADOW) encounter_update(&enc, &friends);
 
-        /* In the forest, your cat's quiet company brings the color back —
+        /* In a faded zone, your cat's quiet company brings the color back —
          * faster the deeper her bond and the more friends you've made. */
-        if (location == LOC_FOREST) {
-            story_visit_tick(&story, STORY_ZONE_FOREST,
-                             (int)active->stats.bond,
-                             friends_befriended_count(&friends));
-            if (story_warmth(&story, STORY_ZONE_FOREST) >= 1.0f
-                && !story.celebrated[STORY_ZONE_FOREST]) {
-                story.celebrated[STORY_ZONE_FOREST] = true;
-                SDL_strlcpy(banner_line, "Color returns to the forest!",
-                            sizeof banner_line);
-                banner_timer = 360;
-                story_save(&story, KZ_STORY_PATH);
+        {
+            int sz = story_zone_for(location);
+            if (sz >= 0) {
+                story_visit_tick(&story, (StoryZone)sz,
+                                 (int)active->stats.bond,
+                                 friends_befriended_count(&friends));
+                if (story_warmth(&story, (StoryZone)sz) >= 1.0f
+                    && !story.celebrated[sz]) {
+                    story.celebrated[sz] = true;
+                    SDL_snprintf(banner_line, sizeof banner_line,
+                                 "Color returns to the %s!",
+                                 STORY_ZONE_NAMES[sz]);
+                    banner_timer = 360;
+                    story_save(&story, KZ_STORY_PATH);
+                }
             }
         }
         if (banner_timer > 0) banner_timer--;
@@ -658,21 +699,32 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < roster.count; i++)
                 mood_draw(renderer, &roster.cats[i].anim, frame);
             render_clear_offset();   /* UI and everything else is screen-fixed */
-        } else if (location == LOC_FOREST) {
-            /* The forest: a quiet walk, and the heart of the story. The wood
-             * is drawn through the warmth filter — faded grey at first, its
-             * pastels returning as warmth rises. Your cat is drawn at FULL
-             * color on purpose: she carries the warmth, a vivid little
-             * companion in a grey wood, and the world catches up to her. */
+        } else if (location == LOC_FOREST || location == LOC_STREET) {
+            /* A faded story zone. It's drawn through the warmth filter — grey
+             * at first, its pastels returning as warmth rises. Your cat is
+             * drawn at FULL color on purpose: she carries the warmth, a vivid
+             * little companion in a grey world catching up to her. */
             float save_x = active->anim.cx, save_y = active->anim.cy;
             Activity save_act = active->anim.act;
-            active->anim.cx = CAT_X;
-            active->anim.cy = CAT_Y;
-            active->anim.act = ACT_SIT;
-            float wm = story_warmth(&story, STORY_ZONE_FOREST);
+            int sz = story_zone_for(location);
+            if (location == LOC_STREET) {
+                /* on the street she strolls the pavement with you, gently
+                 * pacing back and forth */
+                float pace = sinf((float)frame * 0.008f);
+                active->anim.cx = CAT_X + pace * 26.0f;
+                active->anim.cy = 96.0f;   /* on the sidewalk */
+                active->anim.act = ACT_WALK;
+                active->anim.facing = (cosf((float)frame * 0.008f) >= 0) ? 1 : -1;
+            } else {
+                active->anim.cx = CAT_X;
+                active->anim.cy = CAT_Y;
+                active->anim.act = ACT_SIT;
+            }
+            float wm = story_warmth(&story, (StoryZone)sz);
             /* never fully colorless — a whisper of pastel remains as a promise */
             render_set_warmth(0.22f + 0.78f * wm);
-            forest_draw(renderer, frame, is_night);
+            if (location == LOC_FOREST) forest_draw(renderer, frame, is_night);
+            else                        street_draw(renderer, frame, is_night);
             render_set_warmth(1.0f);
             cat_draw(renderer, &active->anim, col, frame);
             if (active->shiny)
@@ -705,7 +757,7 @@ int main(int argc, char *argv[]) {
 
         /* ---- UI (both locations) ---- */
         ui_draw_panel(renderer, active, 4, 4, editing, edit_buf, frame);
-        ui_draw_release_button(renderer, 4, 4, release_confirm > 0);
+        ui_draw_release_button(renderer, 4, 4, release_open);
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
         if (location == LOC_COTTAGE)
             ui_button_draw(renderer, &btn_sleep, press_fx > 0);
@@ -749,6 +801,11 @@ int main(int argc, char *argv[]) {
         /* Friends list overlay sits above everything when open. */
         if (friends_open) {
             ui_friends_list(renderer, &friends);
+        }
+
+        /* The release confirmation sits above absolutely everything. */
+        if (release_open) {
+            ui_confirm_release(renderer, roster_active(&roster)->name);
         }
 
         SDL_RenderPresent(renderer);

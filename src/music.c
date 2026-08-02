@@ -81,13 +81,24 @@ static const Chord FOREST[] = {
     { C4, C4, E4, G4, { E4, G4, C5, G4 } },   /* C — a warm turn  */
     { G3, G4, B4, D5, { G4, B4, D5, B4 } },   /* G — gentle hope  */
 };
+/* Street: bright and ambling — the friendliest progression there is, for a
+ * neighborly stroll past the pastel house fronts. */
+static const Chord STREET[] = {
+    { C4, C4, E4, G4, { C4, E4, G4, E5 } },   /* C — hello        */
+    { G3, G4, B4, D5, { G4, B4, D5, G4 } },   /* G — a wave       */
+    { A3, A4, C5, E5, { A4, C5, E5, C5 } },   /* Am — soft shade  */
+    { F3, F4, A4, C5, { F4, A4, C5, F4 } },   /* F — home again   */
+};
 
-static const Chord *THEMES[MUSIC_THEME_COUNT] = { COTTAGE, MEADOW, CAFE, FOREST };
+static const Chord *THEMES[MUSIC_THEME_COUNT] = {
+    COTTAGE, MEADOW, CAFE, FOREST, STREET
+};
 static const int THEME_LEN[MUSIC_THEME_COUNT] = {
     (int)(sizeof COTTAGE / sizeof COTTAGE[0]),
     (int)(sizeof MEADOW  / sizeof MEADOW[0]),
     (int)(sizeof CAFE    / sizeof CAFE[0]),
     (int)(sizeof FOREST  / sizeof FOREST[0]),
+    (int)(sizeof STREET  / sizeof STREET[0]),
 };
 
 /* Player state, shared with the audio callback. Kept plain. */

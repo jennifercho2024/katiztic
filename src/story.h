@@ -19,6 +19,7 @@
 /* The zones the story tracks. (More join this list as the world grows.) */
 typedef enum {
     STORY_ZONE_FOREST,
+    STORY_ZONE_STREET,
     STORY_ZONE_COUNT
 } StoryZone;
 
@@ -38,6 +39,10 @@ float story_warmth(const Story *st, StoryZone z);
  * scaled by her bond and by how many wild cats you've befriended — bonding
  * and friendship are what bring the color back. */
 void story_visit_tick(Story *st, StoryZone z, int bond, int friends);
+
+/* Petting your cat in a faded place makes her magic flare: a visible burst
+ * of warmth. Being kind to her literally re-colors the world faster. */
+void story_pet_boost(Story *st, StoryZone z);
 
 /* ---- persistence: its own save file ---- */
 bool story_save(const Story *st, const char *path);

@@ -30,6 +30,13 @@ void story_visit_tick(Story *st, StoryZone z, int bond, int friends) {
     if (st->warmth[z] > 1.0f) st->warmth[z] = 1.0f;
 }
 
+void story_pet_boost(Story *st, StoryZone z) {
+    if (z < 0 || z >= STORY_ZONE_COUNT) return;
+    if (st->warmth[z] >= 1.0f) return;
+    st->warmth[z] += 0.02f;              /* a visible flare of color */
+    if (st->warmth[z] > 1.0f) st->warmth[z] = 1.0f;
+}
+
 /* ---- persistence ---- */
 
 static const char MAGIC[4] = { 'K', 'Z', 'S', 'T' };
@@ -65,10 +72,14 @@ bool story_load(Story *st, const char *path) {
     bool ok = SDL_ReadIO(io, magic, 4) == 4;
     ok = ok && SDL_memcmp(magic, MAGIC, 4) == 0;
     ok = ok && SDL_ReadIO(io, &ver, 1) == 1 && ver == STORY_SAVE_VERSION;
-    ok = ok && SDL_ReadIO(io, &count, 1) == 1 && count == STORY_ZONE_COUNT;
+    /* Accept saves from before newer zones existed: read what's there and
+     * leave the rest fresh, so old progress (e.g. the forest) is never lost
+     * just because the world grew. */
+    ok = ok && SDL_ReadIO(io, &count, 1) == 1
+            && count >= 1 && count <= STORY_ZONE_COUNT;
 
     Story tmp = story_new();
-    for (int i = 0; i < STORY_ZONE_COUNT && ok; i++) {
+    for (int i = 0; i < (int)count && ok; i++) {
         Uint8 intro = 0, celeb = 0;
         ok = ok && SDL_ReadIO(io, &tmp.warmth[i], sizeof tmp.warmth[i])
                      == sizeof tmp.warmth[i];

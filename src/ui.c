@@ -349,9 +349,10 @@ void ui_roster_draw(SDL_Renderer *r, const Roster *ro) {
         px_rect(r, x, y + RS_SLOT-1, RS_SLOT, 1, KZ_COCOA);
         px_rect(r, x, y, 1, RS_SLOT, KZ_COCOA);
         px_rect(r, x + RS_SLOT-1, y, 1, RS_SLOT, KZ_COCOA);
-        /* plus sign in mint */
-        px_rect(r, x + RS_SLOT/2 - 4, y + RS_SLOT/2, 8, 2, KZ_MINT);
-        px_rect(r, x + RS_SLOT/2, y + RS_SLOT/2 - 4, 2, 8, KZ_MINT);
+        /* plus sign in mint — a 10px cross, dead-centered in the 22px slot
+         * (bars span 6..16 so all four arms are equal) */
+        px_rect(r, x + 6,  y + 10, 10, 2, KZ_MINT);
+        px_rect(r, x + 10, y + 6,  2, 10, KZ_MINT);
     }
 }
 
@@ -527,9 +528,9 @@ int ui_decor_tray_hit(const Decor *d, float px_, float py_) {
 #define PM_Y     24
 #define PM_W     84
 #define PM_ROW   16
-#define PM_COUNT 4
+#define PM_COUNT 5
 
-static const char *PM_NAMES[PM_COUNT] = { "Cottage", "Meadow", "Cafe", "Forest" };
+static const char *PM_NAMES[PM_COUNT] = { "Cottage", "Meadow", "Cafe", "Forest", "Street" };
 
 void ui_place_menu(SDL_Renderer *r, int current) {
     /* soft panel */
@@ -551,7 +552,8 @@ void ui_place_menu(SDL_Renderer *r, int current) {
         Color dot = (i == 0) ? KZ_LAVENDER
                   : (i == 1) ? KZ_MINT
                   : (i == 2) ? KZ_BUTTER
-                  : rgb(0x8F, 0xC0, 0xA4);   /* forest green */
+                  : (i == 3) ? rgb(0x8F, 0xC0, 0xA4)    /* forest green */
+                  : rgb(0xE0, 0xC8, 0xB8);              /* street stone */
         px_rect(r, PM_X + PM_W - 12, ry + 4, 5, 5, dot);
     }
 }
@@ -561,6 +563,66 @@ int ui_place_menu_hit(float px_, float py_) {
     for (int i = 0; i < PM_COUNT; i++) {
         float ry = PM_Y + 3 + i * PM_ROW;
         if (py_ >= ry && py_ <= ry + PM_ROW) return i;
+    }
+    return -1;
+}
+
+/* ---- release confirmation dialog ---- */
+
+#define CF_W 150
+#define CF_H 52
+#define CF_X ((KZ_W - CF_W) / 2.0f)
+#define CF_Y 48.0f
+#define CF_BTN_W 40
+#define CF_BTN_H 14
+
+static void cf_btn_pos(int which, float *bx, float *by) {
+    /* two buttons side by side under the text: 0 = Yes (left), 1 = No */
+    float total = CF_BTN_W * 2 + 14;
+    float x0 = CF_X + (CF_W - total) / 2.0f;
+    *bx = x0 + (float)which * (CF_BTN_W + 14);
+    *by = CF_Y + CF_H - CF_BTN_H - 6;
+}
+
+void ui_confirm_release(SDL_Renderer *r, const char *cat_name) {
+    /* dim the world behind the question */
+    px_rect_a(r, 0, 0, KZ_W, KZ_H, KZ_COCOA, 90);
+
+    /* panel */
+    px_rect_a(r, CF_X + 2, CF_Y + 2, CF_W, CF_H, KZ_COCOA, 60);
+    px_rect(r, CF_X, CF_Y, CF_W, CF_H, KZ_CLOUD);
+    px_rect(r, CF_X, CF_Y, CF_W, 1, KZ_COCOA);
+    px_rect(r, CF_X, CF_Y + CF_H - 1, CF_W, 1, KZ_COCOA);
+    px_rect(r, CF_X, CF_Y, 1, CF_H, KZ_COCOA);
+    px_rect(r, CF_X + CF_W - 1, CF_Y, 1, CF_H, KZ_COCOA);
+
+    /* the question, centered */
+    char line[48];
+    SDL_snprintf(line, sizeof line, "Release %s?", cat_name);
+    text_draw_centered(r, line, CF_X + CF_W / 2.0f, CF_Y + 8, KZ_COCOA);
+    text_draw_centered(r, "She won't come back.", CF_X + CF_W / 2.0f,
+                       CF_Y + 17, KZ_COCOA);
+
+    /* Yes / No buttons */
+    for (int b = 0; b < 2; b++) {
+        float bx, by; cf_btn_pos(b, &bx, &by);
+        Color fill = (b == 0) ? KZ_HEART : KZ_MINT;
+        px_rect(r, bx, by, CF_BTN_W, CF_BTN_H, fill);
+        px_rect(r, bx, by, CF_BTN_W, 1, KZ_COCOA);
+        px_rect(r, bx, by + CF_BTN_H - 1, CF_BTN_W, 1, KZ_COCOA);
+        px_rect(r, bx, by, 1, CF_BTN_H, KZ_COCOA);
+        px_rect(r, bx + CF_BTN_W - 1, by, 1, CF_BTN_H, KZ_COCOA);
+        text_draw_centered(r, (b == 0) ? "Yes" : "No",
+                           bx + CF_BTN_W / 2.0f, by + 4, KZ_COCOA);
+    }
+}
+
+int ui_confirm_release_hit(float px_, float py_) {
+    for (int b = 0; b < 2; b++) {
+        float bx, by; cf_btn_pos(b, &bx, &by);
+        if (px_ >= bx && px_ <= bx + CF_BTN_W
+            && py_ >= by && py_ <= by + CF_BTN_H)
+            return (b == 0) ? 1 : 0;
     }
     return -1;
 }
