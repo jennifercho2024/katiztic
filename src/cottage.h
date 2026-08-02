@@ -20,6 +20,7 @@ bool cottage_bed_hit(float px, float py);
 
 /* Draw the cottage interior. `frame` drives gentle ambient motion (a swaying
  * curtain, dust motes in the window light). `night` softly dims the room. */
-void cottage_draw(SDL_Renderer *r, Uint64 frame, bool night);
+void cottage_draw(SDL_Renderer *r, Uint64 frame, bool night,
+                  float room_w, float room_h);
 
 #endif /* KATIZTIC_COTTAGE_H */

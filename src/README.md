@@ -58,6 +58,13 @@ the room to place it anywhere you like; drag it back to the tray to put it away.
 Your arrangement is saved. Items fall to rest on the floor (or stack on each
 other) rather than floating. While the tray is open, each item shows its name.
 
+## A bigger home to explore
+
+Your cottage is larger than the screen now. Drag any empty space in the room to
+**pan the camera** around and see the whole space — there's room to spread out
+your décor and let your cats roam. Dragging a décor item still moves the item,
+and tapping a cat still pets her; only dragging empty floor pans the view.
+
 ## Shiny cats
 
 Every so often — about 1 in 100 — an adopted cat is **shiny**: a rare golden
@@ -144,6 +151,9 @@ pixels — the honest retro look, no blur. The window opens at 4× (960×640).
 src/
   palette.h    the pastel color system — one source of truth for the whole look
   render.h/.c  the entire drawing API: fill a rect, fill a pixel, fill with alpha
+               — plus a camera offset so a whole room can be panned as one
+  camera.h/.c  the scrollable view into a room bigger than the screen — panning,
+               clamping to the edges, and screen↔room coordinate conversion
   scene.h/.c   the meadow — sky gradient, hills, grass, flowers, petals, and the
                four-moment time-of-day table that gives the scene its mood
   cat.h/.c     the cat — a small bundle of state (position, blink, petting glow)

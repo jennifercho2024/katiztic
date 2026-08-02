@@ -56,6 +56,12 @@ void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
  * (tap to rename) */
 bool ui_name_hit(float panel_x, float panel_y, float px, float py);
 
+/* Is point (px,py) on the little release ("×") button on the stat card?
+ * `armed` shows it in a confirming state. */
+bool ui_release_hit(float panel_x, float panel_y, float px, float py);
+void ui_draw_release_button(SDL_Renderer *r, float panel_x, float panel_y,
+                            bool armed);
+
 /* ---- encounter UI ----
  * A soft dialogue banner along the bottom with a line of text, used when a
  * wild cat is visiting on a walk. */

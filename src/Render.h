@@ -30,4 +30,10 @@ void px(SDL_Renderer *r, float x, float y, Color c);
 void px_rect_a(SDL_Renderer *r, float x, float y, float w, float h,
                Color c, Uint8 alpha);
 
+/* Camera offset for panning: room drawing sets this so the whole room shifts
+ * as one; UI drawing clears it to stay fixed on screen. The primitives above
+ * subtract it automatically, so nothing else needs to handle panning. */
+void render_set_offset(float x, float y);
+void render_clear_offset(void);
+
 #endif /* KATIZTIC_RENDER_H */

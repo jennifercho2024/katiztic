@@ -4,8 +4,8 @@
 #include "palette.h"
 #include <math.h>
 
-/* The bed sits in the lower-left, a comfortable tap target. */
-static const Rect BED = { 14, 96, 64, 40 };
+/* The bed sits in the lower-left on the floor, a comfortable tap target. */
+static const Rect BED = { 14, 150, 64, 40 };
 
 Rect cottage_bed_rect(void) { return BED; }
 
@@ -24,14 +24,16 @@ bool cottage_bed_hit(float px_, float py_) {
 #define BED_PILLW rgb(0xFB, 0xF6, 0xF2)
 #define RUG       rgb(0xD4, 0xC2, 0xE8)   /* lavender rug      */
 
-void cottage_draw(SDL_Renderer *r, Uint64 frame, bool night) {
-    /* ---- walls + floor ---- */
-    px_rect(r, 0, 0, KZ_W, 104, WALL);
-    px_rect(r, 0, 96, KZ_W, 8, WALL_LOW);      /* baseboard shade */
-    px_rect(r, 0, 104, KZ_W, KZ_H - 104, FLOOR);
+void cottage_draw(SDL_Renderer *r, Uint64 frame, bool night,
+                  float room_w, float room_h) {
+    /* ---- walls + floor (fill the whole room, which may exceed the screen) */
+    float floor_y = room_h * 0.65f;
+    px_rect(r, 0, 0, room_w, floor_y, WALL);
+    px_rect(r, 0, floor_y - 8, room_w, 8, WALL_LOW);      /* baseboard shade */
+    px_rect(r, 0, floor_y, room_w, room_h - floor_y, FLOOR);
     /* plank lines */
-    for (int i = 0; i < 6; i++) {
-        px_rect(r, 0, 104 + i * 10, KZ_W, 1, FLOOR_LN);
+    for (int i = 0; i * 10 < (int)(room_h - floor_y); i++) {
+        px_rect(r, 0, floor_y + i * 10, room_w, 1, FLOOR_LN);
     }
 
     /* ---- window with sky + swaying curtains ---- */
@@ -62,13 +64,13 @@ void cottage_draw(SDL_Renderer *r, Uint64 frame, bool night) {
     px_rect(r, wx - 3,             wy - 3, 8, wh + 6, WALL_LOW);
     px_rect(r, wx + ww - 5 + sway, wy - 3, 8, wh + 6, WALL_LOW);
 
-    /* ---- rug ---- */
-    px_rect(r, 92, 128, 56, 22, RUG);
-    px_rect(r, 96, 132, 48, 14, rgb(0xE0,0xD2,0xF0));
+    /* ---- rug (centered on the floor) ---- */
+    px_rect(r, 140, 178, 56, 22, RUG);
+    px_rect(r, 144, 182, 48, 14, rgb(0xE0,0xD2,0xF0));
 
     /* ---- food bowl (where feeding happens) ---- */
-    px_rect(r, 120, 112, 16, 6, BED_FRAME);
-    px_rect(r, 122, 112, 12, 3, rgb(0xF5,0xB8,0x8B));  /* kibble */
+    px_rect(r, 210, 164, 16, 6, BED_FRAME);
+    px_rect(r, 212, 164, 12, 3, rgb(0xF5,0xB8,0x8B));  /* kibble */
 
     /* ---- bed ---- */
     px_rect(r, BED.x - 2, BED.y - 2, BED.w + 4, BED.h + 4, BED_FRAME);
@@ -82,7 +84,7 @@ void cottage_draw(SDL_Renderer *r, Uint64 frame, bool night) {
 
     /* ---- night dim: a soft cool wash over the whole room ---- */
     if (night) {
-        px_rect_a(r, 0, 0, KZ_W, KZ_H, rgb(0x6B,0x5B,0x8B), 70);
+        px_rect_a(r, 0, 0, room_w, room_h, rgb(0x6B,0x5B,0x8B), 70);
     }
 
     /* ---- dust motes drifting in the window light (day only) ---- */

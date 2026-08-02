@@ -24,6 +24,7 @@
 #include "decor.h"
 #include "ui.h"
 #include "cottage.h"
+#include "camera.h"
 #include "cafe.h"
 #include "icon.h"
 #include "music.h"
@@ -92,6 +93,18 @@ int main(int argc, char *argv[]) {
      * button only shows in the cottage. Positions in logical 240x160 space. */
     Button btn_travel = { KZ_W - 24, 4,  20, 16, KZ_BTN_OUT };
     bool   travel_open = false;   /* is the place-picker menu showing? */
+
+    /* The cottage is bigger than the screen so you can pan around it. The
+     * camera is the view offset into that larger room. */
+    #define COTTAGE_ROOM_W 360.0f
+    #define COTTAGE_ROOM_H 240.0f
+    Camera cam = camera_make(COTTAGE_ROOM_W, COTTAGE_ROOM_H);
+    bool cam_dragging = false;    /* panning the room right now? */
+    float cam_last_x = 0, cam_last_y = 0;
+
+    /* Releasing a cat needs a confirm tap so it can't happen by accident:
+     * first tap arms it (shows "sure?"), second tap within the window does it. */
+    int release_confirm = 0;      /* frames left in the confirm window (0 = off) */
     Button btn_sleep  = { KZ_W - 48, 4,  20, 16, KZ_BTN_SLEEP };
     int    press_fx   = 0;   /* frames of button-press highlight remaining */
 
@@ -212,6 +225,12 @@ int main(int argc, char *argv[]) {
                 float lx, ly;
                 SDL_RenderCoordinatesFromWindow(renderer, e.button.x,
                                                 e.button.y, &lx, &ly);
+                /* In the cottage, the room is panned by the camera, so in-room
+                 * hit-tests (cats, décor, bed) use room coordinates. UI stays
+                 * in screen coordinates (lx,ly). */
+                float rx = lx, ry = ly;
+                if (location == LOC_COTTAGE)
+                    camera_to_room(&cam, lx, ly, &rx, &ry);
 
                 /* If the friends list is open, any tap just closes it. */
                 if (friends_open) { friends_open = false; break; }
@@ -287,11 +306,30 @@ int main(int argc, char *argv[]) {
                  * cottage freely. Checked before the pet-the-cat handler so a
                  * décor item on top of a cat grabs rather than pets. */
                 if (location == LOC_COTTAGE) {
-                    int placed = decor_hit(&decor, lx, ly);
+                    int placed = decor_hit(&decor, rx, ry);
                     if (placed >= 0) {
                         drag_item = placed;
                         break;
                     }
+                }
+
+                /* 0e) release ("×") button on the stat card: two-tap confirm */
+                if (ui_release_hit(4, 4, lx, ly)) {
+                    if (release_confirm > 0) {
+                        /* confirmed — release the active cat */
+                        int idx = roster.active;
+                        if (roster_release(&roster, idx)) {
+                            roster_save(&roster, KZ_SAVE_PATH);
+                            SDL_strlcpy(banner_line, "Released to the world.",
+                                        sizeof banner_line);
+                            banner_timer = 200;
+                        }
+                        release_confirm = 0;
+                    } else {
+                        release_confirm = 90;   /* arm: ~1.5s to confirm */
+                    }
+                    press_fx = 8;
+                    break;
                 }
 
                 /* 1) tap the name on the stat card -> start renaming */
@@ -358,7 +396,7 @@ int main(int argc, char *argv[]) {
                     press_fx = 8;
                 }
                 /* 5) tapping the bed also sleeps */
-                else if (location == LOC_COTTAGE && cottage_bed_hit(lx, ly)) {
+                else if (location == LOC_COTTAGE && cottage_bed_hit(rx, ry)) {
                     if (sleep_fade == 0) {
                         sleep_fade = SLEEP_FADE_FRAMES;
                         sleep_applied = false;
@@ -372,7 +410,7 @@ int main(int argc, char *argv[]) {
                     bool hit_one = false;
                     if (location == LOC_COTTAGE) {
                         for (int i = 0; i < roster.count; i++) {
-                            if (cat_hit(&roster.cats[i].anim, lx, ly)) {
+                            if (cat_hit(&roster.cats[i].anim, rx, ry)) {
                                 roster_select(&roster, i);
                                 cat_pet(&roster.cats[i].anim);
                                 stats_pet(&roster.cats[i].stats);
@@ -380,8 +418,13 @@ int main(int argc, char *argv[]) {
                                 break;
                             }
                         }
-                    }
-                    if (!hit_one) {
+                        /* 7) empty space in the cottage -> start panning the room */
+                        if (!hit_one) {
+                            cam_dragging = true;
+                            cam_last_x = lx;
+                            cam_last_y = ly;
+                        }
+                    } else {
                         OwnedCat *a = roster_active(&roster);
                         if (cat_hit(&a->anim, lx, ly)) {
                             cat_pet(&a->anim);
@@ -393,33 +436,44 @@ int main(int argc, char *argv[]) {
             }
 
             case SDL_EVENT_MOUSE_MOTION: {
-                /* While dragging a décor item, follow the pointer. */
-                if (drag_item >= 0) {
-                    float lx, ly;
-                    SDL_RenderCoordinatesFromWindow(renderer, e.motion.x,
-                                                    e.motion.y, &lx, &ly);
-                    /* center the item on the pointer-ish */
-                    decor.items[drag_item].x = lx - 8;
-                    decor.items[drag_item].y = ly - 8;
-                    decor.items[drag_item].placed = true;  /* show it as it moves */
+                float lx, ly;
+                SDL_RenderCoordinatesFromWindow(renderer, e.motion.x,
+                                                e.motion.y, &lx, &ly);
+                /* Panning the room: move the camera opposite the drag. */
+                if (cam_dragging) {
+                    camera_pan(&cam, cam_last_x - lx, cam_last_y - ly);
+                    cam_last_x = lx;
+                    cam_last_y = ly;
+                }
+                /* While dragging a décor item, follow the pointer (in room
+                 * coordinates, since the cottage is panned). */
+                else if (drag_item >= 0) {
+                    float rx = lx, ry = ly;
+                    if (location == LOC_COTTAGE)
+                        camera_to_room(&cam, lx, ly, &rx, &ry);
+                    decor.items[drag_item].x = rx - 8;
+                    decor.items[drag_item].y = ry - 8;
+                    decor.items[drag_item].placed = true;
                 }
                 break;
             }
 
             case SDL_EVENT_MOUSE_BUTTON_UP: {
+                if (cam_dragging) { cam_dragging = false; break; }
                 if (drag_item >= 0) {
                     float lx, ly;
                     SDL_RenderCoordinatesFromWindow(renderer, e.button.x,
                                                     e.button.y, &lx, &ly);
-                    /* If the tray is open and you drop the item back onto it,
-                     * put it away. Otherwise (tray closed, or dropped in the
-                     * room) it just stays wherever you placed it. */
+                    float rx = lx, ry = ly;
+                    if (location == LOC_COTTAGE)
+                        camera_to_room(&cam, lx, ly, &rx, &ry);
+                    /* Dropping onto the (screen-fixed) tray puts it away. */
                     if (decor_open && ly >= ui_decor_tray_top()) {
                         decor.items[drag_item].placed = false;
                     } else {
                         decor.items[drag_item].placed = true;
-                        decor.items[drag_item].x = lx - 8;
-                        decor.items[drag_item].y = ly - 8;
+                        decor.items[drag_item].x = rx - 8;
+                        decor.items[drag_item].y = ry - 8;
                         decor_settle(&decor, drag_item);   /* let it fall to rest */
                     }
                     decor_save(&decor, KZ_DECOR_PATH);
@@ -447,6 +501,7 @@ int main(int argc, char *argv[]) {
         else if (location == LOC_CAFE)
             behavior_update(&roster, NULL, frame);
         if (press_fx > 0) press_fx--;
+        if (release_confirm > 0) release_confirm--;
 
         /* Time of day follows the real clock: the world lightens and darkens
          * with the actual time where you are. */
@@ -516,6 +571,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* ---- draw (back to front) ---- */
+        render_clear_offset();   /* start each frame screen-fixed */
         SDL_SetRenderDrawColor(renderer, KZ_CLOUD.r, KZ_CLOUD.g, KZ_CLOUD.b, 255);
         SDL_RenderClear(renderer);
 
@@ -525,7 +581,10 @@ int main(int argc, char *argv[]) {
         if (location == LOC_COTTAGE || location == LOC_CAFE) {
             /* Indoor places where the family roams and socializes. */
             if (location == LOC_COTTAGE) {
-                cottage_draw(renderer, frame, is_night);
+                /* Pan the whole cottage by the camera offset. */
+                render_set_offset(cam.x, cam.y);
+                cottage_draw(renderer, frame, is_night,
+                             COTTAGE_ROOM_W, COTTAGE_ROOM_H);
                 decor_draw(renderer, &decor, frame);   /* décor only at home */
             } else {
                 cafe_draw(renderer, frame);
@@ -556,6 +615,7 @@ int main(int argc, char *argv[]) {
             /* mood bubbles float above everyone */
             for (int i = 0; i < roster.count; i++)
                 mood_draw(renderer, &roster.cats[i].anim, frame);
+            render_clear_offset();   /* UI and everything else is screen-fixed */
         } else {
             /* Outdoors is a one-cat outing: just the active cat, at the meadow
              * spot. We save and restore her real position so her roaming spot
@@ -580,6 +640,7 @@ int main(int argc, char *argv[]) {
 
         /* ---- UI (both locations) ---- */
         ui_draw_panel(renderer, active, 4, 4, editing, edit_buf, frame);
+        ui_draw_release_button(renderer, 4, 4, release_confirm > 0);
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
         if (location == LOC_COTTAGE)
             ui_button_draw(renderer, &btn_sleep, press_fx > 0);

@@ -165,6 +165,40 @@ bool ui_name_hit(float panel_x, float panel_y, float px_, float py_) {
         && py_ >= panel_y && py_ <= panel_y + 3 + PANEL_NAME_H;
 }
 
+/* The release button sits at the top-right corner of the stat card. */
+#define REL_W 9
+#define REL_H 9
+static void rel_pos(float panel_x, float panel_y, float *rx, float *ry) {
+    *rx = panel_x + 62 - REL_W - 2;
+    *ry = panel_y + 2;
+}
+bool ui_release_hit(float panel_x, float panel_y, float px_, float py_) {
+    float rx, ry; rel_pos(panel_x, panel_y, &rx, &ry);
+    return px_ >= rx && px_ <= rx + REL_W && py_ >= ry && py_ <= ry + REL_H;
+}
+void ui_draw_release_button(SDL_Renderer *r, float panel_x, float panel_y,
+                            bool armed) {
+    float rx, ry; rel_pos(panel_x, panel_y, &rx, &ry);
+    /* a soft circle-ish button, pink when armed */
+    Color bg = armed ? KZ_HEART : KZ_CLOUD;
+    px_rect(r, rx, ry, REL_W, REL_H, bg);
+    px_rect(r, rx, ry, REL_W, 1, KZ_COCOA);
+    px_rect(r, rx, ry + REL_H - 1, REL_W, 1, KZ_COCOA);
+    px_rect(r, rx, ry, 1, REL_H, KZ_COCOA);
+    px_rect(r, rx + REL_W - 1, ry, 1, REL_H, KZ_COCOA);
+    /* a little "×" */
+    Color x = armed ? KZ_CLOUD : KZ_COCOA;
+    px_rect(r, rx + 2, ry + 2, 1, 1, x);
+    px_rect(r, rx + 6, ry + 2, 1, 1, x);
+    px_rect(r, rx + 3, ry + 3, 1, 1, x);
+    px_rect(r, rx + 5, ry + 3, 1, 1, x);
+    px_rect(r, rx + 4, ry + 4, 1, 1, x);
+    px_rect(r, rx + 3, ry + 5, 1, 1, x);
+    px_rect(r, rx + 5, ry + 5, 1, 1, x);
+    px_rect(r, rx + 2, ry + 6, 1, 1, x);
+    px_rect(r, rx + 6, ry + 6, 1, 1, x);
+}
+
 void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
                    bool editing, const char *edit_buf, Uint64 frame) {
     const Stats *s = &cat->stats;

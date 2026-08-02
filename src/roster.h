@@ -45,6 +45,10 @@ void roster_select(Roster *ro, int i);
 /* Adopt a new cat of the given type. Returns false if the team is full. */
 bool roster_adopt(Roster *ro, CatType type, float cat_x, float cat_y);
 
+/* Release cat `i` back to the world, freeing a roster slot. Keeps at least one
+ * cat (won't release your last). Returns true if released. */
+bool roster_release(Roster *ro, int i);
+
 /* Rename a cat. The name is copied and truncated to fit; empty names are
  * ignored (the old name is kept) so a cat is never left nameless. */
 void roster_rename(Roster *ro, int i, const char *name);

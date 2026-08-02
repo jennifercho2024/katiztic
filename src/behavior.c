@@ -4,12 +4,12 @@
 #include "decor.h"
 #include <math.h>
 
-/* The cottage floor area cats roam within (logical 240x160 space). Kept clear
- * of the very top (walls/window) and the very bottom (UI strips). */
+/* The cottage floor area cats roam within. The cottage room is larger than the
+ * screen (360x240) so cats spread through the whole space you can pan around. */
 #define ROAM_X0   24.0f
-#define ROAM_X1   210.0f
-#define ROAM_Y0   112.0f
-#define ROAM_Y1   146.0f
+#define ROAM_X1   330.0f
+#define ROAM_Y0   165.0f
+#define ROAM_Y1   224.0f
 
 /* How close two cats must be to start playing together. */
 #define PLAY_DIST 26.0f

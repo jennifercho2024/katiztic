@@ -53,6 +53,18 @@ bool roster_adopt(Roster *ro, CatType type, float cat_x, float cat_y) {
     return true;
 }
 
+bool roster_release(Roster *ro, int i) {
+    if (i < 0 || i >= ro->count) return false;
+    if (ro->count <= 1) return false;         /* never release your last cat */
+    /* shift the rest down to fill the gap */
+    for (int j = i; j < ro->count - 1; j++)
+        ro->cats[j] = ro->cats[j + 1];
+    ro->count--;
+    /* keep the active index valid */
+    if (ro->active >= ro->count) ro->active = ro->count - 1;
+    return true;
+}
+
 void roster_rename(Roster *ro, int i, const char *name) {
     if (i < 0 || i >= ro->count) return;
     if (!name || name[0] == '\0') return;   /* never leave a cat nameless */
@@ -63,8 +75,8 @@ void roster_rename(Roster *ro, int i, const char *name) {
  * instead of stacking. Chosen to sit on the floor/rug, clear of the bed and
  * window. Up to KZ_MAX_CATS spots. */
 void roster_home_spot(int i, float *x, float *y) {
-    static const float SX[KZ_MAX_CATS] = { 120.0f, 158.0f,  96.0f, 178.0f, 138.0f };
-    static const float SY[KZ_MAX_CATS] = { 132.0f, 120.0f, 118.0f, 138.0f, 150.0f };
+    static const float SX[KZ_MAX_CATS] = { 140.0f, 200.0f, 100.0f, 240.0f, 180.0f };
+    static const float SY[KZ_MAX_CATS] = { 185.0f, 175.0f, 190.0f, 195.0f, 205.0f };
     if (i < 0 || i >= KZ_MAX_CATS) { *x = 120.0f; *y = 132.0f; return; }
     *x = SX[i];
     *y = SY[i];
