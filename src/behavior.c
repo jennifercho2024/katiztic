@@ -97,6 +97,9 @@ void behavior_update(struct Roster *ro_opaque, Uint64 frame) {
                 b->act = ACT_PLAY; b->act_timer = a->act_timer;
                 a->facing = (b->cx >= a->cx) ? 1 : -1;
                 b->facing = (a->cx >= b->cx) ? 1 : -1;
+                /* Socializing earns both cats a little experience. */
+                stats_gain_xp(&ro->cats[i].stats, 6);
+                stats_gain_xp(&ro->cats[j].stats, 6);
                 break;
             }
         }

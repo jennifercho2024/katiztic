@@ -20,32 +20,68 @@ static void grow(Stats *s) {
 }
 
 Stats stats_new(void) {
-    /* She starts content: mid-high mood and energy, a little bond already. */
+    /* She starts content: mid-high mood and energy, a little bond already,
+     * and at level 1 with no XP yet. */
     Stats s;
     s.bond   = 10;
     s.mood   = 70;
     s.energy = 80;
     s.growth = 0;
     s.care_given = 0;
+    s.level = 1;
+    s.xp    = 0;
     return s;
+}
+
+/* XP to go from `level` to the next. Starts modest and grows ~30% per level,
+ * so early levels come quickly and later ones take longer — endless, but with
+ * a gentle slowdown. */
+Uint16 stats_xp_for_level(Uint16 level) {
+    /* level 1->2: 20, then *1.3 each time, capped so it never overflows. */
+    float need = 20.0f;
+    for (Uint16 i = 1; i < level; i++) need *= 1.3f;
+    if (need > 60000.0f) need = 60000.0f;
+    return (Uint16)need;
+}
+
+int stats_gain_xp(Stats *s, int amount) {
+    if (amount <= 0) return 0;
+    int levels = 0;
+    int xp = (int)s->xp + amount;
+    /* roll over as many levels as the XP covers */
+    while (xp >= (int)stats_xp_for_level(s->level)) {
+        xp -= (int)stats_xp_for_level(s->level);
+        if (s->level < 65000) s->level++;   /* effectively no cap */
+        levels++;
+    }
+    s->xp = (Uint16)xp;
+    return levels;
+}
+
+void stats_outing(Stats *s) {
+    /* Taking her out lifts happiness — a breath of fresh air. */
+    s->mood = bump(s->mood, 6);
 }
 
 void stats_feed(Stats *s) {
     s->energy = bump(s->energy, 15);
     s->mood   = bump(s->mood, 5);
     grow(s);
+    stats_gain_xp(s, 4);
 }
 
 void stats_groom(Stats *s) {
     s->mood = bump(s->mood, 12);
     s->bond = bump(s->bond, 6);
     grow(s);
+    stats_gain_xp(s, 5);
 }
 
 void stats_pet(Stats *s) {
     s->bond = bump(s->bond, 3);
     s->mood = bump(s->mood, 2);
     grow(s);
+    stats_gain_xp(s, 3);
 }
 
 /* Waking from a good sleep: a gentle mood lift. Energy is set to full by the

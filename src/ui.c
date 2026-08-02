@@ -168,7 +168,7 @@ bool ui_name_hit(float panel_x, float panel_y, float px_, float py_) {
 void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
                    bool editing, const char *edit_buf, Uint64 frame) {
     const Stats *s = &cat->stats;
-    float w = 62, h = 54;   /* a little taller now, to fit the name header */
+    float w = 62, h = 66;   /* taller now: name + type + 3 stats + level/xp */
 
     /* Panel: cream fill, 1px mauve border, soft drop shadow. */
     px_rect_a(r, x + 2, y + 2, w, h, KZ_COCOA, 40);       /* shadow */
@@ -195,7 +195,23 @@ void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
     stat_row(r, rx, ry,      icon_heart, KZ_PETAL_PINK, s->bond);
     stat_row(r, rx, ry + 9,  icon_smile, KZ_BUTTER,     s->mood);
     stat_row(r, rx, ry + 18, icon_leaf,  KZ_MINT,       s->energy);
-    stat_row(r, rx, ry + 27, icon_star,  KZ_LAVENDER,   s->growth);
+
+    /* Level line + XP bar (replaces the old hidden growth meter). */
+    float ly2 = ry + 28;
+    char lvl[16];
+    SDL_snprintf(lvl, sizeof lvl, "Lv %u", (unsigned)s->level);
+    text_draw(r, lvl, rx, ly2, KZ_COCOA);
+    /* XP bar to the right of the level text */
+    float bx = rx + 24, bw = 30, bh = 5;
+    Uint16 need = stats_xp_for_level(s->level);
+    float frac = need > 0 ? (float)s->xp / (float)need : 0.0f;
+    if (frac > 1.0f) frac = 1.0f;
+    px_rect(r, bx, ly2, bw, bh, KZ_CLOUD);
+    if (frac > 0) px_rect(r, bx, ly2, bw * frac, bh, KZ_LAVENDER);
+    px_rect(r, bx,          ly2,          bw, 1, KZ_COCOA);
+    px_rect(r, bx,          ly2 + bh - 1, bw, 1, KZ_COCOA);
+    px_rect(r, bx,          ly2,          1,  bh, KZ_COCOA);
+    px_rect(r, bx + bw - 1, ly2,          1,  bh, KZ_COCOA);
 }
 
 /* Small centered hint at the bottom: three soft dots as a placeholder legend

@@ -54,6 +54,16 @@ it anywhere you like; drag it back to the tray to put it away. Your arrangement
 is saved. While the tray is open, each placed item shows its name so you know
 what everything is. Décor is pure coziness — it just makes the home yours.
 
+## Levels & happiness
+
+Every cat has a **level**, starting at 1 when you adopt her, with no cap. She
+earns experience from positive moments — petting, grooming, feeding, and
+socializing (when cats play together at home or the café). Each level needs a
+bit more XP than the last, so leveling comes quickly at first and gently slows,
+but never stops. Her level and an XP bar show on her card, and a banner
+celebrates each level up. Her **happiness** (the smile stat) rises when you feed
+her and when you take her out to the meadow or café.
+
 ## Places to go
 
 Tap the travel button (top-right) to open the place picker and choose where to

@@ -73,7 +73,7 @@ void roster_home_spot(int i, float *x, float *y) {
  * name[KZ_NAME_LEN], type (1 byte), and its stats fields.
  */
 static const char KZ_MAGIC[4] = { 'K', 'Z', 'S', 'V' };
-#define KZ_SAVE_VERSION 2u
+#define KZ_SAVE_VERSION 3u
 
 static bool write_stats(SDL_IOStream *io, const Stats *s) {
     bool ok = true;
@@ -83,6 +83,8 @@ static bool write_stats(SDL_IOStream *io, const Stats *s) {
     ok = ok && SDL_WriteIO(io, &s->growth, 1) == 1;
     ok = ok && SDL_WriteIO(io, &s->care_given, sizeof s->care_given)
                  == sizeof s->care_given;
+    ok = ok && SDL_WriteIO(io, &s->level, sizeof s->level) == sizeof s->level;
+    ok = ok && SDL_WriteIO(io, &s->xp, sizeof s->xp) == sizeof s->xp;
     return ok;
 }
 
@@ -94,6 +96,8 @@ static bool read_stats(SDL_IOStream *io, Stats *s) {
     ok = ok && SDL_ReadIO(io, &s->growth, 1) == 1;
     ok = ok && SDL_ReadIO(io, &s->care_given, sizeof s->care_given)
                  == sizeof s->care_given;
+    ok = ok && SDL_ReadIO(io, &s->level, sizeof s->level) == sizeof s->level;
+    ok = ok && SDL_ReadIO(io, &s->xp, sizeof s->xp) == sizeof s->xp;
     return ok;
 }
 

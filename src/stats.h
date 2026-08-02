@@ -18,11 +18,17 @@
 
 typedef struct {
     Uint8 bond;     /* the headline stat — grows with grooming and petting */
-    Uint8 mood;     /* how content she is — feeding and grooming raise it   */
+    Uint8 mood;     /* happiness — feeding and outings raise it            */
     Uint8 energy;   /* restored by feeding                                  */
-    Uint8 growth;   /* slow long-term level; care accumulates here          */
+    Uint8 growth;   /* slow long-term "care given" meter                    */
     Uint32 care_given; /* running count of care actions, feeds growth       */
+    Uint16 level;   /* the cat's level — starts at 1, no cap                */
+    Uint16 xp;      /* experience toward the next level                     */
 } Stats;
+
+/* XP needed to reach the next level. Grows a bit each level, so leveling
+ * gently slows down but never stops. */
+Uint16 stats_xp_for_level(Uint16 level);
 
 /* A brand-new cat starts content, not empty — she's happy from the start. */
 Stats stats_new(void);
@@ -36,6 +42,13 @@ void stats_pet(Stats *s);     /* +bond (called when the cat is pet) */
 /* A good night's sleep: a gentle mood lift (energy is refilled separately). */
 void stats_wake(Stats *s);
 
+/* Award experience for a positive action. Handles level-ups (possibly several
+ * at once) internally. Returns the number of levels gained (0 if none), so the
+ * caller can celebrate a "Level up!". */
+int stats_gain_xp(Stats *s, int amount);
+
+/* Taking a cat out (to the meadow or café) lifts her happiness. */
+void stats_outing(Stats *s);
 
 /* ---- persistence ----
  * A tiny binary save written next to the executable. Returns true on success.

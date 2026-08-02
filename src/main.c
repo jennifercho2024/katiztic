@@ -130,6 +130,11 @@ int main(int argc, char *argv[]) {
     int  banner_timer = 0;      /* frames the banner stays up (0 = hidden) */
     bool friends_open = false;
 
+    /* Track each cat's level so we can celebrate when one goes up. */
+    Uint16 prev_level[KZ_MAX_CATS];
+    for (int i = 0; i < roster.count; i++)
+        prev_level[i] = roster.cats[i].stats.level;
+
     /* Rename mode: when active, keystrokes edit `edit_buf` instead of doing
      * their usual jobs. Tapping the name on the stat card starts it; Enter
      * confirms, Escape cancels. Physical keyboard for now — forward-compatible
@@ -220,6 +225,12 @@ int main(int argc, char *argv[]) {
                             location = newloc;
                             btn_travel.kind = (location == LOC_COTTAGE)
                                               ? KZ_BTN_OUT : KZ_BTN_HOME;
+                            /* Going out (meadow or café) lifts everyone's
+                             * happiness — a nice change of scene. */
+                            if (newloc != LOC_COTTAGE) {
+                                for (int i = 0; i < roster.count; i++)
+                                    stats_outing(&roster.cats[i].stats);
+                            }
                             if (location == LOC_MEADOW) {
                                 enc = encounter_begin(&friends);
                                 if (enc.present) {
@@ -295,7 +306,11 @@ int main(int argc, char *argv[]) {
                 if (slot == -2) {
                     /* adopt: cycle through types by how many you have */
                     CatType t = (CatType)(roster.count % KZ_TYPE_COUNT);
-                    roster_adopt(&roster, t, CAT_X, CAT_Y);
+                    if (roster_adopt(&roster, t, CAT_X, CAT_Y)) {
+                        /* new cat starts at level 1; seed its tracker */
+                        prev_level[roster.count - 1] =
+                            roster.cats[roster.count - 1].stats.level;
+                    }
                     press_fx = 8;
                     break;
                 } else if (slot >= 0) {
@@ -426,6 +441,18 @@ int main(int argc, char *argv[]) {
         music_set_theme(mt);
         if (location == LOC_MEADOW) encounter_update(&enc, &friends);
         if (banner_timer > 0) banner_timer--;
+
+        /* Celebrate any cat who just leveled up (from care or socializing). */
+        for (int i = 0; i < roster.count; i++) {
+            Uint16 lv = roster.cats[i].stats.level;
+            if (lv > prev_level[i]) {
+                SDL_snprintf(banner_line, sizeof banner_line,
+                             "%s reached level %u!",
+                             roster.cats[i].name, (unsigned)lv);
+                banner_timer = 240;
+            }
+            prev_level[i] = lv;
+        }
 
         /* Décor unlocks: check current progress. If something new unlocks,
          * announce it in the banner. */
