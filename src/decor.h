@@ -74,10 +74,6 @@ int  decor_hit(const Decor *d, float px, float py);
 void decor_draw_one(SDL_Renderer *r, DecorKind k, float x, float y,
                     Uint64 frame);
 
-/* Settle an item so it rests on a surface (the floor, or the top of another
- * placed item it overlaps) instead of floating. Adjusts the item's y. Call
- * after a drop. */
-void decor_settle(Decor *d, int index);
 
 /* ---- persistence: its own save file ---- */
 bool decor_save(const Decor *d, const char *path);

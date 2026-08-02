@@ -133,10 +133,7 @@ int main(int argc, char *argv[]) {
     if (!decor_load(&decor, KZ_DECOR_PATH)) {
         decor = decor_new();
     }
-    /* Settle any already-placed items so they rest on a surface (older saves
-     * may have them floating). */
-    for (int i = 0; i < DECOR_COUNT; i++)
-        decor_settle(&decor, i);
+    /* Items keep exactly the positions you placed them at — no auto-settling. */
     bool decor_open = false;      /* is the décor tray showing?         */
     int  drag_item = -1;          /* décor item being dragged, or -1    */
 
@@ -301,22 +298,13 @@ int main(int argc, char *argv[]) {
                     }
                 }
 
-                /* 0d) grabbing an item already placed in the room works anytime
-                 * you're home — tray open or not — so you can rearrange your
-                 * cottage freely. Checked before the pet-the-cat handler so a
-                 * décor item on top of a cat grabs rather than pets. */
-                if (location == LOC_COTTAGE) {
-                    int placed = decor_hit(&decor, rx, ry);
-                    if (placed >= 0) {
-                        drag_item = placed;
-                        break;
-                    }
-                }
-
-                /* 0e) release ("×") button on the stat card: two-tap confirm */
+                /* 0c2) The stat card is screen-fixed UI, so its buttons must be
+                 * checked in SCREEN coords BEFORE any room-space hit-tests —
+                 * otherwise a décor item sitting under the card (in room space)
+                 * would swallow the tap. */
+                /* release ("×") button: two-tap confirm */
                 if (ui_release_hit(4, 4, lx, ly)) {
                     if (release_confirm > 0) {
-                        /* confirmed — release the active cat */
                         int idx = roster.active;
                         if (roster_release(&roster, idx)) {
                             roster_save(&roster, KZ_SAVE_PATH);
@@ -331,8 +319,7 @@ int main(int argc, char *argv[]) {
                     press_fx = 8;
                     break;
                 }
-
-                /* 1) tap the name on the stat card -> start renaming */
+                /* name row: tap to rename */
                 if (ui_name_hit(4, 4, lx, ly)) {
                     editing = true;
                     SDL_strlcpy(edit_buf, roster_active(&roster)->name,
@@ -340,6 +327,18 @@ int main(int argc, char *argv[]) {
                     edit_len = (int)SDL_strlen(edit_buf);
                     SDL_StartTextInput(window);
                     break;
+                }
+
+                /* 0d) grabbing an item already placed in the room works anytime
+                 * you're home — tray open or not — so you can rearrange your
+                 * cottage freely. Checked before the pet-the-cat handler so a
+                 * décor item on top of a cat grabs rather than pets. */
+                if (location == LOC_COTTAGE) {
+                    int placed = decor_hit(&decor, rx, ry);
+                    if (placed >= 0) {
+                        drag_item = placed;
+                        break;
+                    }
                 }
 
                 /* 2) roster strip: select a cat, or adopt a new one. */
@@ -474,7 +473,7 @@ int main(int argc, char *argv[]) {
                         decor.items[drag_item].placed = true;
                         decor.items[drag_item].x = rx - 8;
                         decor.items[drag_item].y = ry - 8;
-                        decor_settle(&decor, drag_item);   /* let it fall to rest */
+                        /* items stay exactly where you place them */
                     }
                     decor_save(&decor, KZ_DECOR_PATH);
                     drag_item = -1;
