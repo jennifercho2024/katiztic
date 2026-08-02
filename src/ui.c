@@ -75,6 +75,16 @@ static void glyph_two_cats(SDL_Renderer *r, float x, float y, Color c, Color o) 
     px_rect(r, x + 8, y + 4, 1, 1, o);
 }
 
+/* A tiny checklist — two checkbox rows with lines beside them. */
+static void glyph_quests(SDL_Renderer *r, float x, float y, Color c) {
+    px_rect(r, x,     y,     4, 4, c);          /* first checkbox   */
+    px_rect(r, x + 1, y + 1, 2, 2, KZ_CLOUD);
+    px_rect(r, x + 5, y + 1, 4, 2, c);          /* line beside it   */
+    px_rect(r, x,     y + 5, 4, 4, c);          /* second checkbox  */
+    px_rect(r, x + 1, y + 6, 2, 2, KZ_CLOUD);
+    px_rect(r, x + 5, y + 6, 4, 2, c);
+}
+
 bool ui_button_hit(const Button *b, float px_, float py_) {
     return px_ >= b->x && px_ <= b->x + b->w
         && py_ >= b->y && py_ <= b->y + b->h;
@@ -100,6 +110,7 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
         case KZ_BTN_SLEEP:   glyph_moon(r,  gx, gy, KZ_COCOA); break;
         case KZ_BTN_TREAT:   glyph_fish(r,  gx, gy, rgb(0xE8,0x8B,0x6B)); break;
         case KZ_BTN_FRIENDS: glyph_two_cats(r, gx, gy, KZ_PETAL_PINK, KZ_CAT_OUTLINE); break;
+        case KZ_BTN_QUESTS:  glyph_quests(r, gx, gy, KZ_BUTTER); break;
         case KZ_BTN_DECOR:   glyph_chair(r, gx, gy, KZ_COCOA); break;
     }
 }
@@ -389,6 +400,15 @@ bool ui_friends_button_hit(float px_, float py_) {
     return ui_button_hit(&KZ_FRIENDS_BUTTON, px_, py_);
 }
 
+const Button KZ_QUESTS_BUTTON = { KZ_W - 24, 64, 20, 16, KZ_BTN_QUESTS };
+
+void ui_quests_button_draw(SDL_Renderer *r, bool pressed) {
+    ui_button_draw(r, &KZ_QUESTS_BUTTON, pressed);
+}
+bool ui_quests_button_hit(float px_, float py_) {
+    return ui_button_hit(&KZ_QUESTS_BUTTON, px_, py_);
+}
+
 /* A soft dialogue banner across the bottom-center with one line of text. */
 void ui_banner(SDL_Renderer *r, const char *line) {
     float w = 176, h = 16;
@@ -625,4 +645,52 @@ int ui_confirm_release_hit(float px_, float py_) {
             return (b == 0) ? 1 : 0;
     }
     return -1;
+}
+
+/* ---- the quest log overlay ---- */
+
+void ui_quests_list(SDL_Renderer *r, const Quests *q) {
+    /* dim the scene */
+    px_rect_a(r, 0, 0, KZ_W, KZ_H, rgb(0x3B, 0x30, 0x50), 150);
+
+    float w = 190, h = 150;
+    float x = (KZ_W - w) / 2.0f, y = (KZ_H - h) / 2.0f;
+    px_rect(r, x, y, w, h, KZ_CLOUD);
+    px_rect(r, x,         y,         w, 1, KZ_COCOA);
+    px_rect(r, x,         y + h - 1, w, 1, KZ_COCOA);
+    px_rect(r, x,         y,         1, h, KZ_COCOA);
+    px_rect(r, x + w - 1, y,         1, h, KZ_COCOA);
+
+    char head[24];
+    SDL_snprintf(head, sizeof head, "Quests  %d/%d",
+                 quests_done_count(q), (int)QUEST_COUNT);
+    text_draw(r, head, x + 6, y + 5, KZ_COCOA);
+    px_rect(r, x + 5, y + 13, w - 10, 1, KZ_COCOA);
+
+    for (int i = 0; i < QUEST_COUNT; i++) {
+        const QuestInfo *in = quest_info((QuestId)i);
+        float ry = y + 17 + i * 12;
+
+        if (q->done[i]) {
+            /* a mint check in a little box, and the line in a softer tone */
+            px_rect(r, x + 6, ry, 6, 6, KZ_MINT);
+            px_rect(r, x + 7, ry + 3, 1, 2, KZ_CLOUD);
+            px_rect(r, x + 8, ry + 4, 1, 1, KZ_CLOUD);
+            px_rect(r, x + 9, ry + 2, 1, 2, KZ_CLOUD);
+            text_draw(r, in->desc, x + 16, ry, rgb(0xB0, 0x9E, 0xA8));
+        } else {
+            /* empty box, the line, and progress like "3/15" on the right */
+            px_rect(r, x + 6, ry, 6, 6, KZ_CLOUD);
+            px_rect(r, x + 6, ry, 6, 1, KZ_COCOA);
+            px_rect(r, x + 6, ry + 5, 6, 1, KZ_COCOA);
+            px_rect(r, x + 6, ry, 1, 6, KZ_COCOA);
+            px_rect(r, x + 11, ry, 1, 6, KZ_COCOA);
+            text_draw(r, in->desc, x + 16, ry, KZ_COCOA);
+            char prog[16];
+            SDL_snprintf(prog, sizeof prog, "%u/%u",
+                         (unsigned)q->progress[i], (unsigned)in->target);
+            text_draw(r, prog, x + w - 6 - text_width(prog), ry, KZ_COCOA);
+        }
+    }
+    text_draw_centered(r, "tap to close", KZ_W / 2.0f, y + h - 9, KZ_COCOA);
 }

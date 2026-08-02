@@ -32,6 +32,7 @@ typedef enum {
     KZ_BTN_TREAT,   /* a fish treat — offer to a wild cat      */
     KZ_BTN_FRIENDS, /* a heart — open the friends list         */
     KZ_BTN_DECOR,   /* a chair — open the décor tray           */
+    KZ_BTN_QUESTS,  /* a checklist — open the quest log        */
 } ButtonKind;
 
 typedef struct {
@@ -87,6 +88,13 @@ bool ui_friends_button_hit(float px, float py);
  * friends marked. Returns nothing; tapping anywhere closes it (handled in
  * main). */
 void ui_friends_list(SDL_Renderer *r, const Friends *f);
+
+/* ---- quests: a checklist button and the quest-log overlay ---- */
+#include "quests.h"
+extern const Button KZ_QUESTS_BUTTON;
+void ui_quests_button_draw(SDL_Renderer *r, bool pressed);
+bool ui_quests_button_hit(float px, float py);
+void ui_quests_list(SDL_Renderer *r, const Quests *q);
 
 /* ---- décor tray ----
  * A décor button (top-right) opens a tray along the bottom showing the items

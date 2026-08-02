@@ -29,6 +29,7 @@
 #include "forest.h"
 #include "street.h"
 #include "story.h"
+#include "quests.h"
 #include <math.h>
 #include "icon.h"
 #include "music.h"
@@ -45,6 +46,21 @@ static int story_zone_for(Location l) {
     return -1;
 }
 static const char *STORY_ZONE_NAMES[STORY_ZONE_COUNT] = { "forest", "street" };
+
+#define KZ_QUESTS_PATH  "katiztic-quests.sav"
+
+/* A quest just completed: every cat earns the reward XP, and a banner
+ * celebrates. Kept here so every hook site stays one line. */
+static void quest_fanfare(Roster *ro, Quests *qs, QuestId id,
+                          char *banner, size_t blen, int *banner_timer) {
+    const QuestInfo *qi = quest_info(id);
+    for (int i = 0; i < ro->count; i++)
+        stats_gain_xp(&ro->cats[i].stats, (int)qi->reward_xp);
+    SDL_snprintf(banner, blen, "Quest done! +%u xp for all",
+                 (unsigned)qi->reward_xp);
+    *banner_timer = 320;
+    quests_save(qs, KZ_QUESTS_PATH);   /* a finished quest is never lost */
+}
 
 /* Window opens at 4x the logical canvas: 960x640. */
 #define KZ_SCALE  4
@@ -119,6 +135,7 @@ int main(int argc, char *argv[]) {
     /* Releasing a cat asks a proper "Are you sure?" with Yes/No buttons, so
      * it can never happen by accident. */
     bool release_open = false;
+    bool quests_open = false;    /* is the quest log showing? */
     Button btn_sleep  = { KZ_W - 48, 4,  20, 16, KZ_BTN_SLEEP };
     int    press_fx   = 0;   /* frames of button-press highlight remaining */
 
@@ -153,6 +170,12 @@ int main(int argc, char *argv[]) {
     Story story;
     if (!story_load(&story, KZ_STORY_PATH)) {
         story = story_new();
+    }
+
+    /* The quest log — gentle goals, with XP for the whole family on finish. */
+    Quests quests;
+    if (!quests_load(&quests, KZ_QUESTS_PATH)) {
+        quests = quests_new();
     }
     bool decor_open = false;      /* is the décor tray showing?         */
     int  drag_item = -1;          /* décor item being dragged, or -1    */
@@ -229,10 +252,18 @@ int main(int argc, char *argv[]) {
             case SDL_EVENT_KEY_DOWN:
                 if (e.key.key == SDLK_ESCAPE || e.key.key == SDLK_Q)
                     running = false;
-                else if (e.key.key == SDLK_F)
+                else if (e.key.key == SDLK_F) {
                     stats_feed(&roster_active(&roster)->stats);
-                else if (e.key.key == SDLK_G)
+                    if (quests_bump(&quests, QUEST_FEED))
+                        quest_fanfare(&roster, &quests, QUEST_FEED, banner_line,
+                                      sizeof banner_line, &banner_timer);
+                }
+                else if (e.key.key == SDLK_G) {
                     stats_groom(&roster_active(&roster)->stats);
+                    if (quests_bump(&quests, QUEST_GROOM))
+                        quest_fanfare(&roster, &quests, QUEST_GROOM, banner_line,
+                                      sizeof banner_line, &banner_timer);
+                }
                 break;
 
             case SDL_EVENT_MOUSE_BUTTON_DOWN: {
@@ -251,6 +282,7 @@ int main(int argc, char *argv[]) {
 
                 /* If the friends list is open, any tap just closes it. */
                 if (friends_open) { friends_open = false; break; }
+                if (quests_open) { quests_open = false; break; }
 
                 /* If the release dialog is open, it owns every tap: Yes
                  * releases the active cat; No (or anywhere else) cancels. */
@@ -333,6 +365,13 @@ int main(int argc, char *argv[]) {
                 /* 0) friends button: open the friends list */
                 if (ui_friends_button_hit(lx, ly)) {
                     friends_open = true;
+                    press_fx = 8;
+                    break;
+                }
+
+                /* 0b) quests button: open the quest log */
+                if (ui_quests_button_hit(lx, ly)) {
+                    quests_open = true;
                     press_fx = 8;
                     break;
                 }
@@ -458,6 +497,11 @@ int main(int argc, char *argv[]) {
                                 roster_select(&roster, i);
                                 cat_pet(&roster.cats[i].anim);
                                 stats_pet(&roster.cats[i].stats);
+                                if (quests_bump(&quests, QUEST_PET))
+                                    quest_fanfare(&roster, &quests, QUEST_PET,
+                                                  banner_line,
+                                                  sizeof banner_line,
+                                                  &banner_timer);
                                 hit_one = true;
                                 break;
                             }
@@ -485,6 +529,10 @@ int main(int argc, char *argv[]) {
                         if (hit_out) {
                             cat_pet(&a->anim);
                             stats_pet(&a->stats);   /* petting deepens bond */
+                            if (quests_bump(&quests, QUEST_PET))
+                                quest_fanfare(&roster, &quests, QUEST_PET, banner_line,
+                                              sizeof banner_line,
+                                              &banner_timer);
                             /* in a faded zone, petting makes her magic flare:
                              * a visible burst of color returns */
                             int sz = story_zone_for(location);
@@ -600,6 +648,39 @@ int main(int argc, char *argv[]) {
                     story_save(&story, KZ_STORY_PATH);
                 }
             }
+        }
+
+        /* Value-tracked quests: raise each to its current truth. Any that
+         * just completed gets the fanfare. Cheap enough to run every frame. */
+        {
+            int maxlvl = 0;
+            bool playing = false;
+            for (int i = 0; i < roster.count; i++) {
+                if ((int)roster.cats[i].stats.level > maxlvl)
+                    maxlvl = (int)roster.cats[i].stats.level;
+                if (roster.cats[i].anim.act == ACT_PLAY) playing = true;
+            }
+            const QuestId QIDS[6] = {
+                QUEST_FRIENDS, QUEST_FAMILY, QUEST_LEVEL5,
+                QUEST_CAFE, QUEST_PLAY, QUEST_FOREST
+            };
+            const int QVALS[6] = {
+                friends_befriended_count(&friends),
+                roster.count,
+                maxlvl,
+                (location == LOC_CAFE) ? 1 : 0,
+                playing ? 1 : 0,
+                (story_warmth(&story, STORY_ZONE_FOREST) >= 1.0f) ? 1 : 0,
+            };
+            for (int i = 0; i < 6; i++)
+                if (quests_set(&quests, QIDS[i], QVALS[i]))
+                    quest_fanfare(&roster, &quests, QIDS[i], banner_line,
+                                  sizeof banner_line, &banner_timer);
+            if (quests_set(&quests, QUEST_STREET,
+                           (story_warmth(&story, STORY_ZONE_STREET) >= 1.0f)
+                               ? 1 : 0))
+                quest_fanfare(&roster, &quests, QUEST_STREET, banner_line,
+                              sizeof banner_line, &banner_timer);
         }
         if (banner_timer > 0) banner_timer--;
 
@@ -761,7 +842,8 @@ int main(int argc, char *argv[]) {
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
         if (location == LOC_COTTAGE)
             ui_button_draw(renderer, &btn_sleep, press_fx > 0);
-        ui_friends_button_draw(renderer, press_fx > 0);   /* friends list */
+        ui_friends_button_draw(renderer, press_fx > 0);
+        ui_quests_button_draw(renderer, false);   /* friends list */
         if (location == LOC_COTTAGE)
             ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray   */
         ui_roster_draw(renderer, &roster);                /* the family strip */
@@ -803,6 +885,11 @@ int main(int argc, char *argv[]) {
             ui_friends_list(renderer, &friends);
         }
 
+        /* Quest log overlay, above the scene. */
+        if (quests_open) {
+            ui_quests_list(renderer, &quests);
+        }
+
         /* The release confirmation sits above absolutely everything. */
         if (release_open) {
             ui_confirm_release(renderer, roster_active(&roster)->name);
@@ -823,6 +910,7 @@ int main(int argc, char *argv[]) {
     friends_save(&friends, KZ_FRIENDS_PATH);
     decor_save(&decor, KZ_DECOR_PATH);
     story_save(&story, KZ_STORY_PATH);
+    quests_save(&quests, KZ_QUESTS_PATH);
 
     music_shutdown();
     SDL_DestroyRenderer(renderer);
