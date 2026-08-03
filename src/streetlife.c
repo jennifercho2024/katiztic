@@ -141,10 +141,11 @@ int streetlife_hit(const StreetLife *sl, float px_, float py_) {
     return -1;
 }
 
-const char *streetlife_greet(StreetLife *sl, int index) {
+const char *streetlife_greet(StreetLife *sl, int index, CatType *out_type) {
     if (index < 0 || index >= STREETLIFE_MAX) return NULL;
     Walker *w = &sl->walkers[index];
     if (!w->active) return NULL;
     w->greet_glow = 40;
+    if (out_type) *out_type = w->cat_type;
     return w->name;
 }

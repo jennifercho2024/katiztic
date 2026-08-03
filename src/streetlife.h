@@ -49,7 +49,8 @@ void streetlife_draw(SDL_Renderer *r, const StreetLife *sl, Uint64 frame,
 int streetlife_hit(const StreetLife *sl, float px, float py);
 
 /* Give a walker's cat a friendly pet: lights a happy glow, returns the owner's
- * name for a greeting (or NULL if the index is invalid). */
-const char *streetlife_greet(StreetLife *sl, int index);
+ * name for a greeting (or NULL if the index is invalid). If out_type is
+ * non-NULL, the walker's cat type is written there. */
+const char *streetlife_greet(StreetLife *sl, int index, CatType *out_type);
 
 #endif /* KATIZTIC_STREETLIFE_H */

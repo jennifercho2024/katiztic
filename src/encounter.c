@@ -35,9 +35,9 @@ Encounter encounter_none(void) {
 Encounter encounter_begin(Friends *f) {
     Encounter e = encounter_none();
 
-    /* Not every walk has a visitor — about 3 in 5 do, so it feels like a
-     * happy surprise rather than a chore. */
-    if (SDL_rand(5) < 2) return e;   /* nobody today */
+    /* Most walks have a visitor now — about 4 in 5 — so the meadow feels
+     * full of wild cats to meet. */
+    if (SDL_rand(5) < 1) return e;   /* just occasionally, nobody today */
 
     /* Mix regulars and new faces: if you have friends, half the time bring
      * one of them back; otherwise (or the other half) pick from the wild pool. */

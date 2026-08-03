@@ -112,6 +112,19 @@ static void glyph_bowl(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 5, y + 2, 2, 1, rgb(0xB0, 0x86, 0x62));
 }
 
+/* an envelope — the mailbox button */
+static void glyph_envelope(SDL_Renderer *r, float x, float y, Color c) {
+    px_rect(r, x,     y + 1, 9, 6, KZ_CLOUD);       /* body      */
+    px_rect(r, x,     y + 1, 9, 1, c);              /* top edge  */
+    px_rect(r, x,     y + 6, 9, 1, c);              /* bottom    */
+    px_rect(r, x,     y + 1, 1, 6, c);              /* left      */
+    px_rect(r, x + 8, y + 1, 1, 6, c);             /* right     */
+    /* the flap (a V) */
+    px_rect(r, x + 1, y + 2, 3, 1, c);
+    px_rect(r, x + 5, y + 2, 3, 1, c);
+    px_rect(r, x + 3, y + 3, 3, 1, c);
+}
+
 bool ui_button_hit(const Button *b, float px_, float py_) {
     return px_ >= b->x && px_ <= b->x + b->w
         && py_ >= b->y && py_ <= b->y + b->h;
@@ -139,6 +152,7 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
         case KZ_BTN_FRIENDS: glyph_two_cats(r, gx, gy, KZ_PETAL_PINK, KZ_CAT_OUTLINE); break;
         case KZ_BTN_QUESTS:  glyph_quests(r, gx, gy, KZ_BUTTER); break;
         case KZ_BTN_FEED:    glyph_bowl(r, gx, gy, KZ_PETAL_PINK); break;
+        case KZ_BTN_MAIL:    glyph_envelope(r, gx, gy, KZ_COCOA); break;
         case KZ_BTN_DECOR:   glyph_chair(r, gx, gy, KZ_COCOA); break;
     }
 }
@@ -597,6 +611,91 @@ int ui_feed_tray_hit(const Pantry *p, float px_, float py_) {
     for (int i = 0; i < FOOD_COUNT; i++) {
         float x = feed_slot_x(i);
         if (px_ >= x && px_ <= x + FEED_SLOT) return i;
+    }
+    return -1;
+}
+
+/* ---- mailbox: playdate invitations ---- */
+
+const Button KZ_MAIL_BUTTON = { 4, KZ_H - 46, 20, 16, KZ_BTN_MAIL };
+
+void ui_mail_button_draw(SDL_Renderer *r, const Owners *o, bool pressed) {
+    ui_button_draw(r, &KZ_MAIL_BUTTON, pressed);
+    /* a little red dot if letters are waiting */
+    int n = owners_invite_count(o);
+    if (n > 0) {
+        float dx = KZ_MAIL_BUTTON.x + KZ_MAIL_BUTTON.w - 5;
+        float dy = KZ_MAIL_BUTTON.y + 1;
+        px_rect(r, dx, dy, 4, 4, KZ_HEART);
+    }
+}
+bool ui_mail_button_hit(float px_, float py_) {
+    return ui_button_hit(&KZ_MAIL_BUTTON, px_, py_);
+}
+
+#define MAIL_ROW 26
+#define MAIL_X   24
+#define MAIL_Y   22
+#define MAIL_W   192
+
+void ui_mailbox(SDL_Renderer *r, const Owners *o, Uint64 frame) {
+    (void)frame;
+    px_rect_a(r, 0, 0, KZ_W, KZ_H, rgb(0x3B, 0x30, 0x50), 150);
+
+    int n = owners_invite_count(o);
+    float h = 30 + (n > 0 ? n : 1) * MAIL_ROW + 8;
+    if (h > 150) h = 150;
+    float x = MAIL_X, y = MAIL_Y;
+    px_rect(r, x, y, MAIL_W, h, KZ_CLOUD);
+    px_rect(r, x, y, MAIL_W, 1, KZ_COCOA);
+    px_rect(r, x, y + h - 1, MAIL_W, 1, KZ_COCOA);
+    px_rect(r, x, y, 1, h, KZ_COCOA);
+    px_rect(r, x + MAIL_W - 1, y, 1, h, KZ_COCOA);
+
+    text_draw_scaled(r, "Mailbox", x + 8, y + 6, KZ_COCOA, 2);
+    px_rect(r, x + 6, y + 22, MAIL_W - 12, 1, KZ_COCOA);
+
+    if (n == 0) {
+        text_draw(r, "No letters right now.", x + 10, y + 30, KZ_COCOA);
+        text_draw_centered(r, "tap to close", KZ_W / 2.0f, y + h - 9, KZ_COCOA);
+        return;
+    }
+
+    int row = 0;
+    for (int i = 0; i < o->count; i++) {
+        if (!o->list[i].invite_pending) continue;
+        float ry = y + 28 + row * MAIL_ROW;
+        if (ry + MAIL_ROW > y + h - 8) break;
+        /* an envelope chip */
+        px_rect(r, x + 8, ry, MAIL_W - 16, MAIL_ROW - 4,
+                o->list[i].invite_read ? rgb(0xEC, 0xE4, 0xE8) : KZ_BUTTER);
+        px_rect(r, x + 8, ry, MAIL_W - 16, 1, KZ_COCOA);
+        px_rect(r, x + 8, ry + MAIL_ROW - 5, MAIL_W - 16, 1, KZ_COCOA);
+        /* text */
+        char line[48];
+        SDL_snprintf(line, sizeof line, "%s invites you to a playdate!",
+                     o->list[i].name);
+        text_draw(r, line, x + 14, ry + 3, KZ_COCOA);
+        text_draw(r, "tap to accept", x + 14, ry + 12,
+                  rgb(0x9A, 0x7A, 0x5A));
+        row++;
+    }
+    text_draw_centered(r, "tap a letter to accept  -  or tap outside",
+                       KZ_W / 2.0f, y + h - 9, KZ_COCOA);
+}
+
+int ui_mailbox_hit(const Owners *o, float px_, float py_) {
+    int n = owners_invite_count(o);
+    if (n == 0) return -1;
+    float y = MAIL_Y;
+    int row = 0;
+    for (int i = 0; i < o->count; i++) {
+        if (!o->list[i].invite_pending) continue;
+        float ry = y + 28 + row * MAIL_ROW;
+        if (px_ >= MAIL_X + 8 && px_ <= MAIL_X + MAIL_W - 8
+            && py_ >= ry && py_ <= ry + MAIL_ROW - 4)
+            return i;
+        row++;
     }
     return -1;
 }

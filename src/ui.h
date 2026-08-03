@@ -34,6 +34,7 @@ typedef enum {
     KZ_BTN_DECOR,   /* a chair — open the décor tray           */
     KZ_BTN_QUESTS,  /* a checklist — open the quest log        */
     KZ_BTN_FEED,    /* a bowl — open the feed array            */
+    KZ_BTN_MAIL,    /* an envelope — open the mailbox           */
 } ButtonKind;
 
 typedef struct {
@@ -110,6 +111,16 @@ void ui_feed_tray(SDL_Renderer *r, const Pantry *p, Uint64 frame);
 /* which food slot (FoodKind) a tap hit, or -1 */
 int  ui_feed_tray_hit(const Pantry *p, float px, float py);
 float ui_feed_tray_top(void);
+
+/* ---- mailbox: playdate invitations from befriended owners ---- */
+#include "owners.h"
+extern const Button KZ_MAIL_BUTTON;
+void ui_mail_button_draw(SDL_Renderer *r, const Owners *o, bool pressed);
+bool ui_mail_button_hit(float px, float py);
+void ui_mailbox(SDL_Renderer *r, const Owners *o, Uint64 frame);
+/* which pending letter (owner index) was tapped, or -1 */
+int  ui_mailbox_hit(const Owners *o, float px, float py);
+
 
 /* ---- décor tray ----
  * A décor button (top-right) opens a tray along the bottom showing the items

@@ -29,6 +29,8 @@
 #include "forest.h"
 #include "street.h"
 #include "streetlife.h"
+#include "owners.h"
+#include "playdate.h"
 #include "story.h"
 #include "worldmap.h"
 #include "pantry.h"
@@ -36,12 +38,13 @@
 #include "quests.h"
 #include <math.h>
 #include "icon.h"
+#include "title.h"
 #include "music.h"
 
 /* Where the player currently is. Sleeping happens in the cottage; the meadow
  * is the outdoors. Moving between them is a tap on an on-screen button. */
 typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST, LOC_STREET,
-               LOC_MARKET } Location;
+               LOC_MARKET, LOC_PLAYDATE } Location;
 
 /* Which story zone a location belongs to, or -1 if it isn't one. New zones
  * arrive faded (option A): only these get the warmth treatment. */
@@ -54,6 +57,7 @@ static const char *STORY_ZONE_NAMES[STORY_ZONE_COUNT] = { "forest", "street" };
 
 #define KZ_QUESTS_PATH  "katiztic-quests.sav"
 #define KZ_PANTRY_PATH  "katiztic-pantry.sav"
+#define KZ_OWNERS_PATH  "katiztic-owners.sav"
 
 /* A quest just completed: every cat earns the reward XP, you earn some coins,
  * and a banner celebrates. Kept here so every hook site stays one line. */
@@ -120,6 +124,43 @@ int main(int argc, char *argv[]) {
 
     /* Needed for the soft alpha overlays (shadow, hearts, mood wash). */
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+    /* ---- title screen ---- */
+    /* Show the lavender splash until the player presses a key or clicks, then
+     * begin the game. */
+    SDL_Texture *title_tex = title_create(renderer);
+    bool at_title = true;
+    bool quit_from_title = false;
+    Uint64 title_frame = 0;
+    while (at_title) {
+        SDL_Event te;
+        while (SDL_PollEvent(&te)) {
+            if (te.type == SDL_EVENT_QUIT) { at_title = false; quit_from_title = true; }
+            if (te.type == SDL_EVENT_KEY_DOWN
+                || te.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+                || te.type == SDL_EVENT_FINGER_DOWN)
+                at_title = false;
+        }
+        SDL_SetRenderDrawColor(renderer, 0xD9, 0xCF, 0xEA, 255);
+        SDL_RenderClear(renderer);
+        if (title_tex) {
+            SDL_FRect dst = { 0, 0, (float)KZ_W, (float)KZ_H };
+            SDL_RenderTexture(renderer, title_tex, NULL, &dst);
+            /* a gentle "press start" pulse cue over the image's button area */
+            if ((title_frame / 30) % 2 == 0) {
+                SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 40);
+                SDL_FRect glow = { 88, 128, 64, 14 };
+                SDL_RenderFillRect(renderer, &glow);
+            }
+        } else {
+            /* fallback if the image failed: a simple prompt */
+            SDL_RenderDebugText(renderer, 90, 76, "katiztic - press start");
+        }
+        SDL_RenderPresent(renderer);
+        SDL_Delay(16);
+        title_frame++;
+    }
+    if (title_tex) SDL_DestroyTexture(title_tex);
 
     Meadow meadow = meadow_make();
 
@@ -201,6 +242,12 @@ int main(int argc, char *argv[]) {
     if (!pantry_load(&pantry, KZ_PANTRY_PATH)) {
         pantry = pantry_new();
     }
+
+    /* The street owners you've befriended, and their playdate invitations. */
+    Owners owners;
+    if (!owners_load(&owners, KZ_OWNERS_PATH)) {
+        owners = owners_new();
+    }
     bool decor_open = false;      /* is the décor tray showing?         */
     bool feed_open = false;       /* is the feed array showing?         */
     int  drag_item = -1;          /* décor item being dragged, or -1    */
@@ -208,7 +255,11 @@ int main(int argc, char *argv[]) {
     /* The wild cat currently visiting the meadow (if any), the banner line
      * that describes the moment, and whether the friends-list overlay is open. */
     Encounter enc = encounter_none();
+    int meadow_respawn = 300;     /* frames until a new wild cat may wander in */
     StreetLife streetlife = streetlife_new();   /* people walking their cats */
+    bool mail_open = false;       /* is the mailbox inbox showing?      */
+    Playdate playdate = playdate_none();
+    Location return_loc = LOC_COTTAGE;  /* where to go back after a playdate */
     char banner_line[48];
     banner_line[0] = '\0';
     int  banner_timer = 0;      /* frames the banner stays up (0 = hidden) */
@@ -228,7 +279,7 @@ int main(int argc, char *argv[]) {
     edit_buf[0] = '\0';
     int  edit_len = 0;
 
-    bool   running = true;
+    bool   running = !quit_from_title;
     Uint64 frame   = 0;
     Uint64 next    = SDL_GetTicksNS();
 
@@ -388,6 +439,52 @@ int main(int argc, char *argv[]) {
                     quests_open = true;
                     quests_scroll = 0;
                     press_fx = 8;
+                    break;
+                }
+
+                /* If the mailbox is open, a tap either accepts a letter (start
+                 * a playdate) or, if it misses, closes the inbox. */
+                if (mail_open) {
+                    int letter = ui_mailbox_hit(&owners, lx, ly);
+                    if (letter >= 0) {
+                        Owner *ow = &owners.list[letter];
+                        return_loc = location;
+                        playdate = playdate_begin(ow->name, ow->cat_type, frame);
+                        owners_clear_invite(&owners, ow->name);
+                        owners_save(&owners, KZ_OWNERS_PATH);
+                        location = LOC_PLAYDATE;
+                        mail_open = false;
+                    } else {
+                        mail_open = false;
+                    }
+                    press_fx = 8;
+                    break;
+                }
+
+                /* mail button: open the mailbox (playdate letters) */
+                if (ui_mail_button_hit(lx, ly)) {
+                    mail_open = true;
+                    press_fx = 8;
+                    break;
+                }
+
+                /* During a playdate, tap either cat to pet it — a burst of joy
+                 * and a little bond for your cat. */
+                if (location == LOC_PLAYDATE) {
+                    int who = playdate_hit(&playdate, &roster_active(&roster)->anim,
+                                           lx, ly);
+                    if (who == 1) {
+                        cat_pet(&roster_active(&roster)->anim);
+                        stats_pet(&roster_active(&roster)->stats);
+                        playdate.joy += 0.06f;
+                        if (playdate.joy > 1.0f) playdate.joy = 1.0f;
+                        press_fx = 8;
+                    } else if (who == 2) {
+                        cat_pet(&playdate.guest);
+                        playdate.joy += 0.06f;
+                        if (playdate.joy > 1.0f) playdate.joy = 1.0f;
+                        press_fx = 8;
+                    }
                     break;
                 }
 
@@ -600,15 +697,29 @@ int main(int argc, char *argv[]) {
                         if (location == LOC_STREET) {
                             int wk = streetlife_hit(&streetlife, lx, ly);
                             if (wk >= 0) {
+                                CatType wt = KZ_SUNNY;
                                 const char *who =
-                                    streetlife_greet(&streetlife, wk);
-                                if (who)
-                                    SDL_snprintf(banner_line, sizeof banner_line,
-                                                 "%s's cat purrs hello!", who);
-                                else
+                                    streetlife_greet(&streetlife, wk, &wt);
+                                if (who) {
+                                    int made = owners_greet(&owners, who, wt);
+                                    owners_save(&owners, KZ_OWNERS_PATH);
+                                    if (made) {
+                                        SDL_snprintf(banner_line,
+                                                     sizeof banner_line,
+                                                     "You and %s are friends! A letter arrives...",
+                                                     who);
+                                        banner_timer = 300;
+                                    } else {
+                                        SDL_snprintf(banner_line,
+                                                     sizeof banner_line,
+                                                     "%s's cat purrs hello!", who);
+                                        banner_timer = 200;
+                                    }
+                                } else {
                                     SDL_strlcpy(banner_line, "Hello there!",
                                                 sizeof banner_line);
-                                banner_timer = 200;
+                                    banner_timer = 200;
+                                }
                                 press_fx = 8;
                                 break;
                             }
@@ -793,10 +904,55 @@ int main(int argc, char *argv[]) {
                       : (location == LOC_CAFE)    ? MUSIC_CAFE
                       : (location == LOC_FOREST)  ? MUSIC_FOREST
                       : (location == LOC_MARKET)  ? MUSIC_CAFE
+                      : (location == LOC_PLAYDATE)? MUSIC_MEADOW
                       : MUSIC_STREET;
         music_set_theme(mt);
-        if (location == LOC_MEADOW) encounter_update(&enc, &friends);
+        if (location == LOC_MEADOW) {
+            encounter_update(&enc, &friends);
+            /* If the meadow is empty, a new wild cat may wander in after a
+             * little while, so cats keep showing up during a long visit. */
+            if (!enc.present) {
+                if (--meadow_respawn <= 0) {
+                    enc = encounter_begin(&friends);
+                    if (enc.present) {
+                        Friend *known = friends_find(&friends, enc.name);
+                        if (known && known->befriended)
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "%s comes to say hello!", enc.name);
+                        else if (known)
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "%s is here again.", enc.name);
+                        else
+                            SDL_strlcpy(banner_line,
+                                        "A shy cat watches you...",
+                                        sizeof banner_line);
+                        banner_timer = 200;
+                    }
+                    meadow_respawn = 300 + SDL_rand(300);   /* 5-10s pause */
+                }
+            } else {
+                meadow_respawn = 300 + SDL_rand(300);
+            }
+        }
         if (location == LOC_STREET) streetlife_update(&streetlife, frame);
+        if (location == LOC_PLAYDATE) {
+            bool done = playdate_update(&playdate, &roster_active(&roster)->anim,
+                                        frame);
+            if (done && banner_timer <= 0) {
+                /* a happy success: bond and mood for your cat, a warm banner,
+                 * then drift back to where you came from. */
+                stats_outing(&roster_active(&roster)->stats);
+                roster_save(&roster, KZ_SAVE_PATH);
+                SDL_snprintf(banner_line, sizeof banner_line,
+                             "%s had a wonderful playdate!",
+                             roster_active(&roster)->name);
+                banner_timer = 260;
+                playdate.active = false;
+                location = return_loc;
+                btn_travel.kind = (location == LOC_COTTAGE)
+                                  ? KZ_BTN_OUT : KZ_BTN_HOME;
+            }
+        }
 
         /* In a faded zone, your cat's quiet company brings the color back —
          * faster the deeper her bond and the more friends you've made. */
@@ -860,7 +1016,7 @@ int main(int argc, char *argv[]) {
                 pantry_earn(&pantry, 5);
                 pantry_save(&pantry, KZ_PANTRY_PATH);
                 SDL_snprintf(banner_line, sizeof banner_line,
-                             "%s reached level %u!  +5c",
+                             "%s reached level %u! (+5 coins)",
                              roster.cats[i].name, (unsigned)lv);
                 banner_timer = 240;
             }
@@ -899,6 +1055,13 @@ int main(int argc, char *argv[]) {
         if (location == LOC_MARKET) {
             /* The flea market: a shop screen, no roaming cats here. */
             market_draw(renderer, &pantry, frame);
+        } else if (location == LOC_PLAYDATE) {
+            /* A cozy playdate: your cat and a friend's cat play together. */
+            OwnedCat *a = roster_active(&roster);
+            float sx0 = a->anim.cx, sy0 = a->anim.cy;
+            Activity sa0 = a->anim.act;
+            playdate_draw(renderer, &playdate, &a->anim, col, frame);
+            a->anim.cx = sx0; a->anim.cy = sy0; a->anim.act = sa0;
         } else if (location == LOC_COTTAGE || location == LOC_CAFE) {
             /* Indoor places where the family roams and socializes. */
             if (location == LOC_COTTAGE) {
@@ -1002,6 +1165,7 @@ int main(int argc, char *argv[]) {
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
         ui_friends_button_draw(renderer, press_fx > 0);
         ui_quests_button_draw(renderer, false);   /* friends list */
+        ui_mail_button_draw(renderer, &owners, press_fx > 0);   /* mailbox */
         if (location == LOC_COTTAGE) {
             ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray   */
             ui_feed_button_draw(renderer, press_fx > 0);   /* feed array   */
@@ -1037,6 +1201,11 @@ int main(int argc, char *argv[]) {
             ui_quests_list(renderer, &quests, quests_scroll);
         }
 
+        /* Mailbox overlay, above the scene. */
+        if (mail_open) {
+            ui_mailbox(renderer, &owners, frame);
+        }
+
         /* The release confirmation sits above absolutely everything. */
         if (release_open) {
             ui_confirm_release(renderer, roster_active(&roster)->name);
@@ -1070,6 +1239,7 @@ int main(int argc, char *argv[]) {
     story_save(&story, KZ_STORY_PATH);
     quests_save(&quests, KZ_QUESTS_PATH);
     pantry_save(&pantry, KZ_PANTRY_PATH);
+    owners_save(&owners, KZ_OWNERS_PATH);
 
     music_shutdown();
     SDL_DestroyRenderer(renderer);
