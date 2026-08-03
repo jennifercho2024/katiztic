@@ -26,7 +26,7 @@ static int trust_step(AnimalKind k, bool have_treat) {
 ForestLife forestlife_new(void) {
     ForestLife fl;
     for (int i = 0; i < FORESTLIFE_MAX; i++) fl.animals[i].active = false;
-    fl.spawn_timer = 40.0f;
+    fl.spawn_timer = 1.0f;   /* animals appear right away */
     for (int k = 0; k < ANIMAL_KIND_COUNT; k++) {
         fl.friends.trust[k] = 0;
         fl.friends.befriended[k] = false;
@@ -38,7 +38,9 @@ static void spawn_animal(Animal *a) {
     a->active = true;
     a->kind = (AnimalKind)SDL_rand(ANIMAL_KIND_COUNT);
     a->dir = (SDL_rand(2) == 0) ? 1 : -1;
-    a->x = (a->dir > 0) ? -12.0f : (float)KZ_W + 12.0f;
+    /* appear inside the scene and stay — residents you can visit, pet, and
+     * play with, not passers-by */
+    a->x = 40.0f + SDL_randf() * 160.0f;
     /* birds fly higher; ground animals walk the forest floor */
     a->y = (a->kind == ANIMAL_BIRD) ? (52.0f + SDL_randf() * 16.0f)
                                     : (120.0f + SDL_randf() * 20.0f);
@@ -53,35 +55,41 @@ static void spawn_animal(Animal *a) {
 void forestlife_update(ForestLife *fl, Uint64 frame) {
     (void)frame;
     int count = 0;
+    /* keep the forest gently populated: fill any empty slots so a couple of
+     * animals are always here to visit */
+    for (int i = 0; i < FORESTLIFE_MAX; i++)
+        if (fl->animals[i].active) count++;
+    if (count < FORESTLIFE_MAX) {
+        fl->spawn_timer -= 1.0f;
+        if (fl->spawn_timer <= 0.0f) {
+            for (int i = 0; i < FORESTLIFE_MAX; i++)
+                if (!fl->animals[i].active) {
+                    spawn_animal(&fl->animals[i]);
+                    break;
+                }
+            fl->spawn_timer = 60.0f + (float)SDL_rand(120);
+        }
+    }
+
+    /* wander within the frame — they turn at the edges and stay, so you can
+     * always find them to pet and play with */
+    const float LEFT = 24.0f, RIGHT = (float)KZ_W - 24.0f;
     for (int i = 0; i < FORESTLIFE_MAX; i++) {
         Animal *a = &fl->animals[i];
         if (!a->active) continue;
         a->x += a->speed * a->dir;
         a->hop++;
         if (a->glow > 0) a->glow--;
-        /* occasionally pause/turn (except birds, which keep gliding) */
-        if (a->kind != ANIMAL_BIRD) {
-            a->wander_timer -= 1.0f;
-            if (a->wander_timer <= 0.0f) {
-                if (SDL_rand(3) == 0) a->dir = -a->dir;  /* sometimes turn */
-                a->wander_timer = 120.0f + SDL_rand(180);
-            }
+        /* bounce softly off the edges so nobody leaves */
+        if (a->x < LEFT)  { a->x = LEFT;  a->dir = 1; }
+        if (a->x > RIGHT) { a->x = RIGHT; a->dir = -1; }
+        /* occasionally pause and turn for a natural wander (birds keep gliding
+         * side to side too, just within bounds) */
+        a->wander_timer -= 1.0f;
+        if (a->wander_timer <= 0.0f) {
+            if (SDL_rand(2) == 0) a->dir = -a->dir;
+            a->wander_timer = 120.0f + SDL_rand(180);
         }
-        if ((a->dir > 0 && a->x > KZ_W + 14) ||
-            (a->dir < 0 && a->x < -14)) {
-            a->active = false;
-        } else {
-            count++;
-        }
-    }
-
-    fl->spawn_timer -= 1.0f;
-    if (fl->spawn_timer <= 0.0f && count < FORESTLIFE_MAX) {
-        for (int i = 0; i < FORESTLIFE_MAX; i++)
-            if (!fl->animals[i].active) { spawn_animal(&fl->animals[i]); break; }
-        /* keep it calm: a relaxed gap, longer if one's already here */
-        fl->spawn_timer = 180.0f + (float)SDL_rand(240)
-                        + (count > 0 ? 240.0f : 0.0f);
     }
 }
 
