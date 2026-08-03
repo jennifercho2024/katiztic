@@ -9,6 +9,10 @@
 #include "palette.h"
 #include <math.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 /* Blink cadence: a blink every ~2-5 seconds at 60fps. */
 static int roll_next_blink(void) {
     return 120 + (SDL_rand(200));  /* 120..319 frames */
@@ -17,11 +21,29 @@ static int roll_next_blink(void) {
 Cat cat_make(float cx, float cy) {
     Cat c = { cx, cy, 0, roll_next_blink(), 0,
               ACT_SIT, 120, cx, cy, 1, (Uint64)SDL_rand(100000),
-              0, 120 + SDL_rand(240), 0 };
+              0, 120 + SDL_rand(240), 0,
+              CAT_TRICK_NONE, 0, 0 };
     return c;
 }
 
+void cat_do_trick(Cat *cat, int trick) {
+    cat->trick = trick;
+    switch (trick) {
+        case CAT_TRICK_JUMP:     cat->trick_len = 40; break;
+        case CAT_TRICK_SPIN:     cat->trick_len = 44; break;
+        case CAT_TRICK_HIGHFIVE: cat->trick_len = 48; break;
+        case CAT_TRICK_ROLL:     cat->trick_len = 52; break;
+        case CAT_TRICK_SIT:
+        default:                 cat->trick_len = 40; break;
+    }
+    cat->trick_t = cat->trick_len;
+}
+
 void cat_update(Cat *cat) {
+    if (cat->trick_t > 0) {
+        cat->trick_t--;
+        if (cat->trick_t == 0) cat->trick = CAT_TRICK_NONE;
+    }
     if (cat->blink > 0) {
         cat->blink--;
     } else {
@@ -73,6 +95,45 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
     }
     float py = cat->cy + bob + act_bob;
 
+    /* ---- trick poses ---- */
+    /* progress 0..1 across the trick animation (0 at start, 1 at end) */
+    float tp = (cat->trick != CAT_TRICK_NONE && cat->trick_len > 0)
+             ? 1.0f - (float)cat->trick_t / (float)cat->trick_len
+             : -1.0f;
+    float trick_lift = 0.0f;    /* whole-cat vertical lift (jump)         */
+    int   paw_raise = 0;        /* which front paw is up: 0 none,1 left,2 right */
+    float roll_tilt = 0.0f;     /* horizontal squash for a roll           */
+    int   face_over = 0;        /* temporary facing override for a spin    */
+    float sit_drop = 0.0f;      /* haunches lower for a sit                */
+    if (tp >= 0.0f) {
+        float arc = sinf(tp * (float)M_PI);   /* 0 up to 1 and back to 0 */
+        switch (cat->trick) {
+            case CAT_TRICK_JUMP:
+                trick_lift = -arc * 16.0f;     /* leaps up and lands       */
+                break;
+            case CAT_TRICK_HIGHFIVE:
+                /* raise the right paw during the middle of the animation */
+                if (tp > 0.25f && tp < 0.75f) paw_raise = 2;
+                trick_lift = -arc * 3.0f;      /* a little lean up          */
+                break;
+            case CAT_TRICK_SPIN:
+                /* flip facing a couple of times to read as a spin */
+                face_over = ((int)(tp * 4.0f) % 2 == 0) ? 1 : -1;
+                break;
+            case CAT_TRICK_ROLL:
+                roll_tilt = sinf(tp * (float)M_PI * 2.0f) * 4.0f; /* wobble */
+                trick_lift = -arc * 2.0f;
+                break;
+            case CAT_TRICK_SIT:
+            default:
+                sit_drop = arc * 3.0f;          /* settles down onto haunches */
+                break;
+        }
+    }
+    py += trick_lift;
+    int facing = (face_over != 0) ? face_over : cat->facing;
+    (void)facing;  /* facing is used below for the spin flip on the tail */
+
     /* Soft contact shadow (mauve, low alpha — never a hard black blob). */
     px_rect_a(r, cx - 15, cat->cy + 19, 30, 4, KZ_COCOA, 46);
 
@@ -82,9 +143,9 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
     px_rect(r, cx + 14, py + 4 + tw, 3, 3, col.body);
     px_rect(r, cx + 16, py + 2 + tw, 3, 4, col.body);
 
-    /* Body + darker belly band. */
-    px_rect(r, cx - 9, py + 4,  20, 14, col.body);
-    px_rect(r, cx - 9, py + 16, 20,  2, col.dark);
+    /* Body + darker belly band. Roll adds a horizontal wobble; sit lowers it. */
+    px_rect(r, cx - 9 + roll_tilt, py + 4 + sit_drop,  20, 14, col.body);
+    px_rect(r, cx - 9 + roll_tilt, py + 16 + sit_drop, 20,  2, col.dark);
 
     /* Head offset combines the purr wobble and any grooming head-dip. */
     float ho = purr + head_dip;
@@ -118,9 +179,18 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
     px_rect(r, cx - 2, py + 6, 2, 6, col.dark);
     px_rect(r, cx + 2, py + 6, 2, 6, col.dark);
 
-    /* Front paws. */
-    px_rect(r, cx - 8, py + 16, 4, 3, col.paw);
-    px_rect(r, cx + 4, py + 16, 4, 3, col.paw);
+    /* Front paws. For a high-five, one paw lifts up high. */
+    if (paw_raise == 2) {
+        /* right paw raised up beside the head for a high-five */
+        px_rect(r, cx + 4, py + 16 + sit_drop, 4, 3, col.paw);  /* left stays */
+        px_rect(r, cx + 6, py - 6 + ho, 4, 4, col.paw);         /* right up   */
+        /* a little sparkle at the raised paw */
+        px_rect(r, cx + 10, py - 8 + ho, 1, 3, KZ_BUTTER);
+        px_rect(r, cx + 9, py - 7 + ho, 3, 1, KZ_BUTTER);
+    } else {
+        px_rect(r, cx - 8, py + 16 + sit_drop, 4, 3, col.paw);
+        px_rect(r, cx + 4, py + 16 + sit_drop, 4, 3, col.paw);
+    }
 
     /* Floating hearts while being petted. */
     if (cat->pet > 0) {

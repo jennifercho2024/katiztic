@@ -722,9 +722,9 @@ bool ui_trick_button_hit(float px_, float py_) {
     return ui_button_hit(&KZ_TRICK_BUTTON, px_, py_);
 }
 
-#define TRK_H     42
+#define TRK_H     30
 #define TRK_Y     (KZ_H - TRK_H - 26)
-#define TRK_SLOT  44
+#define TRK_SLOT  38
 
 static float trk_slot_x(int i) { return 6.0f + i * (TRK_SLOT + 2); }
 
@@ -752,23 +752,19 @@ void ui_trick_tray(SDL_Renderer *r, const Tricks *tr, const char *cat,
 
         /* trick name */
         text_draw_centered(r, trick_name((TrickId)i), x + TRK_SLOT / 2.0f,
-                           (float)TRK_Y + 6, KZ_COCOA);
-        /* skill bar */
-        float bx = x + 6, by = (float)TRK_Y + 18, bw = TRK_SLOT - 12, bh = 5;
+                           (float)TRK_Y + 5, KZ_COCOA);
+        /* a slim skill bar with a mastery star */
+        float bx = x + 4, by = (float)TRK_Y + 16, bw = TRK_SLOT - 8, bh = 5;
         px_rect(r, bx, by, bw, bh, rgb(0xE0, 0xD6, 0xE0));
         px_rect(r, bx, by, bw * ((float)sk / TRICK_MASTER), bh,
                 mastered ? KZ_MINT : KZ_PETAL_PINK);
         px_rect(r, bx, by, bw, 1, KZ_COCOA);
         px_rect(r, bx, by + bh - 1, bw, 1, KZ_COCOA);
-        /* status text */
         if (mastered) {
-            text_draw_centered(r, "master!", x + TRK_SLOT / 2.0f,
-                               (float)TRK_Y + 27, rgb(0x6A, 0xA0, 0x7A));
-        } else {
-            char pct[8];
-            SDL_snprintf(pct, sizeof pct, "%d%%", sk);
-            text_draw_centered(r, pct, x + TRK_SLOT / 2.0f,
-                               (float)TRK_Y + 27, rgb(0x9A, 0x7A, 0x5A));
+            /* a little star on the bar to mark mastery */
+            float sx = x + TRK_SLOT / 2.0f;
+            px_rect(r, sx, by - 1, 1, 3, KZ_BUTTER);
+            px_rect(r, sx - 1, by, 3, 1, KZ_BUTTER);
         }
     }
 }

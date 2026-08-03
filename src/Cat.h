@@ -36,6 +36,10 @@ typedef struct {
     int   mood_timer;  /* frames a mood bubble is showing (0 = none)  */
     int   mood_next;   /* frames until the next bubble may appear      */
     int   mood_kind;   /* which emoji is showing (see mood.h)          */
+    /* --- trick performance (set by main when practicing) --- */
+    int   trick;       /* which trick is being performed (-1 = none)  */
+    int   trick_t;     /* frames remaining in the trick animation     */
+    int   trick_len;   /* total length of the current trick animation */
 } Cat;
 
 /* Place a cat at a spot. */
@@ -46,6 +50,17 @@ void cat_update(Cat *cat);
 
 /* The player pets the cat — start the purr/heart animation. */
 void cat_pet(Cat *cat);
+
+/* Trick poses the cat can perform (match tricks.h TrickId order). */
+#define CAT_TRICK_NONE     (-1)
+#define CAT_TRICK_SIT      0
+#define CAT_TRICK_SPIN     1
+#define CAT_TRICK_JUMP     2
+#define CAT_TRICK_HIGHFIVE 3
+#define CAT_TRICK_ROLL     4
+
+/* Make the cat perform a trick (a short animation you can watch). */
+void cat_do_trick(Cat *cat, int trick);
 
 /* Is point (px,py) inside the cat's tappable area? (for petting) */
 bool cat_hit(const Cat *cat, float px, float py);

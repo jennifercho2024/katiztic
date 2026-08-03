@@ -262,9 +262,6 @@ int main(int argc, char *argv[]) {
     bool trick_open = false;      /* is the trick trainer tray showing? */
     int  hold_frames = 0;         /* how long a cat has been held (for training) */
     bool holding_cat = false;     /* is a cottage cat currently being held? */
-    float hold_x = 0, hold_y = 0; /* where the hold started (to detect drift) */
-    int  trick_anim = 0;          /* frames left performing a trick      */
-    TrickId trick_doing = TRICK_SIT;
     char banner_line[48];
     banner_line[0] = '\0';
     int  banner_timer = 0;      /* frames the banner stays up (0 = hidden) */
@@ -502,8 +499,7 @@ int main(int argc, char *argv[]) {
                             pantry_save(&pantry, KZ_PANTRY_PATH);
                         }
                         tricks_save(&tricks, KZ_TRICKS_PATH);
-                        trick_anim = 60;
-                        trick_doing = t;
+                        cat_do_trick(&a->anim, (int)t);   /* she performs it! */
                         cat_pet(&a->anim);
                         stats_gain_xp(&a->stats, 3);
                         if (res == 1)
@@ -720,7 +716,6 @@ int main(int argc, char *argv[]) {
                                  * trick tray opens so you can ask for a trick */
                                 holding_cat = true;
                                 hold_frames = 0;
-                                hold_x = lx; hold_y = ly;
                                 hit_one = true;
                                 break;
                             }
@@ -1045,13 +1040,6 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        /* while performing a trick, the active cat does a little show */
-        if (trick_anim > 0) {
-            trick_anim--;
-            OwnedCat *a = roster_active(&roster);
-            /* jump/roll/spin all read as a playful bounce for now */
-            a->anim.act = ACT_PLAY;
-        }
         if (location == LOC_PLAYDATE) {
             bool done = playdate_update(&playdate, &roster_active(&roster)->anim,
                                         frame);
