@@ -31,6 +31,7 @@
 #include "streetlife.h"
 #include "owners.h"
 #include "playdate.h"
+#include "forestlife.h"
 #include "story.h"
 #include "worldmap.h"
 #include "pantry.h"
@@ -58,6 +59,7 @@ static const char *STORY_ZONE_NAMES[STORY_ZONE_COUNT] = { "forest", "street" };
 #define KZ_QUESTS_PATH  "katiztic-quests.sav"
 #define KZ_PANTRY_PATH  "katiztic-pantry.sav"
 #define KZ_OWNERS_PATH  "katiztic-owners.sav"
+#define KZ_FORESTF_PATH "katiztic-forest.sav"
 
 /* A quest just completed: every cat earns the reward XP, you earn some coins,
  * and a banner celebrates. Kept here so every hook site stays one line. */
@@ -260,6 +262,8 @@ int main(int argc, char *argv[]) {
     bool mail_open = false;       /* is the mailbox inbox showing?      */
     Playdate playdate = playdate_none();
     Location return_loc = LOC_COTTAGE;  /* where to go back after a playdate */
+    ForestLife forestlife = forestlife_new();   /* woodland animals */
+    forestfriends_load(&forestlife.friends, KZ_FORESTF_PATH);
     char banner_line[48];
     banner_line[0] = '\0';
     int  banner_timer = 0;      /* frames the banner stays up (0 = hidden) */
@@ -692,6 +696,32 @@ int main(int argc, char *argv[]) {
                             press_fx = 8;
                             break;
                         }
+                        /* In the forest, tap a woodland animal to interact and
+                         * befriend it — deer want a treat from your pantry. */
+                        if (location == LOC_FOREST) {
+                            int an = forestlife_hit(&forestlife, lx, ly);
+                            if (an >= 0) {
+                                bool have_treat = pantry.stock[FOOD_TREAT] > 0;
+                                char msg[64];
+                                int res = forestlife_interact(&forestlife, an,
+                                              have_treat, msg, sizeof msg);
+                                /* a deer actually consumes the offered treat */
+                                if (res >= 0
+                                    && forestlife.animals[an].kind == ANIMAL_DEER
+                                    && have_treat) {
+                                    pantry_use(&pantry, FOOD_TREAT);
+                                    pantry_save(&pantry, KZ_PANTRY_PATH);
+                                }
+                                if (res == 1) {
+                                    forestfriends_save(&forestlife.friends,
+                                                       KZ_FORESTF_PATH);
+                                }
+                                SDL_strlcpy(banner_line, msg, sizeof banner_line);
+                                banner_timer = 220;
+                                press_fx = 8;
+                                break;
+                            }
+                        }
                         /* On the street, tap a passing neighbor to say hi and
                          * pet their cat — checked before your own cat. */
                         if (location == LOC_STREET) {
@@ -935,6 +965,7 @@ int main(int argc, char *argv[]) {
             }
         }
         if (location == LOC_STREET) streetlife_update(&streetlife, frame);
+        if (location == LOC_FOREST) forestlife_update(&forestlife, frame);
         if (location == LOC_PLAYDATE) {
             bool done = playdate_update(&playdate, &roster_active(&roster)->anim,
                                         frame);
@@ -1127,7 +1158,9 @@ int main(int argc, char *argv[]) {
             if (location == LOC_FOREST) forest_draw(renderer, frame, is_night);
             else                        street_draw(renderer, frame, is_night);
             render_set_warmth(1.0f);
-            /* people walking their cats bring the street to life (full color) */
+            /* woodland animals (and street walkers) live in full color */
+            if (location == LOC_FOREST)
+                forestlife_draw(renderer, &forestlife, frame);
             if (location == LOC_STREET)
                 streetlife_draw(renderer, &streetlife, frame, is_night);
             cat_draw(renderer, &active->anim, col, frame);
@@ -1240,6 +1273,7 @@ int main(int argc, char *argv[]) {
     quests_save(&quests, KZ_QUESTS_PATH);
     pantry_save(&pantry, KZ_PANTRY_PATH);
     owners_save(&owners, KZ_OWNERS_PATH);
+    forestfriends_save(&forestlife.friends, KZ_FORESTF_PATH);
 
     music_shutdown();
     SDL_DestroyRenderer(renderer);

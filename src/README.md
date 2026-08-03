@@ -58,6 +58,15 @@ the room to place it anywhere you like; drag it back to the tray to put it away.
 Your arrangement is saved. Items fall to rest on the floor (or stack on each
 other) rather than floating. While the tray is open, each item shows its name.
 
+## Feeding your cats
+
+In the cottage, tap the **bowl button** to open the **feed array** — a little
+tray of the four foods you've stocked from the market. Tap one to give it to
+your active cat: each food does something different. **Cat food** is the hearty
+main meal (energy), **milk** is comforting (mood + a little bond), a **treat**
+is a joyful bond-builder, and **water** is a cheap refresh. Feeding uses one
+unit from your pantry, so keep it stocked at the market.
+
 ## The flea market
 
 Travel to the **flea market** (in Satin City) to spend your coins on food: a
@@ -65,6 +74,34 @@ row of striped-awning stalls selling **cat food, milk, treats, and water**.
 Tap a stall to buy one — your coin purse shows in the corner. You earn coins by
 **finishing quests** and by **caring for your cats** (every level-up pays a few
 coins). What you buy stocks your pantry for feeding at home.
+
+## Forest animals
+
+The **forest** is home to woodland creatures — **rabbits**, **birds**, **deer**,
+and a shy **bear** — a couple wandering the scene at a time. Tap one to have
+your cat interact with it, and befriend it in the way that suits the animal:
+rabbits warm to gentle repeated visits, birds reward patience, deer are won
+with a **treat** from your pantry, and the bashful bear takes the most time of
+all. Once trust is full, that kind of animal is your cats' friend for good.
+
+## Playdates
+
+Greet the same neighbor a few times on the street — saying hi and petting each
+other's cats — and you'll **become friends**. A friend sends you a **letter**:
+tap the **envelope button** (a red dot shows when mail is waiting) to open your
+**mailbox** and read their **playdate invitation**. Accept it and you're whisked
+to a cozy picnic spot where your cat and their cat **play together** — bouncing,
+hopping, hearts floating between them. Pet either cat to add to the fun; a
+**joy meter** fills as they enjoy themselves, and a full meter means a wonderful
+playdate (and a happy, bonded cat).
+
+## A living street
+
+Out on the **street**, neighbors stroll by walking their own cats — one or two
+at a time, ambling along the sidewalk and drifting off the far edge as new ones
+wander in. **Tap a passerby** to say hi and give their cat a friendly pet; a
+little heart glows over them. These are the first friendly faces of the wider
+world — later you'll be able to befriend them and arrange playdates.
 
 ## The world map
 
@@ -205,6 +242,13 @@ src/
                touches, drawn through the warmth filter
   street.h/.c  the village lane — pastel house fronts, lampposts, cobbles; the
                second faded zone, where your cat strolls the sidewalk
+  streetlife.h/.c people walking their cats along the street — spawning,
+               strolling, and tap-to-greet
+  owners.h/.c   the neighbors you befriend and their playdate invitations
+  playdate.h/.c a cozy two-cat playdate scene with a joy meter
+  forestlife.h/.c woodland animals (rabbit, bird, deer, bear) to meet and
+               befriend in the forest
+  title.h/.c    the embedded lavender title screen shown at startup
   pantry.h/.c  your coins and food supplies (cat food, milk, treats, water),
                with its own save file
   market.h/.c  the flea market — striped stalls where you spend coins on food
