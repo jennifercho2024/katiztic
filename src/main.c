@@ -260,6 +260,8 @@ int main(int argc, char *argv[]) {
     int meadow_respawn = 300;     /* frames until a new wild cat may wander in */
     StreetLife streetlife = streetlife_new();   /* people walking their cats */
     bool mail_open = false;       /* is the mailbox inbox showing?      */
+    bool pd_confirm = false;      /* "go to the playdate?" dialog up?   */
+    int  pd_letter = 0;           /* which letter we're confirming       */
     Playdate playdate = playdate_none();
     Location return_loc = LOC_COTTAGE;  /* where to go back after a playdate */
     ForestLife forestlife = forestlife_new();   /* woodland animals */
@@ -446,20 +448,34 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* If the mailbox is open, a tap either accepts a letter (start
-                 * a playdate) or, if it misses, closes the inbox. */
+                /* If the mailbox is open, tapping a letter opens a "go?" confirm
+                 * (the letter stays until you actually accept); a miss closes. */
                 if (mail_open) {
+                    if (pd_confirm) {
+                        int ans = ui_confirm_travel_hit(lx, ly);
+                        if (ans == 1) {
+                            Owner *ow = &owners.list[pd_letter];
+                            return_loc = (location == LOC_PLAYDATE)
+                                         ? return_loc : location;
+                            playdate = playdate_begin(ow->name, ow->cat_type,
+                                                      frame);
+                            owners_clear_invite(&owners, ow->name);
+                            owners_save(&owners, KZ_OWNERS_PATH);
+                            location = LOC_PLAYDATE;
+                            pd_confirm = false;
+                            mail_open = false;
+                        } else if (ans == 0) {
+                            pd_confirm = false;   /* keep the letter, back to inbox */
+                        }
+                        press_fx = 8;
+                        break;
+                    }
                     int letter = ui_mailbox_hit(&owners, lx, ly);
                     if (letter >= 0) {
-                        Owner *ow = &owners.list[letter];
-                        return_loc = location;
-                        playdate = playdate_begin(ow->name, ow->cat_type, frame);
-                        owners_clear_invite(&owners, ow->name);
-                        owners_save(&owners, KZ_OWNERS_PATH);
-                        location = LOC_PLAYDATE;
-                        mail_open = false;
+                        pd_letter = letter;
+                        pd_confirm = true;        /* ask before going */
                     } else {
-                        mail_open = false;
+                        mail_open = false;        /* tapped empty space: close */
                     }
                     press_fx = 8;
                     break;
@@ -1237,6 +1253,12 @@ int main(int argc, char *argv[]) {
         /* Mailbox overlay, above the scene. */
         if (mail_open) {
             ui_mailbox(renderer, &owners, frame);
+            if (pd_confirm) {
+                char q[40];
+                SDL_snprintf(q, sizeof q, "the playdate with %s",
+                             owners.list[pd_letter].name);
+                ui_confirm_travel(renderer, q);
+            }
         }
 
         /* The release confirmation sits above absolutely everything. */

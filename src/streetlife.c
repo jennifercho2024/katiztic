@@ -41,7 +41,7 @@ static void spawn_walker(Walker *w) {
     /* enter just off the edge, walking inward */
     w->x = (w->dir > 0) ? -14.0f : (float)KZ_W + 14.0f;
     w->y = WALK_Y;
-    w->speed = 0.28f + SDL_randf() * 0.18f;   /* gentle amble */
+    w->speed = 0.16f + SDL_randf() * 0.10f;   /* a relaxed, unhurried amble */
     w->cat_type = (CatType)SDL_rand(KZ_TYPE_COUNT);
     const Uint8 *sh = SHIRTS[SDL_rand(SHIRT_COUNT)];
     w->shirt_r = sh[0]; w->shirt_g = sh[1]; w->shirt_b = sh[2];

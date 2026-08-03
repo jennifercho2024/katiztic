@@ -42,9 +42,9 @@ static void spawn_animal(Animal *a) {
     /* birds fly higher; ground animals walk the forest floor */
     a->y = (a->kind == ANIMAL_BIRD) ? (52.0f + SDL_randf() * 16.0f)
                                     : (120.0f + SDL_randf() * 20.0f);
-    a->speed = (a->kind == ANIMAL_BIRD) ? 0.5f + SDL_randf() * 0.3f
-             : (a->kind == ANIMAL_BEAR) ? 0.18f + SDL_randf() * 0.08f
-             : 0.3f + SDL_randf() * 0.2f;
+    a->speed = (a->kind == ANIMAL_BIRD) ? 0.30f + SDL_randf() * 0.18f
+             : (a->kind == ANIMAL_BEAR) ? 0.10f + SDL_randf() * 0.05f
+             : 0.16f + SDL_randf() * 0.12f;
     a->wander_timer = 120.0f + SDL_rand(180);
     a->glow = 0;
     a->hop = SDL_rand(60);
