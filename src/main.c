@@ -260,6 +260,9 @@ int main(int argc, char *argv[]) {
         tricks = tricks_new();
     }
     bool trick_open = false;      /* is the trick trainer tray showing? */
+    int  hold_frames = 0;         /* how long a cat has been held (for training) */
+    bool holding_cat = false;     /* is a cottage cat currently being held? */
+    float hold_x = 0, hold_y = 0; /* where the hold started (to detect drift) */
     int  trick_anim = 0;          /* frames left performing a trick      */
     TrickId trick_doing = TRICK_SIT;
     char banner_line[48];
@@ -484,39 +487,36 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* trick trainer button: available at home and on playdates
-                 * (anywhere your cat can practice with you). */
-                if ((location == LOC_COTTAGE || location == LOC_PLAYDATE)
-                    && ui_trick_button_hit(lx, ly)) {
-                    trick_open = !trick_open;
-                    if (trick_open) { decor_open = false; feed_open = false; }
-                    press_fx = 8;
-                    break;
-                }
-
-                /* trick tray open: tap a trick to practice it */
-                if (trick_open && ui_trick_tray_hit(lx, ly) >= 0) {
-                    TrickId t = (TrickId)ui_trick_tray_hit(lx, ly);
-                    OwnedCat *a = roster_active(&roster);
-                    bool have_treat = pantry.stock[FOOD_TREAT] > 0;
-                    int res = tricks_practice(&tricks, a->name, t, have_treat);
-                    if (have_treat) {
-                        pantry_use(&pantry, FOOD_TREAT);
-                        pantry_save(&pantry, KZ_PANTRY_PATH);
+                /* trick tray: tap a trick to practice it, or tap outside to
+                 * close. (The tray opens by holding a cat — see the hold logic
+                 * in the update section — so there's no button to hunt for.) */
+                if (trick_open) {
+                    int slot = ui_trick_tray_hit(lx, ly);
+                    if (slot >= 0) {
+                        TrickId t = (TrickId)slot;
+                        OwnedCat *a = roster_active(&roster);
+                        bool have_treat = pantry.stock[FOOD_TREAT] > 0;
+                        int res = tricks_practice(&tricks, a->name, t, have_treat);
+                        if (have_treat) {
+                            pantry_use(&pantry, FOOD_TREAT);
+                            pantry_save(&pantry, KZ_PANTRY_PATH);
+                        }
+                        tricks_save(&tricks, KZ_TRICKS_PATH);
+                        trick_anim = 60;
+                        trick_doing = t;
+                        cat_pet(&a->anim);
+                        stats_gain_xp(&a->stats, 3);
+                        if (res == 1)
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "%s mastered %s!", a->name, trick_name(t));
+                        else
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "%s practices %s.", a->name, trick_name(t));
+                        banner_timer = 180;
+                    } else {
+                        /* tapped away from the tray -> close it */
+                        trick_open = false;
                     }
-                    tricks_save(&tricks, KZ_TRICKS_PATH);
-                    /* the cat performs the trick! */
-                    trick_anim = 60;
-                    trick_doing = t;
-                    cat_pet(&a->anim);
-                    stats_gain_xp(&a->stats, 3);
-                    if (res == 1)
-                        SDL_snprintf(banner_line, sizeof banner_line,
-                                     "%s mastered %s!", a->name, trick_name(t));
-                    else
-                        SDL_snprintf(banner_line, sizeof banner_line,
-                                     "%s practices %s.", a->name, trick_name(t));
-                    banner_timer = 180;
                     press_fx = 8;
                     break;
                 }
@@ -716,6 +716,11 @@ int main(int argc, char *argv[]) {
                                                   banner_line,
                                                   sizeof banner_line,
                                                   &banner_timer);
+                                /* begin a hold: keep pressing this cat and the
+                                 * trick tray opens so you can ask for a trick */
+                                holding_cat = true;
+                                hold_frames = 0;
+                                hold_x = lx; hold_y = ly;
                                 hit_one = true;
                                 break;
                             }
@@ -869,6 +874,7 @@ int main(int argc, char *argv[]) {
             }
 
             case SDL_EVENT_MOUSE_BUTTON_UP: {
+                holding_cat = false;   /* released: stop any training hold */
                 if (quests_dragging) {
                     /* a gesture that never scrolled is a tap -> close */
                     if (!quests_scrolled) quests_open = false;
@@ -909,6 +915,11 @@ int main(int argc, char *argv[]) {
                 /* leaving a story zone? keep its warmth safe */
                 if (story_zone_for(location) >= 0)
                     story_save(&story, KZ_STORY_PATH);
+                /* close any cottage trays so they don't linger elsewhere */
+                trick_open = false;
+                decor_open = false;
+                feed_open = false;
+                holding_cat = false;
                 location = newloc;
                 btn_travel.kind = (location == LOC_COTTAGE)
                                   ? KZ_BTN_OUT : KZ_BTN_HOME;
@@ -1015,6 +1026,24 @@ int main(int argc, char *argv[]) {
         }
         if (location == LOC_STREET) streetlife_update(&streetlife, frame);
         if (location == LOC_FOREST) forestlife_update(&forestlife, frame);
+
+        /* Hold-to-train: keep pressing a cat in the cottage and, after a
+         * moment, the trick tray opens so you can ask for a trick. */
+        if (holding_cat && location == LOC_COTTAGE && !trick_open) {
+            hold_frames++;
+            /* a little sparkle-glow builds on the held cat as a cue */
+            OwnedCat *a = roster_active(&roster);
+            cat_pet(&a->anim);   /* keep the happy glow going */
+            if (hold_frames >= 45) {   /* ~0.75s hold */
+                trick_open = true;
+                decor_open = false;
+                feed_open = false;
+                holding_cat = false;
+                SDL_snprintf(banner_line, sizeof banner_line,
+                             "What shall %s learn?", a->name);
+                banner_timer = 160;
+            }
+        }
 
         /* while performing a trick, the active cat does a little show */
         if (trick_anim > 0) {
@@ -1256,8 +1285,6 @@ int main(int argc, char *argv[]) {
         ui_friends_button_draw(renderer, press_fx > 0);
         ui_quests_button_draw(renderer, false);   /* friends list */
         ui_mail_button_draw(renderer, &owners, press_fx > 0);   /* mailbox */
-        if (location == LOC_COTTAGE || location == LOC_PLAYDATE)
-            ui_trick_button_draw(renderer, press_fx > 0);       /* trainer */
         if (location == LOC_COTTAGE) {
             ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray   */
             ui_feed_button_draw(renderer, press_fx > 0);   /* feed array   */
@@ -1275,7 +1302,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* Trick trainer tray, when open. */
-        if (trick_open && (location == LOC_COTTAGE || location == LOC_PLAYDATE)) {
+        if (trick_open && location == LOC_COTTAGE) {
             ui_trick_tray(renderer, &tricks, roster_active(&roster)->name, frame);
         }
 
