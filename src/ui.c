@@ -125,6 +125,16 @@ static void glyph_envelope(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 3, y + 3, 3, 1, c);
 }
 
+/* a paw with a sparkle — the trick trainer button */
+static void glyph_trick(SDL_Renderer *r, float x, float y, Color c) {
+    px_rect(r, x + 1, y + 4, 5, 4, c);          /* pad  */
+    px_rect(r, x,     y + 2, 2, 2, c);          /* toes */
+    px_rect(r, x + 3, y + 1, 2, 2, c);
+    px_rect(r, x + 6, y + 2, 1, 2, c);
+    px_rect(r, x + 7, y,     1, 4, KZ_BUTTER);  /* sparkle */
+    px_rect(r, x + 6, y + 1, 3, 1, KZ_BUTTER);
+}
+
 bool ui_button_hit(const Button *b, float px_, float py_) {
     return px_ >= b->x && px_ <= b->x + b->w
         && py_ >= b->y && py_ <= b->y + b->h;
@@ -153,6 +163,7 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
         case KZ_BTN_QUESTS:  glyph_quests(r, gx, gy, KZ_BUTTER); break;
         case KZ_BTN_FEED:    glyph_bowl(r, gx, gy, KZ_PETAL_PINK); break;
         case KZ_BTN_MAIL:    glyph_envelope(r, gx, gy, KZ_COCOA); break;
+        case KZ_BTN_TRICK:   glyph_trick(r, gx, gy, KZ_PETAL_PINK); break;
         case KZ_BTN_DECOR:   glyph_chair(r, gx, gy, KZ_COCOA); break;
     }
 }
@@ -700,9 +711,81 @@ int ui_mailbox_hit(const Owners *o, float px_, float py_) {
     return -1;
 }
 
+/* ---- trick trainer: a tray to practice tricks with your active cat ---- */
 
-/* Tray geometry: a strip across the bottom, above the roster strip. */
-#define TRAY_H     38
+const Button KZ_TRICK_BUTTON = { 4, KZ_H - 66, 20, 16, KZ_BTN_TRICK };
+
+void ui_trick_button_draw(SDL_Renderer *r, bool pressed) {
+    ui_button_draw(r, &KZ_TRICK_BUTTON, pressed);
+}
+bool ui_trick_button_hit(float px_, float py_) {
+    return ui_button_hit(&KZ_TRICK_BUTTON, px_, py_);
+}
+
+#define TRK_H     42
+#define TRK_Y     (KZ_H - TRK_H - 26)
+#define TRK_SLOT  44
+
+static float trk_slot_x(int i) { return 6.0f + i * (TRK_SLOT + 2); }
+
+void ui_trick_tray(SDL_Renderer *r, const Tricks *tr, const char *cat,
+                   Uint64 frame) {
+    (void)frame;
+    px_rect_a(r, 0, TRK_Y - 2, KZ_W, TRK_H + 2, KZ_CLOUD, 235);
+    px_rect(r, 0, TRK_Y - 2, KZ_W, 1, KZ_COCOA);
+
+    char head[40];
+    SDL_snprintf(head, sizeof head, "teach %s a trick", cat);
+    text_draw(r, head, 6, TRK_Y - 10, KZ_COCOA);
+
+    for (int i = 0; i < TRICK_COUNT; i++) {
+        float x = trk_slot_x(i);
+        int sk = tricks_skill(tr, cat, (TrickId)i);
+        bool mastered = sk >= TRICK_MASTER;
+        /* slot */
+        px_rect(r, x, (float)TRK_Y + 2, TRK_SLOT, TRK_H - 4,
+                mastered ? rgb(0xE8, 0xF0, 0xE0) : KZ_CLOUD);
+        px_rect(r, x, (float)TRK_Y + 2, TRK_SLOT, 1, KZ_COCOA);
+        px_rect(r, x, (float)TRK_Y + TRK_H - 3, TRK_SLOT, 1, KZ_COCOA);
+        px_rect(r, x, (float)TRK_Y + 2, 1, TRK_H - 4, KZ_COCOA);
+        px_rect(r, x + TRK_SLOT - 1, (float)TRK_Y + 2, 1, TRK_H - 4, KZ_COCOA);
+
+        /* trick name */
+        text_draw_centered(r, trick_name((TrickId)i), x + TRK_SLOT / 2.0f,
+                           (float)TRK_Y + 6, KZ_COCOA);
+        /* skill bar */
+        float bx = x + 6, by = (float)TRK_Y + 18, bw = TRK_SLOT - 12, bh = 5;
+        px_rect(r, bx, by, bw, bh, rgb(0xE0, 0xD6, 0xE0));
+        px_rect(r, bx, by, bw * ((float)sk / TRICK_MASTER), bh,
+                mastered ? KZ_MINT : KZ_PETAL_PINK);
+        px_rect(r, bx, by, bw, 1, KZ_COCOA);
+        px_rect(r, bx, by + bh - 1, bw, 1, KZ_COCOA);
+        /* status text */
+        if (mastered) {
+            text_draw_centered(r, "master!", x + TRK_SLOT / 2.0f,
+                               (float)TRK_Y + 27, rgb(0x6A, 0xA0, 0x7A));
+        } else {
+            char pct[8];
+            SDL_snprintf(pct, sizeof pct, "%d%%", sk);
+            text_draw_centered(r, pct, x + TRK_SLOT / 2.0f,
+                               (float)TRK_Y + 27, rgb(0x9A, 0x7A, 0x5A));
+        }
+    }
+}
+
+int ui_trick_tray_hit(float px_, float py_) {
+    if (py_ < TRK_Y + 2 || py_ > TRK_Y + TRK_H - 2) return -1;
+    for (int i = 0; i < TRICK_COUNT; i++) {
+        float x = trk_slot_x(i);
+        if (px_ >= x && px_ <= x + TRK_SLOT) return i;
+    }
+    return -1;
+}
+
+float ui_trick_tray_top(void) { return (float)TRK_Y; }
+
+
+#define TRAY_H     38                      /* height of the décor tray    */
 #define TRAY_Y     (KZ_H - TRAY_H - 26)   /* sits above the roster strip */
 #define TRAY_SLOT  30
 #define TRAY_PAGE  6                       /* item slots shown per page   */

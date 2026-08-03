@@ -75,6 +75,16 @@ Tap a stall to buy one — your coin purse shows in the corner. You earn coins b
 **finishing quests** and by **caring for your cats** (every level-up pays a few
 coins). What you buy stocks your pantry for feeding at home.
 
+## Teaching tricks
+
+Tap the **paw-and-star button** (in the cottage, and on playdates) to open the
+**trick trainer**. Your active cat can learn five tricks — **Sit, Spin, Jump,
+High-five, and Roll** — each with its own skill bar. Tap a trick to practice it;
+the cat performs it with a happy bounce and its skill climbs. Practicing with a
+**treat** in your pantry teaches faster. Fill the bar and the trick is
+**mastered** — ready to show off on playdates and, one day, compete at the
+Olympics. Each cat learns its own tricks, remembered in their own save file.
+
 ## Forest animals
 
 The **forest** is home to woodland creatures — **rabbits**, **birds**, **deer**,
@@ -248,6 +258,8 @@ src/
   playdate.h/.c a cozy two-cat playdate scene with a joy meter
   forestlife.h/.c woodland animals (rabbit, bird, deer, bear) to meet and
                befriend in the forest
+  tricks.h/.c   the tricks cats learn (Sit, Spin, Jump, High-five, Roll)
+               and each cat's skill, practiced to mastery
   title.h/.c    the embedded lavender title screen shown at startup
   pantry.h/.c  your coins and food supplies (cat food, milk, treats, water),
                with its own save file

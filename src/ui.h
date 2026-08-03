@@ -35,6 +35,7 @@ typedef enum {
     KZ_BTN_QUESTS,  /* a checklist — open the quest log        */
     KZ_BTN_FEED,    /* a bowl — open the feed array            */
     KZ_BTN_MAIL,    /* an envelope — open the mailbox           */
+    KZ_BTN_TRICK,   /* a paw+star — open the trick trainer      */
 } ButtonKind;
 
 typedef struct {
@@ -120,6 +121,16 @@ bool ui_mail_button_hit(float px, float py);
 void ui_mailbox(SDL_Renderer *r, const Owners *o, Uint64 frame);
 /* which pending letter (owner index) was tapped, or -1 */
 int  ui_mailbox_hit(const Owners *o, float px, float py);
+
+/* ---- tricks: a trainer button and the trick tray ---- */
+#include "tricks.h"
+extern const Button KZ_TRICK_BUTTON;
+void ui_trick_button_draw(SDL_Renderer *r, bool pressed);
+bool ui_trick_button_hit(float px, float py);
+void ui_trick_tray(SDL_Renderer *r, const Tricks *tr, const char *cat,
+                   Uint64 frame);
+int  ui_trick_tray_hit(float px, float py);   /* returns TrickId or -1 */
+float ui_trick_tray_top(void);
 
 
 /* ---- décor tray ----

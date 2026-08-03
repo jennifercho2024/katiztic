@@ -32,6 +32,7 @@
 #include "owners.h"
 #include "playdate.h"
 #include "forestlife.h"
+#include "tricks.h"
 #include "story.h"
 #include "worldmap.h"
 #include "pantry.h"
@@ -60,6 +61,7 @@ static const char *STORY_ZONE_NAMES[STORY_ZONE_COUNT] = { "forest", "street" };
 #define KZ_PANTRY_PATH  "katiztic-pantry.sav"
 #define KZ_OWNERS_PATH  "katiztic-owners.sav"
 #define KZ_FORESTF_PATH "katiztic-forest.sav"
+#define KZ_TRICKS_PATH  "katiztic-tricks.sav"
 
 /* A quest just completed: every cat earns the reward XP, you earn some coins,
  * and a banner celebrates. Kept here so every hook site stays one line. */
@@ -151,7 +153,7 @@ int main(int argc, char *argv[]) {
             /* a gentle "press start" pulse cue over the image's button area */
             if ((title_frame / 30) % 2 == 0) {
                 SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 40);
-                SDL_FRect glow = { 88, 128, 64, 14 };
+                SDL_FRect glow = { 66, 132, 78, 13 };
                 SDL_RenderFillRect(renderer, &glow);
             }
         } else {
@@ -266,6 +268,14 @@ int main(int argc, char *argv[]) {
     Location return_loc = LOC_COTTAGE;  /* where to go back after a playdate */
     ForestLife forestlife = forestlife_new();   /* woodland animals */
     forestfriends_load(&forestlife.friends, KZ_FORESTF_PATH);
+
+    Tricks tricks;
+    if (!tricks_load(&tricks, KZ_TRICKS_PATH)) {
+        tricks = tricks_new();
+    }
+    bool trick_open = false;      /* is the trick trainer tray showing? */
+    int  trick_anim = 0;          /* frames left performing a trick      */
+    TrickId trick_doing = TRICK_SIT;
     char banner_line[48];
     banner_line[0] = '\0';
     int  banner_timer = 0;      /* frames the banner stays up (0 = hidden) */
@@ -484,6 +494,43 @@ int main(int argc, char *argv[]) {
                 /* mail button: open the mailbox (playdate letters) */
                 if (ui_mail_button_hit(lx, ly)) {
                     mail_open = true;
+                    press_fx = 8;
+                    break;
+                }
+
+                /* trick trainer button: available at home and on playdates
+                 * (anywhere your cat can practice with you). */
+                if ((location == LOC_COTTAGE || location == LOC_PLAYDATE)
+                    && ui_trick_button_hit(lx, ly)) {
+                    trick_open = !trick_open;
+                    if (trick_open) { decor_open = false; feed_open = false; }
+                    press_fx = 8;
+                    break;
+                }
+
+                /* trick tray open: tap a trick to practice it */
+                if (trick_open && ui_trick_tray_hit(lx, ly) >= 0) {
+                    TrickId t = (TrickId)ui_trick_tray_hit(lx, ly);
+                    OwnedCat *a = roster_active(&roster);
+                    bool have_treat = pantry.stock[FOOD_TREAT] > 0;
+                    int res = tricks_practice(&tricks, a->name, t, have_treat);
+                    if (have_treat) {
+                        pantry_use(&pantry, FOOD_TREAT);
+                        pantry_save(&pantry, KZ_PANTRY_PATH);
+                    }
+                    tricks_save(&tricks, KZ_TRICKS_PATH);
+                    /* the cat performs the trick! */
+                    trick_anim = 60;
+                    trick_doing = t;
+                    cat_pet(&a->anim);
+                    stats_gain_xp(&a->stats, 3);
+                    if (res == 1)
+                        SDL_snprintf(banner_line, sizeof banner_line,
+                                     "%s mastered %s!", a->name, trick_name(t));
+                    else
+                        SDL_snprintf(banner_line, sizeof banner_line,
+                                     "%s practices %s.", a->name, trick_name(t));
+                    banner_timer = 180;
                     press_fx = 8;
                     break;
                 }
@@ -982,6 +1029,14 @@ int main(int argc, char *argv[]) {
         }
         if (location == LOC_STREET) streetlife_update(&streetlife, frame);
         if (location == LOC_FOREST) forestlife_update(&forestlife, frame);
+
+        /* while performing a trick, the active cat does a little show */
+        if (trick_anim > 0) {
+            trick_anim--;
+            OwnedCat *a = roster_active(&roster);
+            /* jump/roll/spin all read as a playful bounce for now */
+            a->anim.act = ACT_PLAY;
+        }
         if (location == LOC_PLAYDATE) {
             bool done = playdate_update(&playdate, &roster_active(&roster)->anim,
                                         frame);
@@ -1215,6 +1270,8 @@ int main(int argc, char *argv[]) {
         ui_friends_button_draw(renderer, press_fx > 0);
         ui_quests_button_draw(renderer, false);   /* friends list */
         ui_mail_button_draw(renderer, &owners, press_fx > 0);   /* mailbox */
+        if (location == LOC_COTTAGE || location == LOC_PLAYDATE)
+            ui_trick_button_draw(renderer, press_fx > 0);       /* trainer */
         if (location == LOC_COTTAGE) {
             ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray   */
             ui_feed_button_draw(renderer, press_fx > 0);   /* feed array   */
@@ -1229,6 +1286,11 @@ int main(int argc, char *argv[]) {
         /* Feed array, when open (cottage only). */
         if (location == LOC_COTTAGE && feed_open) {
             ui_feed_tray(renderer, &pantry, frame);
+        }
+
+        /* Trick trainer tray, when open. */
+        if (trick_open && (location == LOC_COTTAGE || location == LOC_PLAYDATE)) {
+            ui_trick_tray(renderer, &tricks, roster_active(&roster)->name, frame);
         }
 
         /* Encounter UI: the treat button and the dialogue banner, when a wild
@@ -1296,6 +1358,7 @@ int main(int argc, char *argv[]) {
     pantry_save(&pantry, KZ_PANTRY_PATH);
     owners_save(&owners, KZ_OWNERS_PATH);
     forestfriends_save(&forestlife.friends, KZ_FORESTF_PATH);
+    tricks_save(&tricks, KZ_TRICKS_PATH);
 
     music_shutdown();
     SDL_DestroyRenderer(renderer);
