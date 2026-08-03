@@ -130,9 +130,8 @@ int main(int argc, char *argv[]) {
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     /* ---- title screen ---- */
-    /* Show the lavender splash until the player presses a key or clicks, then
-     * begin the game. */
-    SDL_Texture *title_tex = title_create(renderer);
+    /* Show the lavender splash (drawn in code, crisp at any size) until the
+     * player presses a key or clicks, then begin the game. */
     bool at_title = true;
     bool quit_from_title = false;
     Uint64 title_frame = 0;
@@ -147,24 +146,11 @@ int main(int argc, char *argv[]) {
         }
         SDL_SetRenderDrawColor(renderer, 0xD9, 0xCF, 0xEA, 255);
         SDL_RenderClear(renderer);
-        if (title_tex) {
-            SDL_FRect dst = { 0, 0, (float)KZ_W, (float)KZ_H };
-            SDL_RenderTexture(renderer, title_tex, NULL, &dst);
-            /* a gentle "press start" pulse cue over the image's button area */
-            if ((title_frame / 30) % 2 == 0) {
-                SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 40);
-                SDL_FRect glow = { 66, 132, 78, 13 };
-                SDL_RenderFillRect(renderer, &glow);
-            }
-        } else {
-            /* fallback if the image failed: a simple prompt */
-            SDL_RenderDebugText(renderer, 90, 76, "katiztic - press start");
-        }
+        title_draw(renderer, title_frame);
         SDL_RenderPresent(renderer);
         SDL_Delay(16);
         title_frame++;
     }
-    if (title_tex) SDL_DestroyTexture(title_tex);
 
     Meadow meadow = meadow_make();
 
