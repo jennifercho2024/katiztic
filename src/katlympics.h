@@ -34,6 +34,20 @@ typedef struct {
     int   score;
 } Rival;
 
+/* the actions a cat can take at each obstacle */
+typedef enum {
+    ACTION_JUMP,      /* leap over a hurdle          */
+    ACTION_CRAWL,     /* crawl through a tunnel       */
+    ACTION_ZIGZAG,    /* weave through poles          */
+    ACTION_DASH,      /* sprint a straightaway        */
+    ACTION_COUNT
+} CourseAction;
+
+const char *action_name(CourseAction a);
+
+/* what each obstacle "wants" — matching action scores best */
+#define KAT_OBSTACLES 4
+
 typedef struct {
     bool    active;       /* is an event running/showing?          */
     EventId event;
@@ -45,21 +59,33 @@ typedef struct {
     Rival   rivals[KAT_RIVALS];
     int     coins_won;
     int     xp_won;
-    /* obstacle course progress (for the little animation) */
     int     obstacle_step;   /* which obstacle the cat is on (0..3)  */
+    /* --- the player's chosen performance --- */
+    TrickId chosen_tricks[3];   /* the tricks to show (trick event)   */
+    int     chosen_count;       /* how many tricks chosen (0..3)      */
+    CourseAction chosen_actions[KAT_OBSTACLES];  /* action per obstacle */
 } Katlympics;
 
 Katlympics katlympics_none(void);
 
-/* Begin an event with your active cat. Computes your score from mastered
- * tricks + stats, rolls rival scores from owners you've met, ranks everyone,
- * and sets the medal/rewards. `owner_names`/`owner_types` are the befriended
- * owners to draw rivals from (may be fewer than KAT_RIVALS; the rest are
- * filled with friendly locals). */
-Katlympics katlympics_begin(EventId event, const char *your_cat,
-                            const Tricks *tr, const Stats *st,
-                            const char *const *owner_names,
-                            const CatType *owner_types, int owner_count);
+/* What action each obstacle rewards most (so the player can strategize). */
+CourseAction katlympics_obstacle_wants(int obstacle);
+
+/* Begin a TRICK SHOWCASE with the player's chosen tricks (up to 3). Score
+ * reflects how well the cat performs those specific tricks. */
+Katlympics katlympics_begin_tricks(const char *your_cat, const Tricks *tr,
+                                   const Stats *st,
+                                   const TrickId *chosen, int chosen_count,
+                                   const char *const *owner_names,
+                                   const CatType *owner_types, int owner_count);
+
+/* Begin an OBSTACLE COURSE with the player's chosen action per obstacle.
+ * Picking the action each obstacle rewards scores better. */
+Katlympics katlympics_begin_obstacle(const char *your_cat, const Tricks *tr,
+                                     const Stats *st,
+                                     const CourseAction *actions,
+                                     const char *const *owner_names,
+                                     const CatType *owner_types, int owner_count);
 
 /* Advance the event one frame. Returns true when the whole event is complete
  * (results shown and dismissed-ready). */

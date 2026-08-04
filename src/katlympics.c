@@ -34,81 +34,132 @@ Katlympics katlympics_none(void) {
     return k;
 }
 
-/* Your score in the trick showcase: mastered tricks are the big factor, with
- * mood and bond adding polish. 0..100-ish. */
-static int score_tricks(const char *cat, const Tricks *tr, const Stats *st) {
-    int mastered = tricks_mastered_count(tr, cat);      /* 0..5 */
-    /* partial credit for tricks in progress, too */
-    int progress = 0;
-    for (int t = 0; t < TRICK_COUNT; t++)
-        progress += tricks_skill(tr, cat, (TrickId)t);   /* 0..500 */
-    int base = mastered * 14 + progress / 20;            /* up to ~95 */
-    int polish = (st->mood / 16) + (st->bond / 16);      /* up to ~30 */
-    return base + polish;
+/* Your score in the trick showcase, based on the SPECIFIC tricks you chose:
+ * each chosen trick contributes its skill, so pick your cat's best ones. */
+static int score_chosen_tricks(const char *cat, const Tricks *tr,
+                               const Stats *st, const TrickId *chosen,
+                               int count) {
+    if (count <= 0) return 10;   /* showed up, at least */
+    int total = 0;
+    for (int i = 0; i < count; i++) {
+        int sk = tricks_skill(tr, cat, chosen[i]);   /* 0..100 */
+        /* mastered tricks earn a polish bonus */
+        total += sk + (sk >= TRICK_MASTER ? 15 : 0);
+    }
+    /* average across the chosen tricks, then add mood/bond polish */
+    int avg = total / count;                          /* ~0..115 */
+    int polish = (st->mood / 20) + (st->bond / 20);   /* up to ~24 */
+    return avg * 3 / 4 + polish;                       /* scaled to ~0..110 */
 }
 
-/* Your score in the obstacle course: energy and level drive speed/agility,
- * with jumping/rolling tricks helping on the course. */
-static int score_obstacle(const char *cat, const Tricks *tr, const Stats *st) {
-    int agility = (st->energy / 4) + (int)st->level;     /* energy + level */
-    int jump = tricks_skill(tr, cat, TRICK_JUMP) / 8;    /* jumping helps */
-    int roll = tricks_skill(tr, cat, TRICK_ROLL) / 10;
-    int mood = st->mood / 20;
-    return agility + jump + roll + mood;
+const char *action_name(CourseAction a) {
+    switch (a) {
+        case ACTION_JUMP:   return "Jump";
+        case ACTION_CRAWL:  return "Crawl";
+        case ACTION_ZIGZAG: return "Zigzag";
+        case ACTION_DASH:   return "Dash";
+        default:            return "?";
+    }
 }
 
-Katlympics katlympics_begin(EventId event, const char *your_cat,
-                            const Tricks *tr, const Stats *st,
-                            const char *const *owner_names,
-                            const CatType *owner_types, int owner_count) {
-    Katlympics k = katlympics_none();
-    k.active = true;
-    k.event = event;
-    k.phase = 0;
-    k.timer = 0;
-    k.obstacle_step = 0;
+/* Each obstacle is best cleared with a particular action. */
+CourseAction katlympics_obstacle_wants(int obstacle) {
+    static const CourseAction WANTS[KAT_OBSTACLES] = {
+        ACTION_JUMP,    /* the hurdle wants a jump   */
+        ACTION_ZIGZAG,  /* the poles want a zigzag   */
+        ACTION_CRAWL,   /* the tunnel wants a crawl  */
+        ACTION_DASH,    /* the straightaway wants a dash */
+    };
+    if (obstacle < 0 || obstacle >= KAT_OBSTACLES) return ACTION_JUMP;
+    return WANTS[obstacle];
+}
 
-    k.your_score = (event == EVENT_TRICKS)
-                 ? score_tricks(your_cat, tr, st)
-                 : score_obstacle(your_cat, tr, st);
+/* Obstacle score: each obstacle you clear with the RIGHT action scores full;
+ * a wrong action still clears it but for fewer points. Agility (energy/level)
+ * and relevant trick skill add a base. */
+static int score_chosen_obstacle(const char *cat, const Tricks *tr,
+                                 const Stats *st,
+                                 const CourseAction *actions) {
+    int agility = (st->energy / 6) + (int)st->level / 2;   /* base fitness */
+    int course = 0;
+    for (int i = 0; i < KAT_OBSTACLES; i++) {
+        CourseAction want = katlympics_obstacle_wants(i);
+        bool right = actions[i] == want;
+        course += right ? 22 : 8;   /* right choice scores much better */
+        /* a matching mastered trick gives an extra flourish */
+        if (right && want == ACTION_JUMP
+            && tricks_skill(tr, cat, TRICK_JUMP) >= TRICK_MASTER) course += 6;
+        if (right && want == ACTION_ZIGZAG
+            && tricks_skill(tr, cat, TRICK_SPIN) >= TRICK_MASTER) course += 6;
+    }
+    return agility + course;   /* ~0..110 */
+}
 
-    /* Build the rival field: prefer befriended owners, fill with locals. */
+/* shared: fill rivals, rank, set medal + rewards */
+static void finish_setup(Katlympics *k, int center,
+                         const char *const *owner_names,
+                         const CatType *owner_types, int owner_count) {
     for (int i = 0; i < KAT_RIVALS; i++) {
-        Rival *rv = &k.rivals[i];
+        Rival *rv = &k->rivals[i];
         if (i < owner_count && owner_names[i]) {
             SDL_strlcpy(rv->name, owner_names[i], sizeof rv->name);
-            rv->cat_type = owner_types ? owner_types[i] : (CatType)SDL_rand(KZ_TYPE_COUNT);
+            rv->cat_type = owner_types ? owner_types[i]
+                                       : (CatType)SDL_rand(KZ_TYPE_COUNT);
         } else {
             SDL_strlcpy(rv->name, LOCALS[SDL_rand(LOCAL_COUNT)], sizeof rv->name);
             rv->cat_type = (CatType)SDL_rand(KZ_TYPE_COUNT);
         }
-        /* Rivals score in a friendly band around a moderate level, so a
-         * well-trained cat reliably places well but it's never a walkover. */
-        int center = (event == EVENT_TRICKS) ? 60 : 55;
-        rv->score = center - 18 + (int)SDL_rand(40);   /* ~ center±20 */
+        rv->score = center - 18 + (int)SDL_rand(40);
         if (rv->score < 5) rv->score = 5;
     }
-
-    /* Rank: count how many rivals you beat. */
     int place = 1;
     for (int i = 0; i < KAT_RIVALS; i++)
-        if (k.rivals[i].score > k.your_score) place++;
-    k.place = place;
-
+        if (k->rivals[i].score > k->your_score) place++;
+    k->place = place;
     switch (place) {
-        case 1: k.your_medal = MEDAL_GOLD;   break;
-        case 2: k.your_medal = MEDAL_SILVER; break;
-        case 3: k.your_medal = MEDAL_BRONZE; break;
-        default: k.your_medal = MEDAL_NONE;  break;
+        case 1: k->your_medal = MEDAL_GOLD;   break;
+        case 2: k->your_medal = MEDAL_SILVER; break;
+        case 3: k->your_medal = MEDAL_BRONZE; break;
+        default: k->your_medal = MEDAL_NONE;  break;
     }
+    switch (k->your_medal) {
+        case MEDAL_GOLD:   k->coins_won = 20; k->xp_won = 40; break;
+        case MEDAL_SILVER: k->coins_won = 12; k->xp_won = 25; break;
+        case MEDAL_BRONZE: k->coins_won = 8;  k->xp_won = 15; break;
+        default:           k->coins_won = 3;  k->xp_won = 8;  break;
+    }
+}
 
-    /* Rewards scale with placing — everyone gets a little for taking part. */
-    switch (k.your_medal) {
-        case MEDAL_GOLD:   k.coins_won = 20; k.xp_won = 40; break;
-        case MEDAL_SILVER: k.coins_won = 12; k.xp_won = 25; break;
-        case MEDAL_BRONZE: k.coins_won = 8;  k.xp_won = 15; break;
-        default:           k.coins_won = 3;  k.xp_won = 8;  break;
-    }
+Katlympics katlympics_begin_tricks(const char *your_cat, const Tricks *tr,
+                                   const Stats *st,
+                                   const TrickId *chosen, int chosen_count,
+                                   const char *const *owner_names,
+                                   const CatType *owner_types, int owner_count) {
+    Katlympics k = katlympics_none();
+    k.active = true;
+    k.event = EVENT_TRICKS;
+    k.phase = 0;
+    k.chosen_count = chosen_count;
+    for (int i = 0; i < chosen_count && i < 3; i++)
+        k.chosen_tricks[i] = chosen[i];
+    k.your_score = score_chosen_tricks(your_cat, tr, st, chosen, chosen_count);
+    finish_setup(&k, 60, owner_names, owner_types, owner_count);
+    return k;
+}
+
+Katlympics katlympics_begin_obstacle(const char *your_cat, const Tricks *tr,
+                                     const Stats *st,
+                                     const CourseAction *actions,
+                                     const char *const *owner_names,
+                                     const CatType *owner_types, int owner_count) {
+    Katlympics k = katlympics_none();
+    k.active = true;
+    k.event = EVENT_OBSTACLE;
+    k.phase = 0;
+    for (int i = 0; i < KAT_OBSTACLES; i++)
+        k.chosen_actions[i] = actions[i];
+    k.your_score = score_chosen_obstacle(your_cat, tr, st, actions);
+    finish_setup(&k, 55, owner_names, owner_types, owner_count);
     return k;
 }
 
@@ -188,16 +239,23 @@ void katlympics_draw(SDL_Renderer *r, const Katlympics *k,
         /* performance */
         text_draw(r, event_name(k->event), 8, 8, KZ_COCOA);
         if (k->event == EVENT_TRICKS) {
-            /* your cat performs a rolling series of tricks center-stage */
+            /* your cat performs YOUR CHOSEN tricks in sequence, center-stage */
             Cat c = cat_make(120, 108);
-            int trick_cycle = (int)((frame / 40) % 5);
-            c.trick = trick_cycle;
-            c.trick_len = 40;
-            c.trick_t = 40 - (int)(frame % 40);
             c.facing = 1;
+            if (k->chosen_count > 0) {
+                /* each chosen trick gets a slice of the performance */
+                int per = 240 / k->chosen_count;   /* phase-1 lasts ~240f */
+                int which = (k->timer / per);
+                if (which >= k->chosen_count) which = k->chosen_count - 1;
+                c.trick = (int)k->chosen_tricks[which];
+                c.trick_len = 40;
+                c.trick_t = 40 - (int)(k->timer % 40);
+                /* show which trick is being performed */
+                text_draw_centered(r, trick_name(k->chosen_tricks[which]),
+                                   KZ_W / 2.0f, 40, rgb(0x6E, 0x58, 0x92));
+            }
             cat_draw(r, &c, yc, frame);
             if (your_shiny) cat_draw_sparkles(r, &c, frame);
-            /* a little applause of hearts */
             for (int i = 0; i < 3; i++) {
                 float hx = 90 + i * 30 + sinf((float)frame * 0.1f + i) * 4;
                 float hy = 70 - ((frame + i * 20) % 50) * 0.3f;
@@ -220,12 +278,46 @@ void katlympics_draw(SDL_Renderer *r, const Katlympics *k,
                            + (float)(k->timer % 45) / 45.0f / 4.0f;
             if (progress > 1.0f) progress = 1.0f;
             float cx = 40 + progress * 160;
-            float hop = fabsf(sinf((float)frame * 0.3f)) * 8.0f;
-            Cat c = cat_make(cx, 120 - hop);
-            c.act = ACT_WALK;
+            /* the current obstacle and the action you chose for it */
+            int step = k->obstacle_step;
+            if (step > KAT_OBSTACLES - 1) step = KAT_OBSTACLES - 1;
+            CourseAction act = k->chosen_actions[step];
+            bool right = act == katlympics_obstacle_wants(step);
+
+            /* animate the chosen action */
+            float hop = 0.0f;
+            Cat c = cat_make(cx, 120);
             c.facing = 1;
+            switch (act) {
+                case ACTION_JUMP:
+                    hop = fabsf(sinf((float)frame * 0.3f)) * 14.0f;
+                    c.trick = CAT_TRICK_JUMP; c.trick_len = 40;
+                    c.trick_t = 40 - (int)(k->timer % 40);
+                    break;
+                case ACTION_CRAWL:
+                    hop = -4.0f;   /* low to the ground */
+                    c.act = ACT_WALK;
+                    break;
+                case ACTION_ZIGZAG:
+                    hop = sinf((float)frame * 0.4f) * 6.0f;
+                    c.trick = CAT_TRICK_SPIN; c.trick_len = 40;
+                    c.trick_t = 40 - (int)(k->timer % 40);
+                    break;
+                case ACTION_DASH:
+                default:
+                    hop = fabsf(sinf((float)frame * 0.6f)) * 5.0f;  /* fast bob */
+                    c.act = ACT_WALK;
+                    break;
+            }
+            c.cy = 120 - hop;
             cat_draw(r, &c, yc, frame);
             if (your_shiny) cat_draw_sparkles(r, &c, frame);
+
+            /* label the action, green if it's the ideal one for this obstacle */
+            char lbl[24];
+            SDL_snprintf(lbl, sizeof lbl, "%s!", action_name(act));
+            text_draw_centered(r, lbl, cx, 92,
+                               right ? rgb(0x6A, 0xA0, 0x7A) : rgb(0x9A, 0x7A, 0x5A));
         }
         /* a progress cheer bar */
         text_draw_centered(r, "your cat is doing great!", KZ_W / 2.0f,

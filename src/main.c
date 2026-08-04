@@ -274,6 +274,11 @@ int main(int argc, char *argv[]) {
     float walk_scroll = 0.0f;     /* how far along the trail we've strolled */
     Katlympics katlympics = katlympics_none();
     bool kat_choosing = false;    /* showing the event-picker at the stadium? */
+    int  kat_select = -1;         /* -1 none, 0 picking tricks, 1 picking actions */
+    TrickId kat_picked[3];        /* chosen tricks for the showcase */
+    int  kat_picked_n = 0;        /* how many chosen so far (0..3) */
+    CourseAction kat_actions[KAT_OBSTACLES];  /* chosen action per obstacle */
+    int  kat_obstacle_i = 0;      /* which obstacle we're choosing an action for */
     bool mail_open = false;       /* is the mailbox inbox showing?      */
     bool pd_confirm = false;      /* "go to the playdate?" dialog up?   */
     int  pd_letter = 0;           /* which letter we're confirming       */
@@ -529,34 +534,102 @@ int main(int argc, char *argv[]) {
                         press_fx = 8;
                         break;
                     }
-                    if (kat_choosing && !katlympics.active) {
+                    if (kat_choosing && !katlympics.active && kat_select < 0) {
                         float bw = 130, bx = (KZ_W - bw) / 2.0f;
                         if (lx >= bx && lx <= bx + bw) {
-                            int ev = -1;
-                            if (ly >= 70 && ly <= 90) ev = EVENT_TRICKS;
-                            else if (ly >= 98 && ly <= 118) ev = EVENT_OBSTACLE;
-                            if (ev >= 0) {
-                                const char *onames[KAT_RIVALS];
-                                CatType otypes[KAT_RIVALS];
-                                int oc = 0;
-                                for (int i = 0; i < owners.count
-                                     && oc < KAT_RIVALS; i++) {
-                                    if (owners.list[i].befriended) {
-                                        onames[oc] = owners.list[i].name;
-                                        otypes[oc] = owners.list[i].cat_type;
-                                        oc++;
-                                    }
-                                }
-                                OwnedCat *a = roster_active(&roster);
-                                katlympics = katlympics_begin((EventId)ev,
-                                    a->name, &tricks, &a->stats,
-                                    onames, otypes, oc);
+                            if (ly >= 70 && ly <= 90) {
+                                /* Trick Showcase -> choose up to 3 tricks */
+                                kat_select = 0;
+                                kat_picked_n = 0;
+                                kat_choosing = false;
+                                press_fx = 8;
+                            } else if (ly >= 98 && ly <= 118) {
+                                /* Obstacle Course -> choose an action each */
+                                kat_select = 1;
+                                kat_obstacle_i = 0;
                                 kat_choosing = false;
                                 press_fx = 8;
                             }
                         }
                         break;
                     }
+
+                    /* --- choosing tricks for the showcase --- */
+                    if (kat_select == 0) {
+                        /* a grid of the 5 tricks; tap to add (up to 3), tap a
+                         * chosen one to remove; a Start button when ready. */
+                        for (int t = 0; t < TRICK_COUNT; t++) {
+                            float bx = 20 + (t % 3) * 68, by = 52 + (t / 3) * 30;
+                            if (lx >= bx && lx <= bx + 60
+                                && ly >= by && ly <= by + 24) {
+                                /* toggle this trick in the picked list */
+                                int found = -1;
+                                for (int i = 0; i < kat_picked_n; i++)
+                                    if ((int)kat_picked[i] == t) found = i;
+                                if (found >= 0) {
+                                    for (int i = found; i < kat_picked_n - 1; i++)
+                                        kat_picked[i] = kat_picked[i + 1];
+                                    kat_picked_n--;
+                                } else if (kat_picked_n < 3) {
+                                    kat_picked[kat_picked_n++] = (TrickId)t;
+                                }
+                                press_fx = 8;
+                            }
+                        }
+                        /* Start button */
+                        if (kat_picked_n > 0 && ly >= 130 && ly <= 150
+                            && lx >= 70 && lx <= 170) {
+                            const char *onames[KAT_RIVALS]; CatType otypes[KAT_RIVALS];
+                            int oc = 0;
+                            for (int i = 0; i < owners.count && oc < KAT_RIVALS; i++)
+                                if (owners.list[i].befriended) {
+                                    onames[oc] = owners.list[i].name;
+                                    otypes[oc] = owners.list[i].cat_type; oc++;
+                                }
+                            OwnedCat *a = roster_active(&roster);
+                            katlympics = katlympics_begin_tricks(a->name, &tricks,
+                                &a->stats, kat_picked, kat_picked_n,
+                                onames, otypes, oc);
+                            kat_select = -1;
+                            press_fx = 8;
+                        }
+                        break;
+                    }
+
+                    /* --- choosing an action for each obstacle --- */
+                    if (kat_select == 1) {
+                        /* four action buttons; tap one to set this obstacle's
+                         * action and advance to the next. */
+                        for (int act = 0; act < ACTION_COUNT; act++) {
+                            float by = 60 + act * 22;
+                            if (lx >= 55 && lx <= 185 && ly >= by && ly <= by + 18) {
+                                kat_actions[kat_obstacle_i] = (CourseAction)act;
+                                kat_obstacle_i++;
+                                press_fx = 8;
+                                if (kat_obstacle_i >= KAT_OBSTACLES) {
+                                    /* all chosen -> begin */
+                                    const char *onames[KAT_RIVALS];
+                                    CatType otypes[KAT_RIVALS];
+                                    int oc = 0;
+                                    for (int i = 0; i < owners.count
+                                         && oc < KAT_RIVALS; i++)
+                                        if (owners.list[i].befriended) {
+                                            onames[oc] = owners.list[i].name;
+                                            otypes[oc] = owners.list[i].cat_type;
+                                            oc++;
+                                        }
+                                    OwnedCat *a = roster_active(&roster);
+                                    katlympics = katlympics_begin_obstacle(
+                                        a->name, &tricks, &a->stats, kat_actions,
+                                        onames, otypes, oc);
+                                    kat_select = -1;
+                                }
+                                break;
+                            }
+                        }
+                        break;
+                    }
+
                     if (katlympics.active) break;
                 }
 
@@ -1086,6 +1159,7 @@ int main(int argc, char *argv[]) {
                 /* Arriving at the stadium: offer the event picker. */
                 if (location == LOC_KATLYMPICS) {
                     kat_choosing = true;
+                    kat_select = -1;
                     katlympics = katlympics_none();
                 }
                 if (location == LOC_MEADOW) {
@@ -1351,10 +1425,77 @@ int main(int argc, char *argv[]) {
             /* The flea market: a shop screen, no roaming cats here. */
             market_draw(renderer, &pantry, frame);
         } else if (location == LOC_KATLYMPICS) {
-            /* The Katlympics stadium: pick an event, or watch it play out. */
+            /* The Katlympics stadium: pick an event, choose your performance,
+             * or watch it play out. */
             if (katlympics.active) {
                 katlympics_draw(renderer, &katlympics, active->type,
                                 active->shiny, frame);
+            } else if (kat_select == 0) {
+                /* --- choose up to 3 tricks --- */
+                park_draw(renderer, frame, is_night);
+                px_rect_a(renderer, 0, 0, KZ_W, KZ_H, rgb(0x6E, 0x58, 0x92), 60);
+                text_draw_centered(renderer, "Choose up to 3 tricks",
+                                   KZ_W / 2.0f, 20, KZ_CLOUD);
+                char cnt[24];
+                SDL_snprintf(cnt, sizeof cnt, "%d / 3 chosen", kat_picked_n);
+                text_draw_centered(renderer, cnt, KZ_W / 2.0f, 34, KZ_BUTTER);
+                for (int t = 0; t < TRICK_COUNT; t++) {
+                    float bx = 20 + (t % 3) * 68, by = 52 + (t / 3) * 30;
+                    /* is it chosen? show its order number */
+                    int ord = -1;
+                    for (int i = 0; i < kat_picked_n; i++)
+                        if ((int)kat_picked[i] == t) ord = i + 1;
+                    Color fill = ord > 0 ? KZ_MINT : KZ_CLOUD;
+                    px_rect(renderer, bx, by, 60, 24, fill);
+                    px_rect(renderer, bx, by, 60, 1, KZ_COCOA);
+                    px_rect(renderer, bx, by + 23, 60, 1, KZ_COCOA);
+                    px_rect(renderer, bx, by, 1, 24, KZ_COCOA);
+                    px_rect(renderer, bx + 59, by, 1, 24, KZ_COCOA);
+                    text_draw_centered(renderer, trick_name((TrickId)t),
+                                       bx + 30, by + 5, KZ_COCOA);
+                    int sk = tricks_skill(&tricks, active->name, (TrickId)t);
+                    char sc[12];
+                    SDL_snprintf(sc, sizeof sc, "%d%%", sk);
+                    text_draw_centered(renderer, sc, bx + 30, by + 14,
+                                       rgb(0x9A, 0x7A, 0x5A));
+                    if (ord > 0) {
+                        char o[4]; SDL_snprintf(o, sizeof o, "%d", ord);
+                        text_draw(renderer, o, bx + 3, by + 3, KZ_HEART);
+                    }
+                }
+                if (kat_picked_n > 0) {
+                    px_rect(renderer, 70, 130, 100, 20, KZ_PETAL_PINK);
+                    px_rect(renderer, 70, 130, 100, 1, KZ_COCOA);
+                    px_rect(renderer, 70, 149, 100, 1, KZ_COCOA);
+                    text_draw_centered(renderer, "Start!", KZ_W / 2.0f, 136,
+                                       KZ_COCOA);
+                }
+            } else if (kat_select == 1) {
+                /* --- choose an action for the current obstacle --- */
+                park_draw(renderer, frame, is_night);
+                px_rect_a(renderer, 0, 0, KZ_W, KZ_H, rgb(0x6E, 0x58, 0x92), 60);
+                char hdr[32];
+                SDL_snprintf(hdr, sizeof hdr, "Obstacle %d of %d",
+                             kat_obstacle_i + 1, KAT_OBSTACLES);
+                text_draw_centered(renderer, hdr, KZ_W / 2.0f, 20, KZ_CLOUD);
+                /* a hint about what this obstacle is */
+                static const char *OBST[KAT_OBSTACLES] = {
+                    "a tall hurdle", "weave poles", "a long tunnel",
+                    "an open straightaway" };
+                text_draw_centered(renderer, OBST[kat_obstacle_i],
+                                   KZ_W / 2.0f, 34, KZ_BUTTER);
+                static const char *ANAMES[ACTION_COUNT] = {
+                    "Jump", "Crawl", "Zigzag", "Dash" };
+                for (int act = 0; act < ACTION_COUNT; act++) {
+                    float by = 60 + act * 22;
+                    px_rect(renderer, 55, by, 130, 18, KZ_CLOUD);
+                    px_rect(renderer, 55, by, 130, 1, KZ_COCOA);
+                    px_rect(renderer, 55, by + 17, 130, 1, KZ_COCOA);
+                    text_draw_centered(renderer, ANAMES[act], KZ_W / 2.0f,
+                                       by + 5, KZ_COCOA);
+                }
+                text_draw_centered(renderer, "pick your move!", KZ_W / 2.0f,
+                                   KZ_H - 10, KZ_CLOUD);
             } else {
                 /* the event picker */
                 park_draw(renderer, frame, is_night);   /* a green field bg */
@@ -1364,13 +1505,11 @@ int main(int argc, char *argv[]) {
                 text_draw_centered(renderer, "choose an event", KZ_W / 2.0f, 52,
                                    KZ_CLOUD);
                 float bw = 130, bx = (KZ_W - bw) / 2.0f;
-                /* trick showcase button */
                 px_rect(renderer, bx, 70, bw, 20, KZ_PETAL_PINK);
                 px_rect(renderer, bx, 70, bw, 1, KZ_COCOA);
                 px_rect(renderer, bx, 89, bw, 1, KZ_COCOA);
                 text_draw_centered(renderer, "Trick Showcase", KZ_W / 2.0f, 76,
                                    KZ_COCOA);
-                /* obstacle course button */
                 px_rect(renderer, bx, 98, bw, 20, KZ_MINT);
                 px_rect(renderer, bx, 98, bw, 1, KZ_COCOA);
                 px_rect(renderer, bx, 117, bw, 1, KZ_COCOA);
