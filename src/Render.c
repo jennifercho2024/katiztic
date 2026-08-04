@@ -6,9 +6,12 @@
  * entire room shifts together; UI drawing clears it to stay screen-fixed.
  * Every primitive subtracts it, so no other file needs to know about it. */
 static float g_off_x = 0.0f, g_off_y = 0.0f;
+static float g_zoom = 1.0f;   /* room zoom factor (1 = normal) */
 
 void render_set_offset(float x, float y) { g_off_x = x; g_off_y = y; }
-void render_clear_offset(void) { g_off_x = 0.0f; g_off_y = 0.0f; }
+void render_clear_offset(void) { g_off_x = 0.0f; g_off_y = 0.0f; g_zoom = 1.0f; }
+void render_set_zoom(float z) { g_zoom = (z < 0.1f) ? 0.1f : z; }
+float render_get_zoom(void) { return g_zoom; }
 
 /* Global warmth for the story's re-coloring magic: 1 = full color, 0 = faded
  * grey. Zone drawing sets it from the zone's story warmth; everything else
@@ -35,7 +38,8 @@ static Color apply_warmth(Color c) {
 void px_rect(SDL_Renderer *r, float x, float y, float w, float h, Color c) {
     Color cc = apply_warmth(c);
     SDL_SetRenderDrawColor(r, cc.r, cc.g, cc.b, cc.a);
-    SDL_FRect rect = { x - g_off_x, y - g_off_y, w, h };
+    SDL_FRect rect = { (x - g_off_x) * g_zoom, (y - g_off_y) * g_zoom,
+                       w * g_zoom, h * g_zoom };
     SDL_RenderFillRect(r, &rect);
 }
 
@@ -48,6 +52,7 @@ void px_rect_a(SDL_Renderer *r, float x, float y, float w, float h,
     /* Blend mode is set once in main; here we just vary alpha. */
     Color cc = apply_warmth(c);
     SDL_SetRenderDrawColor(r, cc.r, cc.g, cc.b, alpha);
-    SDL_FRect rect = { x - g_off_x, y - g_off_y, w, h };
+    SDL_FRect rect = { (x - g_off_x) * g_zoom, (y - g_off_y) * g_zoom,
+                       w * g_zoom, h * g_zoom };
     SDL_RenderFillRect(r, &rect);
 }

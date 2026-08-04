@@ -35,6 +35,8 @@ void px_rect_a(SDL_Renderer *r, float x, float y, float w, float h,
  * subtract it automatically, so nothing else needs to handle panning. */
 void render_set_offset(float x, float y);
 void render_clear_offset(void);
+void render_set_zoom(float z);
+float render_get_zoom(void);
 
 /* Story warmth for the re-coloring magic: 1 = full color, 0 = faded grey.
  * Zone drawing sets it from the zone's warmth; set it back to 1 for anything

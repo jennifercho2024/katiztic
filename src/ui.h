@@ -37,6 +37,8 @@ typedef enum {
     KZ_BTN_MAIL,    /* an envelope — open the mailbox           */
     KZ_BTN_TRICK,   /* a paw+star — open the trick trainer      */
     KZ_BTN_WALK,    /* footprints — start/stop a park walk       */
+    KZ_BTN_ZOOM_IN, /* a plus — zoom the cottage in              */
+    KZ_BTN_ZOOM_OUT,/* a minus — zoom the cottage out            */
 } ButtonKind;
 
 typedef struct {

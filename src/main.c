@@ -70,6 +70,25 @@ static int map_place_from_loc(Location loc) {
     return (int)loc;                      /* 0..5 line up directly */
 }
 
+/* Where a décor item comes to rest vertically. Floor items fall so their base
+ * sits on the cottage floor; the wall picture hangs where placed on the wall.
+ * `top_y` is the requested top; returns the resting top. */
+static float decor_rest_y(DecorKind kind, float top_y) {
+    if (kind == DECOR_PICTURE) {
+        if (top_y > 100.0f) top_y = 100.0f;   /* keep it up on the wall */
+        if (top_y < 20.0f)  top_y = 20.0f;
+        return top_y;
+    }
+    return 156.0f - 18.0f;   /* floor items: base rests on the floor (~156) */
+}
+
+/* Screen point -> room point, accounting for cottage zoom. Drawing does
+ * screen = (world - off) * zoom, so the inverse is world = screen/zoom + off. */
+static void screen_to_room_zoomed(const Camera *c, float zoom,
+                                  float sx, float sy, float *rx, float *ry) {
+    camera_to_room(c, sx / zoom, sy / zoom, rx, ry);
+}
+
 /* Which story zone a location belongs to, or -1 if it isn't one. New zones
  * arrive faded (option A): only these get the warmth treatment. */
 static int story_zone_for(Location l) {
@@ -185,6 +204,9 @@ int main(int argc, char *argv[]) {
     /* On-screen buttons, top-right. One is a toggle (home<->out); the sleep
      * button only shows in the cottage. Positions in logical 240x160 space. */
     Button btn_travel = { KZ_W - 24, 4,  20, 16, KZ_BTN_OUT };
+    /* zoom controls, shown only in the cottage (stacked, right side) */
+    Button btn_zoom_in  = { KZ_W - 24, 24, 20, 16, KZ_BTN_ZOOM_IN };
+    Button btn_zoom_out = { KZ_W - 24, 42, 20, 16, KZ_BTN_ZOOM_OUT };
     bool   map_open = false;      /* is the world map showing?           */
     int    map_sel = 0;           /* cursor: which place is highlighted   */
     bool   map_confirm = false;   /* is the "Go here?" dialog up?         */
@@ -197,6 +219,7 @@ int main(int argc, char *argv[]) {
     Camera cam = camera_make(COTTAGE_ROOM_W, COTTAGE_ROOM_H);
     bool cam_dragging = false;    /* panning the room right now? */
     float cam_last_x = 0, cam_last_y = 0;
+    float cottage_zoom = 1.0f;    /* 1 = normal; larger zooms in, smaller out */
 
     /* Releasing a cat asks a proper "Are you sure?" with Yes/No buttons, so
      * it can never happen by accident. */
@@ -272,6 +295,8 @@ int main(int argc, char *argv[]) {
     ParkLife parklife = parklife_new();         /* cats visiting the park */
     bool walking = false;         /* is a scenic park walk in progress? */
     float walk_scroll = 0.0f;     /* how far along the trail we've strolled */
+    int  walk_dir = 0;            /* -1 left, 0 still, +1 right (tap to steer) */
+    Uint64 walk_xp_tick = 0;      /* accumulates walked frames for XP */
     Katlympics katlympics = katlympics_none();
     bool kat_choosing = false;    /* showing the event-picker at the stadium? */
     int  kat_select = -1;         /* -1 none, 0 picking tricks, 1 picking actions */
@@ -406,7 +431,7 @@ int main(int argc, char *argv[]) {
                  * in screen coordinates (lx,ly). */
                 float rx = lx, ry = ly;
                 if (location == LOC_COTTAGE)
-                    camera_to_room(&cam, lx, ly, &rx, &ry);
+                    screen_to_room_zoomed(&cam, cottage_zoom, lx, ly, &rx, &ry);
 
                 /* If the friends list is open, any tap just closes it. */
                 if (friends_open) { friends_open = false; break; }
@@ -511,6 +536,18 @@ int main(int argc, char *argv[]) {
 
                 /* At the Katlympics: pick an event, or dismiss the results. */
                 if (location == LOC_KATLYMPICS) {
+                    /* the map button (top-right) always works, so you can leave
+                     * the Katlympics at any time — even mid-event. */
+                    if (ui_button_hit(&btn_travel, lx, ly)) {
+                        map_open = true;
+                        map_sel = map_place_from_loc(location);
+                        if (map_sel < 0) map_sel = 0;
+                        katlympics = katlympics_none();
+                        kat_choosing = false;
+                        kat_select = -1;
+                        press_fx = 8;
+                        break;
+                    }
                     if (katlympics.active && katlympics.phase == 2) {
                         for (int i = 0; i < roster.count; i++)
                             stats_gain_xp(&roster.cats[i].stats,
@@ -636,12 +673,22 @@ int main(int argc, char *argv[]) {
                 /* walk button (park only): start or stop a scenic walk */
                 if (location == LOC_PARK && ui_walk_button_hit(lx, ly)) {
                     walking = !walking;
+                    walk_dir = 0;   /* start still; you steer by tapping */
                     if (walking) {
                         SDL_snprintf(banner_line, sizeof banner_line,
-                                     "Walking %s along the trail...",
+                                     "Tap left or right to walk %s",
                                      roster_active(&roster)->name);
-                        banner_timer = 160;
+                        banner_timer = 200;
                     }
+                    press_fx = 8;
+                    break;
+                }
+
+                /* while walking, tapping the left or right half steers the cat
+                 * that way (tap the same side again to stop). */
+                if (location == LOC_PARK && walking) {
+                    int want = (lx < KZ_W / 2.0f) ? -1 : 1;
+                    walk_dir = (walk_dir == want) ? 0 : want;
                     press_fx = 8;
                     break;
                 }
@@ -837,6 +884,22 @@ int main(int argc, char *argv[]) {
                     roster_select(&roster, slot);
                     press_fx = 8;
                     break;
+                }
+
+                /* zoom controls (cottage only): step the zoom in or out */
+                if (location == LOC_COTTAGE) {
+                    if (ui_button_hit(&btn_zoom_in, lx, ly)) {
+                        cottage_zoom += 0.25f;
+                        if (cottage_zoom > 2.0f) cottage_zoom = 2.0f;
+                        press_fx = 8;
+                        break;
+                    }
+                    if (ui_button_hit(&btn_zoom_out, lx, ly)) {
+                        cottage_zoom -= 0.25f;
+                        if (cottage_zoom < 1.0f) cottage_zoom = 1.0f;
+                        press_fx = 8;
+                        break;
+                    }
                 }
 
                 /* 3) travel button: open the world map */
@@ -1081,9 +1144,10 @@ int main(int argc, char *argv[]) {
                 else if (drag_item >= 0) {
                     float rx = lx, ry = ly;
                     if (location == LOC_COTTAGE)
-                        camera_to_room(&cam, lx, ly, &rx, &ry);
+                        screen_to_room_zoomed(&cam, cottage_zoom, lx, ly, &rx, &ry);
                     decor.items[drag_item].x = rx - 8;
-                    decor.items[drag_item].y = ry - 8;
+                    decor.items[drag_item].y = decor_rest_y((DecorKind)drag_item,
+                                                            ry - 8);
                     decor.items[drag_item].placed = true;
                 }
                 break;
@@ -1104,15 +1168,16 @@ int main(int argc, char *argv[]) {
                                                     e.button.y, &lx, &ly);
                     float rx = lx, ry = ly;
                     if (location == LOC_COTTAGE)
-                        camera_to_room(&cam, lx, ly, &rx, &ry);
+                        screen_to_room_zoomed(&cam, cottage_zoom, lx, ly, &rx, &ry);
                     /* Dropping onto the (screen-fixed) tray puts it away. */
                     if (decor_open && ly >= ui_decor_tray_top()) {
                         decor.items[drag_item].placed = false;
                     } else {
                         decor.items[drag_item].placed = true;
                         decor.items[drag_item].x = rx - 8;
-                        decor.items[drag_item].y = ry - 8;
-                        /* items stay exactly where you place them */
+                        decor.items[drag_item].y = decor_rest_y(
+                            (DecorKind)drag_item, ry - 8);
+                        /* floor items fall to the floor; the picture hangs */
                     }
                     decor_save(&decor, KZ_DECOR_PATH);
                     drag_item = -1;
@@ -1137,6 +1202,7 @@ int main(int argc, char *argv[]) {
                 feed_open = false;
                 holding_cat = false;
                 walking = false;   /* end any park walk when leaving */
+                walk_dir = 0;
                 location = newloc;
                 btn_travel.kind = (location == LOC_COTTAGE)
                                   ? KZ_BTN_OUT : KZ_BTN_HOME;
@@ -1144,6 +1210,18 @@ int main(int argc, char *argv[]) {
                 if (newloc != LOC_COTTAGE) {
                     for (int i = 0; i < roster.count; i++)
                         stats_outing(&roster.cats[i].stats);
+                }
+                /* Arriving home: settle the family back onto the floor at their
+                 * home spots (so nobody keeps a park/walk position and ends up
+                 * floating on the wall). */
+                if (location == LOC_COTTAGE) {
+                    for (int i = 0; i < roster.count; i++) {
+                        float hx, hy;
+                        roster_home_spot(i, &hx, &hy);
+                        roster.cats[i].anim.cx = hx;
+                        roster.cats[i].anim.cy = hy;
+                        roster.cats[i].anim.act = ACT_SIT;
+                    }
                 }
                 /* Arriving at the park: gather the family onto the play lawn
                  * (the cottage's home spots are spread across a big room, so
@@ -1206,8 +1284,18 @@ int main(int argc, char *argv[]) {
         }
         /* At home and at the café, the whole family roams and socializes.
          * Décor (yarn/milk to react to) exists only in the cottage. */
-        if (location == LOC_COTTAGE)
+        if (location == LOC_COTTAGE) {
             behavior_update(&roster, &decor, frame);
+            /* safety net: keep everyone on the floor (never up on the wall),
+             * correcting any stale saved position. The bed sits on the floor
+             * too, so this still allows resting there. */
+            for (int i = 0; i < roster.count; i++) {
+                if (roster.cats[i].anim.cy < 165.0f)
+                    roster.cats[i].anim.cy = 165.0f;
+                if (roster.cats[i].anim.cy > 224.0f)
+                    roster.cats[i].anim.cy = 224.0f;
+            }
+        }
         else if (location == LOC_CAFE || location == LOC_PARK)
             behavior_update(&roster, NULL, frame);
         if (location == LOC_PARK) parklife_update(&parklife, frame);
@@ -1216,21 +1304,28 @@ int main(int argc, char *argv[]) {
         /* On a scenic walk, the scenery scrolls and the active cat pads along
          * beside you at the center of the path. */
         if (location == LOC_PARK && walking) {
-            walk_scroll += 1.1f;   /* stroll speed */
-            /* the scenery tiles every 70px; wrap the scroll so it can loop
-             * forever without ever losing precision on a long walk */
-            if (walk_scroll > 7000.0f) walk_scroll -= 7000.0f;  /* 100 tiles */
             OwnedCat *a = roster_active(&roster);
-            a->anim.cx = 96.0f + sinf((float)frame * 0.08f) * 3.0f;
-            a->anim.cy = 130.0f;
-            a->anim.act = ACT_WALK;
-            a->anim.facing = 1;
-            /* a walk is gently good for the soul */
-            /* a walk is good exercise: steady XP and a mood lift as you go */
-            if (frame % 90 == 0) {
-                stats_gain_xp(&a->stats, 4);
-                stats_outing(&a->stats);
+            /* the cat walks only while you steer it: tapping the left or right
+             * half of the screen sets walk_dir; it strolls that way. */
+            if (walk_dir != 0) {
+                walk_scroll += 1.3f * walk_dir;
+                /* keep the scroll bounded either way so it loops forever */
+                if (walk_scroll > 7000.0f)  walk_scroll -= 7000.0f;
+                if (walk_scroll < 0.0f)     walk_scroll += 7000.0f;
+                a->anim.act = ACT_WALK;
+                a->anim.facing = walk_dir;
+                /* a walk is good exercise: steady XP and a mood lift as you go */
+                walk_xp_tick++;
+                if (walk_xp_tick % 90 == 0) {
+                    stats_gain_xp(&a->stats, 4);
+                    stats_outing(&a->stats);
+                }
+            } else {
+                a->anim.act = ACT_SIT;   /* standing still, waiting */
             }
+            /* the cat stays centered on the path; the world moves around it */
+            a->anim.cx = 96.0f;
+            a->anim.cy = 130.0f;
         }
         if (press_fx > 0) press_fx--;
 
@@ -1570,8 +1665,9 @@ int main(int argc, char *argv[]) {
         } else if (location == LOC_COTTAGE || location == LOC_CAFE) {
             /* Indoor places where the family roams and socializes. */
             if (location == LOC_COTTAGE) {
-                /* Pan the whole cottage by the camera offset. */
+                /* Pan and zoom the whole cottage together. */
                 render_set_offset(cam.x, cam.y);
+                render_set_zoom(cottage_zoom);
                 cottage_draw(renderer, frame, is_night,
                              COTTAGE_ROOM_W, COTTAGE_ROOM_H);
                 decor_draw(renderer, &decor, frame);   /* décor only at home */
@@ -1670,6 +1766,10 @@ int main(int argc, char *argv[]) {
         ui_draw_panel(renderer, active, 4, 4, editing, edit_buf, frame);
         ui_draw_release_button(renderer, 4, 4, release_open);
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
+        if (location == LOC_COTTAGE) {
+            ui_button_draw(renderer, &btn_zoom_in, press_fx > 0);
+            ui_button_draw(renderer, &btn_zoom_out, press_fx > 0);
+        }
         ui_friends_button_draw(renderer, press_fx > 0);
         ui_quests_button_draw(renderer, false);   /* friends list */
         ui_mail_button_draw(renderer, &owners, press_fx > 0);   /* mailbox */
