@@ -37,7 +37,7 @@ void cottage_draw(SDL_Renderer *r, Uint64 frame, bool night,
     }
 
     /* ---- window with sky + swaying curtains ---- */
-    float wx = 150, wy = 18, ww = 62, wh = 46;
+    float wx = 150, wy = 46, ww = 62, wh = 46;
     px_rect(r, wx - 3, wy - 3, ww + 6, wh + 6, BED_FRAME);   /* frame */
     /* sky inside: day = soft blue-pink, night = deep lavender + a star */
     Color sky_top = night ? rgb(0x7B,0x6B,0xA0) : rgb(0xC2,0xDF,0xE8);

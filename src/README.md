@@ -83,7 +83,11 @@ platforms and a dangling toy, a little **slide**, a striped **play tunnel**, and
 a **ball pit**, plus a bench and shade trees. Other neighbors' cats **visit**
 the park too — tap one to say hi (and befriend its owner, just like on the
 street). You can also **hold a cat to practice tricks** out in the open, so the
-park is a lovely place to train before the Katlympics.
+park is a lovely place to train before the Katlympics. to enjoy the day. A cheerful, social place. Tap the **footprints button** to take
+your active cat on a **scenic walk** — the trail scenery drifts past (bushes,
+lamp posts, flowers, a treeline) as your cat pads along the path beside you.
+Tap the button again to return to the playground.
+
 
 ## Teaching tricks
 

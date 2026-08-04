@@ -21,6 +21,7 @@ typedef enum {
     MUSIC_CAFE,      /* cozy, jazzy-warm, social        */
     MUSIC_FOREST,    /* wistful, hushed, waiting        */
     MUSIC_STREET,    /* bright, ambling, neighborly     */
+    MUSIC_PARK,      /* bright, adventurous, playful     */
     MUSIC_THEME_COUNT
 } MusicTheme;
 

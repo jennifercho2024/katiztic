@@ -76,9 +76,9 @@ void roster_rename(Roster *ro, int i, const char *name) {
  * instead of stacking. Chosen to sit on the floor/rug, clear of the bed and
  * window. Up to KZ_MAX_CATS spots. */
 void roster_home_spot(int i, float *x, float *y) {
-    static const float SX[KZ_MAX_CATS] = { 150.0f, 260.0f, 90.0f, 360.0f, 210.0f, 120.0f, 420.0f };
-    static const float SY[KZ_MAX_CATS] = { 250.0f, 235.0f, 265.0f, 255.0f, 280.0f, 300.0f, 245.0f };
-    if (i < 0 || i >= KZ_MAX_CATS) { *x = 180.0f; *y = 250.0f; return; }
+    static const float SX[KZ_MAX_CATS] = { 150.0f, 260.0f, 90.0f, 360.0f, 210.0f, 120.0f, 430.0f };
+    static const float SY[KZ_MAX_CATS] = { 185.0f, 175.0f, 190.0f, 182.0f, 200.0f, 205.0f, 188.0f };
+    if (i < 0 || i >= KZ_MAX_CATS) { *x = 180.0f; *y = 185.0f; return; }
     *x = SX[i];
     *y = SY[i];
 }

@@ -4,10 +4,11 @@
 #include "decor.h"
 #include <math.h>
 
-/* The cottage floor area cats roam within. The cottage room is larger than the
- * screen (360x240) so cats spread through the whole space you can pan around. */
+/* The cottage floor area cats roam within. The cottage room is wider than the
+ * screen (520x240) so cats spread through the whole space you can pan around.
+ * The Y range keeps them on the floor (which begins at ~156). */
 #define ROAM_X0   24.0f
-#define ROAM_X1   330.0f
+#define ROAM_X1   492.0f
 #define ROAM_Y0   165.0f
 #define ROAM_Y1   224.0f
 

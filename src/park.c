@@ -117,6 +117,71 @@ void park_draw(SDL_Renderer *r, Uint64 frame, bool night) {
     px_rect(r, bx + 1, by + 1, 2, 1, KZ_COCOA);
 }
 
+/* ---- the scenic walking path ---- */
+
+/* a lamp post for the trail */
+static void trail_lamp(SDL_Renderer *r, float x, float y, bool night) {
+    px_rect(r, x, y - 24, 2, 24, rgb(0x8A, 0x7A, 0x88));   /* pole */
+    px_rect(r, x - 2, y - 28, 6, 5, night ? KZ_BUTTER
+                                          : rgb(0xE8, 0xDC, 0xB8));
+    if (night) px_rect_a(r, x - 4, y - 30, 10, 9, KZ_BUTTER, 60);  /* glow */
+}
+
+/* a flowering bush */
+static void trail_bush(SDL_Renderer *r, float x, float y) {
+    px_rect(r, x, y, 16, 8, rgb(0x8F, 0xC0, 0x7A));
+    px_rect(r, x + 2, y - 3, 12, 4, rgb(0x9C, 0xC6, 0x8E));
+    px_rect(r, x + 3, y - 1, 2, 2, KZ_PETAL_PINK);
+    px_rect(r, x + 8, y, 2, 2, KZ_BUTTER);
+    px_rect(r, x + 12, y - 2, 2, 2, KZ_LAVENDER);
+}
+
+void park_walk_draw(SDL_Renderer *r, float scroll, Uint64 frame, bool night) {
+    /* sky + a distant treeline that drifts slowly (parallax) */
+    px_rect(r, 0, 0, KZ_W, 70, night ? rgb(0x9C, 0x92, 0xC0)
+                                     : rgb(0xCF, 0xE6, 0xF2));
+    float slow = scroll * 0.3f;
+    for (int i = -1; i < 8; i++) {
+        float bx = i * 40 - fmodf(slow, 40.0f);
+        Color far = night ? rgb(0x86, 0x9A, 0x80) : rgb(0xB0, 0xD0, 0x9C);
+        px_rect(r, bx, 44, 30, 26, far);
+        px_rect(r, bx + 6, 38, 18, 10, far);
+    }
+
+    /* grass + the winding path scrolling by */
+    px_rect(r, 0, 70, KZ_W, KZ_H - 70, night ? rgb(0x8C, 0xA0, 0x84)
+                                             : rgb(0xB6, 0xD6, 0xA0));
+    /* the path band the cat walks along */
+    px_rect(r, 0, 118, KZ_W, 26, rgb(0xE0, 0xCE, 0xB4));
+    px_rect(r, 0, 118, KZ_W, 2, rgb(0xD0, 0xBC, 0xA0));
+    /* cobble texture drifting past to convey motion */
+    for (int i = -1; i < 14; i++) {
+        float cx = i * 20 - fmodf(scroll, 20.0f);
+        px_rect(r, cx, 128, 10, 4, rgb(0xD2, 0xC0, 0xA6));
+        px_rect(r, cx + 6, 136, 8, 3, rgb(0xD2, 0xC0, 0xA6));
+    }
+
+    /* roadside scenery scrolling past: alternating bushes and lamp posts */
+    for (int i = -1; i < 8; i++) {
+        float sx = i * 70 - fmodf(scroll, 70.0f);
+        trail_bush(r, sx, 108);
+        trail_lamp(r, sx + 35, 116, night);
+        /* a few foreground flowers near the bottom */
+        px_rect(r, sx + 10, 150, 2, 4, rgb(0x9C, 0xB0, 0x84));
+        px_rect(r, sx + 9, 148, 4, 2, KZ_PETAL_PINK);
+        px_rect(r, sx + 48, 152, 2, 3, rgb(0x9C, 0xB0, 0x84));
+        px_rect(r, sx + 47, 150, 4, 2, KZ_LAVENDER);
+    }
+
+    /* a butterfly keeping pace */
+    float bx = 160 + sinf((float)frame * 0.04f) * 24;
+    float by = 90 + sinf((float)frame * 0.07f) * 8;
+    Color wing = (frame / 8) % 2 ? KZ_PETAL_PINK : KZ_LAVENDER;
+    px_rect(r, bx, by, 2, 2, wing);
+    px_rect(r, bx + 3, by, 2, 2, wing);
+    px_rect(r, bx + 1, by + 1, 2, 1, KZ_COCOA);
+}
+
 /* ---- park visitors ---- */
 
 static const char *VNAMES[] = {

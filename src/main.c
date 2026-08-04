@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
     /* The cottage is bigger than the screen so you can pan around it. The
      * camera is the view offset into that larger room. */
     #define COTTAGE_ROOM_W 520.0f
-    #define COTTAGE_ROOM_H 340.0f
+    #define COTTAGE_ROOM_H 240.0f
     Camera cam = camera_make(COTTAGE_ROOM_W, COTTAGE_ROOM_H);
     bool cam_dragging = false;    /* panning the room right now? */
     float cam_last_x = 0, cam_last_y = 0;
@@ -266,6 +266,8 @@ int main(int argc, char *argv[]) {
     int meadow_respawn = 300;     /* frames until a new wild cat may wander in */
     StreetLife streetlife = streetlife_new();   /* people walking their cats */
     ParkLife parklife = parklife_new();         /* cats visiting the park */
+    bool walking = false;         /* is a scenic park walk in progress? */
+    float walk_scroll = 0.0f;     /* how far along the trail we've strolled */
     bool mail_open = false;       /* is the mailbox inbox showing?      */
     bool pd_confirm = false;      /* "go to the playdate?" dialog up?   */
     int  pd_letter = 0;           /* which letter we're confirming       */
@@ -496,6 +498,19 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
+                /* walk button (park only): start or stop a scenic walk */
+                if (location == LOC_PARK && ui_walk_button_hit(lx, ly)) {
+                    walking = !walking;
+                    if (walking) {
+                        SDL_snprintf(banner_line, sizeof banner_line,
+                                     "Walking %s along the trail...",
+                                     roster_active(&roster)->name);
+                        banner_timer = 160;
+                    }
+                    press_fx = 8;
+                    break;
+                }
+
                 /* mail button: open the mailbox (playdate letters) */
                 if (ui_mail_button_hit(lx, ly)) {
                     mail_open = true;
@@ -603,6 +618,10 @@ int main(int argc, char *argv[]) {
                             banner_timer = 200;
                         }
                         press_fx = 8;
+                    } else if (ly < ui_feed_tray_top()) {
+                        /* tapped above the tray -> close it */
+                        feed_open = false;
+                        press_fx = 8;
                     }
                     break;
                 }
@@ -620,6 +639,12 @@ int main(int argc, char *argv[]) {
                     int tray = ui_decor_tray_hit(&decor, lx, ly, tray_page);
                     if (tray >= 0) {
                         drag_item = tray;
+                        break;
+                    }
+                    /* tapped above the tray (not on an item) -> close it */
+                    if (ly < ui_decor_tray_top()) {
+                        decor_open = false;
+                        press_fx = 8;
                         break;
                     }
                 }
@@ -976,6 +1001,7 @@ int main(int argc, char *argv[]) {
                 decor_open = false;
                 feed_open = false;
                 holding_cat = false;
+                walking = false;   /* end any park walk when leaving */
                 location = newloc;
                 btn_travel.kind = (location == LOC_COTTAGE)
                                   ? KZ_BTN_OUT : KZ_BTN_HOME;
@@ -1044,6 +1070,21 @@ int main(int argc, char *argv[]) {
         else if (location == LOC_CAFE || location == LOC_PARK)
             behavior_update(&roster, NULL, frame);
         if (location == LOC_PARK) parklife_update(&parklife, frame);
+        /* On a scenic walk, the scenery scrolls and the active cat pads along
+         * beside you at the center of the path. */
+        if (location == LOC_PARK && walking) {
+            walk_scroll += 1.1f;   /* stroll speed */
+            /* the scenery tiles every 70px; wrap the scroll so it can loop
+             * forever without ever losing precision on a long walk */
+            if (walk_scroll > 7000.0f) walk_scroll -= 7000.0f;  /* 100 tiles */
+            OwnedCat *a = roster_active(&roster);
+            a->anim.cx = 96.0f + sinf((float)frame * 0.08f) * 3.0f;
+            a->anim.cy = 130.0f;
+            a->anim.act = ACT_WALK;
+            a->anim.facing = 1;
+            /* a walk is gently good for the soul */
+            if (frame % 180 == 0) stats_outing(&a->stats);
+        }
         if (press_fx > 0) press_fx--;
 
         /* Time of day follows the real clock: the world lightens and darkens
@@ -1063,7 +1104,7 @@ int main(int argc, char *argv[]) {
                       : (location == LOC_FOREST)  ? MUSIC_FOREST
                       : (location == LOC_MARKET)  ? MUSIC_CAFE
                       : (location == LOC_PLAYDATE)? MUSIC_MEADOW
-                      : (location == LOC_PARK)    ? MUSIC_MEADOW
+                      : (location == LOC_PARK)    ? MUSIC_PARK
                       : MUSIC_STREET;
         music_set_theme(mt);
         if (location == LOC_MEADOW) {
@@ -1243,6 +1284,17 @@ int main(int argc, char *argv[]) {
             playdate_draw(renderer, &playdate, &a->anim, col, frame);
             a->anim.cx = sx0; a->anim.cy = sy0; a->anim.act = sa0;
         } else if (location == LOC_PARK) {
+            if (walking) {
+                /* A scenic walk: scenery scrolls by and just your active cat
+                 * strolls the path beside you. */
+                park_walk_draw(renderer, walk_scroll, frame, is_night);
+                CatColors cc = active->shiny ? cat_shiny_colors()
+                                             : cattype_colors(active->type);
+                cat_draw(renderer, &active->anim, cc, frame);
+                if (active->shiny)
+                    cat_draw_sparkles(renderer, &active->anim, frame);
+                mood_draw(renderer, &active->anim, frame);
+            } else {
             /* The playground park: your whole family roams here, other cats
              * visit, and you can practice tricks out in the open. */
             park_draw(renderer, frame, is_night);
@@ -1271,6 +1323,7 @@ int main(int argc, char *argv[]) {
             }
             for (int i = 0; i < roster.count; i++)
                 mood_draw(renderer, &roster.cats[i].anim, frame);
+            }
         } else if (location == LOC_COTTAGE || location == LOC_CAFE) {
             /* Indoor places where the family roams and socializes. */
             if (location == LOC_COTTAGE) {
@@ -1377,6 +1430,8 @@ int main(int argc, char *argv[]) {
         ui_friends_button_draw(renderer, press_fx > 0);
         ui_quests_button_draw(renderer, false);   /* friends list */
         ui_mail_button_draw(renderer, &owners, press_fx > 0);   /* mailbox */
+        if (location == LOC_PARK)
+            ui_walk_button_draw(renderer, walking, press_fx > 0);  /* walk */
         if (location == LOC_COTTAGE) {
             ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray   */
             ui_feed_button_draw(renderer, press_fx > 0);   /* feed array   */

@@ -18,6 +18,10 @@
  * tints it for evening visits. */
 void park_draw(SDL_Renderer *r, Uint64 frame, bool night);
 
+/* Draw the scenic walking path: scenery drifts by as you and your cat stroll.
+ * `scroll` advances as you walk, moving trees, flowers, and lamp posts past. */
+void park_walk_draw(SDL_Renderer *r, float scroll, Uint64 frame, bool night);
+
 /* ---- park visitors: other cats (with owners) enjoying the park ---- */
 
 #define PARK_VISITOR_MAX 2

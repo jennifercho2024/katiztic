@@ -23,7 +23,7 @@ static const MapPlace PLACES[MAP_PLACE_COUNT] = {
     { "Forest",   2,  62, 122 },   /* Fern Hollow, left */
     { "Street",   1, 210,  70 },   /* Satin City, lower */
     { "Market",   1, 208,  46 },   /* Satin City, upper-right — the flea market */
-    { "Park",     0,  46,  96 },   /* Pearl City, lower — the playground park */
+    { "Park",     2, 120, 128 },   /* Fern Hollow, right of the forest */
 };
 
 int             map_place_count(void)   { return MAP_PLACE_COUNT; }

@@ -36,6 +36,7 @@ typedef enum {
     KZ_BTN_FEED,    /* a bowl — open the feed array            */
     KZ_BTN_MAIL,    /* an envelope — open the mailbox           */
     KZ_BTN_TRICK,   /* a paw+star — open the trick trainer      */
+    KZ_BTN_WALK,    /* footprints — start/stop a park walk       */
 } ButtonKind;
 
 typedef struct {
@@ -130,6 +131,11 @@ void ui_trick_popup(SDL_Renderer *r, const Tricks *tr, const char *cat,
                     float anchor_x, float anchor_y, Uint64 frame);
 /* which trick icon a tap hit (given the same anchor), or -1 */
 int  ui_trick_popup_hit(float anchor_x, float anchor_y, float px, float py);
+
+/* ---- walk: a button to start/stop a scenic park walk ---- */
+extern const Button KZ_WALK_BUTTON;
+void ui_walk_button_draw(SDL_Renderer *r, bool walking, bool pressed);
+bool ui_walk_button_hit(float px, float py);
 
 
 /* ---- décor tray ----

@@ -42,6 +42,9 @@
 #define C5 523.25f
 #define D5 587.33f
 #define E5 659.25f
+#define F5 698.46f
+#define G5 783.99f
+#define A5 880.00f
 
 /* A chord: a low bass note, three mid tones for the pad, and a set of notes
  * the arpeggio drifts through. 0 = unused. */
@@ -90,8 +93,19 @@ static const Chord STREET[] = {
     { F3, F4, A4, C5, { F4, A4, C5, F4 } },   /* F — home again   */
 };
 
+/* Park: bright and adventurous — a bold, uplifting lift that feels like a day
+ * out full of play. The most energetic, "let's go!" progression of the set. */
+static const Chord PARK[] = {
+    { C4, C4, E4, G4, { C4, E4, G4, C5 } },   /* C — set off!     */
+    { G3, G4, B4, D5, { G4, B4, D5, G5 } },   /* G — striding on  */
+    { A3, A4, C5, E5, { A4, C5, E5, A5 } },   /* Am — a flourish  */
+    { F3, F4, A4, C5, { F4, A4, C5, F5 } },   /* F — onward       */
+    { D4, D4, F4, A4, { D4, F4, A4, D5 } },   /* Dm — a turn      */
+    { G3, G4, B4, D5, { G4, B4, D5, B4 } },   /* G — homeward lift */
+};
+
 static const Chord *THEMES[MUSIC_THEME_COUNT] = {
-    COTTAGE, MEADOW, CAFE, FOREST, STREET
+    COTTAGE, MEADOW, CAFE, FOREST, STREET, PARK
 };
 static const int THEME_LEN[MUSIC_THEME_COUNT] = {
     (int)(sizeof COTTAGE / sizeof COTTAGE[0]),
@@ -99,6 +113,7 @@ static const int THEME_LEN[MUSIC_THEME_COUNT] = {
     (int)(sizeof CAFE    / sizeof CAFE[0]),
     (int)(sizeof FOREST  / sizeof FOREST[0]),
     (int)(sizeof STREET  / sizeof STREET[0]),
+    (int)(sizeof PARK    / sizeof PARK[0]),
 };
 
 /* Player state, shared with the audio callback. Kept plain. */

@@ -135,6 +135,18 @@ static void glyph_trick(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 6, y + 1, 3, 1, KZ_BUTTER);
 }
 
+/* two little paw prints on a path — the walk button */
+static void glyph_walk(SDL_Renderer *r, float x, float y, Color c) {
+    /* first paw print (lower-left) */
+    px_rect(r, x, y + 4, 3, 3, c);
+    px_rect(r, x, y + 2, 1, 1, c);
+    px_rect(r, x + 2, y + 2, 1, 1, c);
+    /* second paw print (upper-right) */
+    px_rect(r, x + 5, y, 3, 3, c);
+    px_rect(r, x + 5, y - 2, 1, 1, c);
+    px_rect(r, x + 7, y - 2, 1, 1, c);
+}
+
 bool ui_button_hit(const Button *b, float px_, float py_) {
     return px_ >= b->x && px_ <= b->x + b->w
         && py_ >= b->y && py_ <= b->y + b->h;
@@ -164,6 +176,7 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
         case KZ_BTN_FEED:    glyph_bowl(r, gx, gy, KZ_PETAL_PINK); break;
         case KZ_BTN_MAIL:    glyph_envelope(r, gx, gy, KZ_COCOA); break;
         case KZ_BTN_TRICK:   glyph_trick(r, gx, gy, KZ_PETAL_PINK); break;
+        case KZ_BTN_WALK:    glyph_walk(r, gx, gy, KZ_COCOA); break;
         case KZ_BTN_DECOR:   glyph_chair(r, gx, gy, KZ_COCOA); break;
     }
 }
@@ -828,6 +841,25 @@ int ui_trick_popup_hit(float anchor_x, float anchor_y, float px_, float py_) {
         if (px_ >= ix && px_ <= ix + TRK_ICON) return i;
     }
     return -1;
+}
+
+/* ---- walk button: start/stop a scenic park walk ---- */
+
+const Button KZ_WALK_BUTTON = { 4, KZ_H - 66, 20, 16, KZ_BTN_WALK };
+
+void ui_walk_button_draw(SDL_Renderer *r, bool walking, bool pressed) {
+    ui_button_draw(r, &KZ_WALK_BUTTON, pressed);
+    if (walking) {
+        /* a soft ring to show a walk is in progress */
+        px_rect(r, KZ_WALK_BUTTON.x - 1, KZ_WALK_BUTTON.y - 1,
+                KZ_WALK_BUTTON.w + 2, 1, KZ_HEART);
+        px_rect(r, KZ_WALK_BUTTON.x - 1,
+                KZ_WALK_BUTTON.y + KZ_WALK_BUTTON.h,
+                KZ_WALK_BUTTON.w + 2, 1, KZ_HEART);
+    }
+}
+bool ui_walk_button_hit(float px_, float py_) {
+    return ui_button_hit(&KZ_WALK_BUTTON, px_, py_);
 }
 
 
