@@ -707,8 +707,13 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* while walking, tapping the left or right half steers the cat
-                 * that way (tap the same side again to stop). */
-                if (location == LOC_PARK && walking) {
+                 * that way (tap the same side again to stop). Only taps in the
+                 * open middle of the screen steer — taps up in the button rows
+                 * or bottom UI still reach their buttons, so you can always
+                 * stop walking or leave the park. */
+                if (location == LOC_PARK && walking
+                    && ly > 40 && ly < KZ_H - 24
+                    && lx > 28 && lx < KZ_W - 28) {
                     int want = (lx < KZ_W / 2.0f) ? -1 : 1;
                     walk_dir = (walk_dir == want) ? 0 : want;
                     press_fx = 8;
@@ -1143,6 +1148,11 @@ int main(int argc, char *argv[]) {
                                 if (who) {
                                     int made = owners_greet(&owners, who, wt);
                                     owners_save(&owners, KZ_OWNERS_PATH);
+                                    /* their cat also joins your friends list, so
+                                     * you can see everyone you've met on walks */
+                                    friends_meet(&friends, who, wt);
+                                    friends_pet(&friends, who);
+                                    friends_save(&friends, KZ_FRIENDS_PATH);
                                     if (made) {
                                         SDL_snprintf(banner_line,
                                                      sizeof banner_line,
@@ -1398,9 +1408,7 @@ int main(int argc, char *argv[]) {
                             roster.cats[i].anim.facing =
                                 (dx < 0) ? 1 : -1;   /* face the friend */
                             stats_gain_xp(&roster.cats[i].stats, 2);
-                            /* playing warms the café cat up to your family too */
-                            if (cafecats.cats[j].friendship < CAFE_FRIEND_FULL)
-                                cafecats.cats[j].friendship += 1;
+                            cafecats.cats[j].friendship = 40;  /* a happy heart */
                         }
                     }
                 }
@@ -1440,11 +1448,8 @@ int main(int argc, char *argv[]) {
         /* Time of day follows the real clock: the world lightens and darkens
          * with the actual time where you are. */
         {
-            SDL_Time now;
-            SDL_DateTime dt;
-            if (SDL_GetCurrentTime(&now) && SDL_TimeToDateTime(now, &dt, true)) {
-                meadow.time = time_from_hour(dt.hour);
-            }
+            /* Always daytime — a bright, cheerful world any time you play. */
+            meadow.time = KZ_NOON;
         }
 
         /* Music follows the place you're in. */
