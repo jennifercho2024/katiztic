@@ -438,17 +438,17 @@ int main(int argc, char *argv[]) {
                 if (location == LOC_COTTAGE)
                     screen_to_room_zoomed(&cam, cottage_zoom, lx, ly, &rx, &ry);
 
-                /* When the UI has faded out for a clean view, the first tap
-                 * anywhere simply brings it all back (stat panel, family strip,
-                 * and the corner buttons). You then tap again to act. */
+                /* Only the stat panel (top-left) and family strip (bottom-left)
+                 * fade away when idle. Tapping NEAR either one brings them
+                 * back; if they were hidden, that first tap only reveals them
+                 * (tap again to act). Taps elsewhere don't disturb the fade. */
                 bool roster_was_hidden = (roster_show <= 0);
-                if (roster_was_hidden) {
-                    roster_show = 240;
-                    press_fx = 8;
-                    break;
+                bool near_ui = (ly > KZ_H - 30 && lx < 130)     /* roster strip */
+                            || (lx < 70 && ly < 74);            /* stat panel   */
+                if (near_ui) {
+                    roster_show = 240;   /* reveal / keep visible */
+                    if (roster_was_hidden) { press_fx = 8; break; }
                 }
-                /* any interaction keeps the UI awake */
-                roster_show = 240;
 
                 /* If the friends list is open, any tap just closes it. */
                 if (friends_open) { friends_open = false; break; }
@@ -1829,24 +1829,20 @@ int main(int argc, char *argv[]) {
         /* ---- UI (both locations) ---- */
         ui_draw_panel(renderer, active, 4, 4, editing, edit_buf, frame,
                       roster_show > 0);
-        /* the corner buttons hide together with the stat panel/roster for a
-         * clean view; a tap anywhere brings them back */
-        if (roster_show > 0) {
-            ui_draw_release_button(renderer, 4, 4, release_open);
-            ui_button_draw(renderer, &btn_travel, press_fx > 0);
-            if (location == LOC_COTTAGE) {
-                ui_button_draw(renderer, &btn_zoom_in, press_fx > 0);
-                ui_button_draw(renderer, &btn_zoom_out, press_fx > 0);
-            }
-            ui_friends_button_draw(renderer, press_fx > 0);
-            ui_quests_button_draw(renderer, false);   /* friends list */
-            ui_mail_button_draw(renderer, &owners, press_fx > 0);   /* mailbox */
-            if (location == LOC_PARK)
-                ui_walk_button_draw(renderer, walking, press_fx > 0);  /* walk */
-            if (location == LOC_COTTAGE) {
-                ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray */
-                ui_feed_button_draw(renderer, press_fx > 0);   /* feed array */
-            }
+        ui_draw_release_button(renderer, 4, 4, release_open);
+        ui_button_draw(renderer, &btn_travel, press_fx > 0);
+        if (location == LOC_COTTAGE) {
+            ui_button_draw(renderer, &btn_zoom_in, press_fx > 0);
+            ui_button_draw(renderer, &btn_zoom_out, press_fx > 0);
+        }
+        ui_friends_button_draw(renderer, press_fx > 0);
+        ui_quests_button_draw(renderer, false);   /* friends list */
+        ui_mail_button_draw(renderer, &owners, press_fx > 0);   /* mailbox */
+        if (location == LOC_PARK)
+            ui_walk_button_draw(renderer, walking, press_fx > 0);  /* walk */
+        if (location == LOC_COTTAGE) {
+            ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray */
+            ui_feed_button_draw(renderer, press_fx > 0);   /* feed array */
         }
         /* The roster strip fades out when unused. It's fully opaque while the
          * show timer is high, then fades over the last ~40 frames. */
