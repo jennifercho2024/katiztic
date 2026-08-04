@@ -24,6 +24,7 @@ static const MapPlace PLACES[MAP_PLACE_COUNT] = {
     { "Street",   1, 210,  70 },   /* Satin City, lower */
     { "Market",   1, 208,  46 },   /* Satin City, upper-right — the flea market */
     { "Park",     2, 120, 128 },   /* Fern Hollow, right of the forest */
+    { "Katlympics", 1, 176, 92 },  /* Satin City — the stadium */
 };
 
 int             map_place_count(void)   { return MAP_PLACE_COUNT; }
@@ -129,12 +130,25 @@ static void place_icon(SDL_Renderer *r, int place, float x, float y) {
             px_rect(r, x - 2, y - 5, 6, 3, KZ_BUTTER);               /* lamp */
             break;
         }
-        case 5:
-        default: {  /* market: a striped stall awning */
+        case 5: {  /* market: a striped stall awning */
             px_rect(r, x - 5, y - 3, 3, 4, KZ_PETAL_PINK);
             px_rect(r, x - 2, y - 3, 3, 4, KZ_CLOUD);
             px_rect(r, x + 1, y - 3, 3, 4, KZ_PETAL_PINK);
             px_rect(r, x - 5, y + 1, 10, 3, rgb(0xC6, 0xA6, 0x8E));   /* counter */
+            break;
+        }
+        case 6: {  /* park: a little slide */
+            px_rect(r, x - 4, y - 3, 2, 8, rgb(0xC8, 0xA6, 0x8E));    /* ladder */
+            for (int i = 0; i < 4; i++)
+                px_rect(r, x - 2 + i, y - 3 + i, 3, 2, rgb(0x9C, 0xC0, 0xD8)); /* chute */
+            break;
+        }
+        case 7:
+        default: {  /* katlympics: a medal on a ribbon */
+            px_rect(r, x - 1, y - 4, 1, 3, KZ_PETAL_PINK);           /* ribbon */
+            px_rect(r, x + 1, y - 4, 1, 3, KZ_MINT);
+            px_rect(r, x - 3, y - 1, 6, 6, rgb(0xF2, 0xD0, 0x7A));   /* gold disc */
+            px_rect(r, x - 1, y + 1, 2, 2, rgb(0xFB, 0xF6, 0xF2));   /* shine */
             break;
         }
     }

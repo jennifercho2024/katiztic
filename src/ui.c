@@ -477,17 +477,51 @@ bool ui_quests_button_hit(float px_, float py_) {
 
 /* A soft dialogue banner across the bottom-center with one line of text. */
 void ui_banner(SDL_Renderer *r, const char *line) {
-    float w = 176, h = 16;
-    float x = (KZ_W - w) / 2.0f, y = KZ_H - h - 26;
+    float maxw = 220;                     /* widest the banner may be */
+    float tw = text_width(line);
 
+    if (tw + 12 <= maxw) {
+        /* short message: a single tidy line, box sized to fit */
+        float w = tw + 16, h = 16;
+        if (w < 120) w = 120;
+        float x = (KZ_W - w) / 2.0f, y = KZ_H - h - 26;
+        px_rect_a(r, x + 2, y + 2, w, h, KZ_COCOA, 40);
+        px_rect(r, x, y, w, h, KZ_CLOUD);
+        px_rect(r, x, y, w, 1, KZ_COCOA);
+        px_rect(r, x, y + h - 1, w, 1, KZ_COCOA);
+        px_rect(r, x, y, 1, h, KZ_COCOA);
+        px_rect(r, x + w - 1, y, 1, h, KZ_COCOA);
+        text_draw_centered(r, line, KZ_W / 2.0f, y + 5, KZ_COCOA);
+        return;
+    }
+
+    /* long message: wrap onto two lines at a space near the middle */
+    char l1[64] = {0}, l2[64] = {0};
+    int len = (int)SDL_strlen(line);
+    int split = len / 2;
+    /* find the nearest space to the midpoint to break cleanly */
+    int best = -1;
+    for (int i = 0; i < len; i++) {
+        if (line[i] == ' ') {
+            if (best < 0 || SDL_abs(i - split) < SDL_abs(best - split)) best = i;
+        }
+    }
+    if (best < 0) best = split;   /* no space: hard split */
+    SDL_strlcpy(l1, line, (size_t)best + 1);
+    SDL_strlcpy(l2, line + best + 1, sizeof l2);
+
+    float w1 = text_width(l1), w2 = text_width(l2);
+    float w = (w1 > w2 ? w1 : w2) + 16, h = 26;
+    if (w < 140) w = 140;
+    float x = (KZ_W - w) / 2.0f, y = KZ_H - h - 24;
     px_rect_a(r, x + 2, y + 2, w, h, KZ_COCOA, 40);
     px_rect(r, x, y, w, h, KZ_CLOUD);
-    px_rect(r, x,         y,         w, 1, KZ_COCOA);
-    px_rect(r, x,         y + h - 1, w, 1, KZ_COCOA);
-    px_rect(r, x,         y,         1, h, KZ_COCOA);
-    px_rect(r, x + w - 1, y,         1, h, KZ_COCOA);
-
-    text_draw_centered(r, line, KZ_W / 2.0f, y + 5, KZ_COCOA);
+    px_rect(r, x, y, w, 1, KZ_COCOA);
+    px_rect(r, x, y + h - 1, w, 1, KZ_COCOA);
+    px_rect(r, x, y, 1, h, KZ_COCOA);
+    px_rect(r, x + w - 1, y, 1, h, KZ_COCOA);
+    text_draw_centered(r, l1, KZ_W / 2.0f, y + 5, KZ_COCOA);
+    text_draw_centered(r, l2, KZ_W / 2.0f, y + 15, KZ_COCOA);
 }
 
 /* The friends-list overlay: a soft panel listing everyone met, trust bars,
@@ -695,12 +729,11 @@ void ui_mailbox(SDL_Renderer *r, const Owners *o, Uint64 frame) {
                 o->list[i].invite_read ? rgb(0xEC, 0xE4, 0xE8) : KZ_BUTTER);
         px_rect(r, x + 8, ry, MAIL_W - 16, 1, KZ_COCOA);
         px_rect(r, x + 8, ry + MAIL_ROW - 5, MAIL_W - 16, 1, KZ_COCOA);
-        /* text */
-        char line[48];
-        SDL_snprintf(line, sizeof line, "%s invites you to a playdate!",
-                     o->list[i].name);
+        /* text — two lines so a long name never overflows the letter */
+        char line[40];
+        SDL_snprintf(line, sizeof line, "%s invites you", o->list[i].name);
         text_draw(r, line, x + 14, ry + 3, KZ_COCOA);
-        text_draw(r, "tap to accept", x + 14, ry + 12,
+        text_draw(r, "to a playdate!  (tap to accept)", x + 14, ry + 12,
                   rgb(0x9A, 0x7A, 0x5A));
         row++;
     }

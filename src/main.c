@@ -34,6 +34,8 @@
 #include "forestlife.h"
 #include "tricks.h"
 #include "park.h"
+#include "katlympics.h"
+#include "text.h"
 #include "story.h"
 #include "worldmap.h"
 #include "pantry.h"
@@ -47,21 +49,23 @@
 /* Where the player currently is. Sleeping happens in the cottage; the meadow
  * is the outdoors. Moving between them is a tap on an on-screen button. */
 typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST, LOC_STREET,
-               LOC_MARKET, LOC_PLAYDATE, LOC_PARK } Location;
+               LOC_MARKET, LOC_PLAYDATE, LOC_PARK, LOC_KATLYMPICS } Location;
 
 /* The world map lists real destinations 0..6 (Cottage, Meadow, Cafe, Forest,
  * Street, Market, Park). The Location enum has PLAYDATE tucked at index 6
  * (it's reached via letters, not the map), so map place 6 (Park) must map to
  * LOC_PARK rather than LOC_PLAYDATE. This translates a map index to a Location. */
 static Location loc_from_map_place(int place) {
-    if (place == 6) return LOC_PARK;      /* the 7th map place is the park */
-    return (Location)place;               /* 0..5 line up directly */
+    if (place == 6) return LOC_PARK;         /* map place 6 = park       */
+    if (place == 7) return LOC_KATLYMPICS;   /* map place 7 = katlympics */
+    return (Location)place;                  /* 0..5 line up directly    */
 }
 
 /* The reverse: which map place index represents the current Location (so the
  * map can highlight where you are). PLAYDATE has no map pin. */
 static int map_place_from_loc(Location loc) {
     if (loc == LOC_PARK) return 6;
+    if (loc == LOC_KATLYMPICS) return 7;
     if (loc == LOC_PLAYDATE) return -1;   /* not on the map */
     return (int)loc;                      /* 0..5 line up directly */
 }
@@ -268,6 +272,8 @@ int main(int argc, char *argv[]) {
     ParkLife parklife = parklife_new();         /* cats visiting the park */
     bool walking = false;         /* is a scenic park walk in progress? */
     float walk_scroll = 0.0f;     /* how far along the trail we've strolled */
+    Katlympics katlympics = katlympics_none();
+    bool kat_choosing = false;    /* showing the event-picker at the stadium? */
     bool mail_open = false;       /* is the mailbox inbox showing?      */
     bool pd_confirm = false;      /* "go to the playdate?" dialog up?   */
     int  pd_letter = 0;           /* which letter we're confirming       */
@@ -496,6 +502,62 @@ int main(int argc, char *argv[]) {
                     }
                     press_fx = 8;
                     break;
+                }
+
+                /* At the Katlympics: pick an event, or dismiss the results. */
+                if (location == LOC_KATLYMPICS) {
+                    if (katlympics.active && katlympics.phase == 2) {
+                        for (int i = 0; i < roster.count; i++)
+                            stats_gain_xp(&roster.cats[i].stats,
+                                          katlympics.xp_won);
+                        pantry_earn(&pantry, katlympics.coins_won);
+                        pantry_save(&pantry, KZ_PANTRY_PATH);
+                        roster_save(&roster, KZ_SAVE_PATH);
+                        if (katlympics.your_medal != MEDAL_NONE)
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "%s won %s! +%d coins for all",
+                                         roster_active(&roster)->name,
+                                         medal_name(katlympics.your_medal),
+                                         katlympics.coins_won);
+                        else
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "A fun try! +%d coins for all",
+                                         katlympics.coins_won);
+                        banner_timer = 300;
+                        katlympics = katlympics_none();
+                        kat_choosing = true;
+                        press_fx = 8;
+                        break;
+                    }
+                    if (kat_choosing && !katlympics.active) {
+                        float bw = 130, bx = (KZ_W - bw) / 2.0f;
+                        if (lx >= bx && lx <= bx + bw) {
+                            int ev = -1;
+                            if (ly >= 70 && ly <= 90) ev = EVENT_TRICKS;
+                            else if (ly >= 98 && ly <= 118) ev = EVENT_OBSTACLE;
+                            if (ev >= 0) {
+                                const char *onames[KAT_RIVALS];
+                                CatType otypes[KAT_RIVALS];
+                                int oc = 0;
+                                for (int i = 0; i < owners.count
+                                     && oc < KAT_RIVALS; i++) {
+                                    if (owners.list[i].befriended) {
+                                        onames[oc] = owners.list[i].name;
+                                        otypes[oc] = owners.list[i].cat_type;
+                                        oc++;
+                                    }
+                                }
+                                OwnedCat *a = roster_active(&roster);
+                                katlympics = katlympics_begin((EventId)ev,
+                                    a->name, &tricks, &a->stats,
+                                    onames, otypes, oc);
+                                kat_choosing = false;
+                                press_fx = 8;
+                            }
+                        }
+                        break;
+                    }
+                    if (katlympics.active) break;
                 }
 
                 /* walk button (park only): start or stop a scenic walk */
@@ -1021,6 +1083,11 @@ int main(int argc, char *argv[]) {
                         roster.cats[i].anim.act = ACT_SIT;
                     }
                 }
+                /* Arriving at the stadium: offer the event picker. */
+                if (location == LOC_KATLYMPICS) {
+                    kat_choosing = true;
+                    katlympics = katlympics_none();
+                }
                 if (location == LOC_MEADOW) {
                     enc = encounter_begin(&friends);
                     if (enc.present) {
@@ -1070,6 +1137,8 @@ int main(int argc, char *argv[]) {
         else if (location == LOC_CAFE || location == LOC_PARK)
             behavior_update(&roster, NULL, frame);
         if (location == LOC_PARK) parklife_update(&parklife, frame);
+        if (location == LOC_KATLYMPICS && katlympics.active)
+            katlympics_update(&katlympics);
         /* On a scenic walk, the scenery scrolls and the active cat pads along
          * beside you at the center of the path. */
         if (location == LOC_PARK && walking) {
@@ -1083,7 +1152,11 @@ int main(int argc, char *argv[]) {
             a->anim.act = ACT_WALK;
             a->anim.facing = 1;
             /* a walk is gently good for the soul */
-            if (frame % 180 == 0) stats_outing(&a->stats);
+            /* a walk is good exercise: steady XP and a mood lift as you go */
+            if (frame % 90 == 0) {
+                stats_gain_xp(&a->stats, 4);
+                stats_outing(&a->stats);
+            }
         }
         if (press_fx > 0) press_fx--;
 
@@ -1105,6 +1178,7 @@ int main(int argc, char *argv[]) {
                       : (location == LOC_MARKET)  ? MUSIC_CAFE
                       : (location == LOC_PLAYDATE)? MUSIC_MEADOW
                       : (location == LOC_PARK)    ? MUSIC_PARK
+                      : (location == LOC_KATLYMPICS) ? MUSIC_PARK
                       : MUSIC_STREET;
         music_set_theme(mt);
         if (location == LOC_MEADOW) {
@@ -1276,6 +1350,36 @@ int main(int argc, char *argv[]) {
         if (location == LOC_MARKET) {
             /* The flea market: a shop screen, no roaming cats here. */
             market_draw(renderer, &pantry, frame);
+        } else if (location == LOC_KATLYMPICS) {
+            /* The Katlympics stadium: pick an event, or watch it play out. */
+            if (katlympics.active) {
+                katlympics_draw(renderer, &katlympics, active->type,
+                                active->shiny, frame);
+            } else {
+                /* the event picker */
+                park_draw(renderer, frame, is_night);   /* a green field bg */
+                px_rect_a(renderer, 0, 0, KZ_W, KZ_H, rgb(0x6E, 0x58, 0x92), 40);
+                text_draw_scaled(renderer, "Katlympics!", 54, 22,
+                                 rgb(0x6E, 0x58, 0x92), 2);
+                text_draw_centered(renderer, "choose an event", KZ_W / 2.0f, 52,
+                                   KZ_CLOUD);
+                float bw = 130, bx = (KZ_W - bw) / 2.0f;
+                /* trick showcase button */
+                px_rect(renderer, bx, 70, bw, 20, KZ_PETAL_PINK);
+                px_rect(renderer, bx, 70, bw, 1, KZ_COCOA);
+                px_rect(renderer, bx, 89, bw, 1, KZ_COCOA);
+                text_draw_centered(renderer, "Trick Showcase", KZ_W / 2.0f, 76,
+                                   KZ_COCOA);
+                /* obstacle course button */
+                px_rect(renderer, bx, 98, bw, 20, KZ_MINT);
+                px_rect(renderer, bx, 98, bw, 1, KZ_COCOA);
+                px_rect(renderer, bx, 117, bw, 1, KZ_COCOA);
+                text_draw_centered(renderer, "Obstacle Course", KZ_W / 2.0f, 104,
+                                   KZ_COCOA);
+                text_draw_centered(renderer,
+                                   "travel to leave", KZ_W / 2.0f, KZ_H - 10,
+                                   KZ_CLOUD);
+            }
         } else if (location == LOC_PLAYDATE) {
             /* A cozy playdate: your cat and a friend's cat play together. */
             OwnedCat *a = roster_active(&roster);

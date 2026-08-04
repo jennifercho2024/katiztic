@@ -102,35 +102,62 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
              : -1.0f;
     float trick_lift = 0.0f;    /* whole-cat vertical lift (jump)         */
     int   paw_raise = 0;        /* which front paw is up: 0 none,1 left,2 right */
-    float roll_tilt = 0.0f;     /* horizontal squash for a roll           */
+    float roll_tilt = 0.0f;     /* horizontal shift for a roll            */
     int   face_over = 0;        /* temporary facing override for a spin    */
     float sit_drop = 0.0f;      /* haunches lower for a sit                */
+    float squash_x = 1.0f;      /* horizontal scale (spin/roll)           */
+    float squash_y = 1.0f;      /* vertical scale (squash & stretch)      */
+    float spin_wobble = 0.0f;   /* extra spin body rock                    */
     if (tp >= 0.0f) {
         float arc = sinf(tp * (float)M_PI);   /* 0 up to 1 and back to 0 */
         switch (cat->trick) {
             case CAT_TRICK_JUMP:
-                trick_lift = -arc * 16.0f;     /* leaps up and lands       */
+                /* a big leap with a squash on takeoff and landing */
+                trick_lift = -arc * 18.0f;
+                if (tp < 0.2f || tp > 0.8f) { squash_x = 1.15f; squash_y = 0.85f; }
+                else { squash_x = 0.92f; squash_y = 1.12f; }   /* stretch airborne */
                 break;
             case CAT_TRICK_HIGHFIVE:
-                /* raise the right paw during the middle of the animation */
                 if (tp > 0.25f && tp < 0.75f) paw_raise = 2;
-                trick_lift = -arc * 3.0f;      /* a little lean up          */
+                trick_lift = -arc * 4.0f;
+                sit_drop = arc * 2.0f;   /* sits back a little to reach up */
                 break;
-            case CAT_TRICK_SPIN:
-                /* flip facing a couple of times to read as a spin */
-                face_over = ((int)(tp * 4.0f) % 2 == 0) ? 1 : -1;
+            case CAT_TRICK_SPIN: {
+                /* a full turn: horizontal squash sweeps through zero (like the
+                 * body rotating edge-on) twice, with a facing flip at each,
+                 * plus a little rocking wobble — reads as a real spin. */
+                float turn = tp * 2.0f;                 /* two half-turns */
+                float ph = turn - (float)((int)turn);   /* 0..1 within each */
+                squash_x = fabsf(cosf(ph * (float)M_PI));  /* 1 -> 0 -> 1 */
+                if (squash_x < 0.15f) squash_x = 0.15f;
+                face_over = (ph < 0.5f) ? cat->facing : -cat->facing;
+                spin_wobble = sinf(tp * (float)M_PI * 4.0f) * 3.0f;
+                trick_lift = -arc * 3.0f;
                 break;
-            case CAT_TRICK_ROLL:
-                roll_tilt = sinf(tp * (float)M_PI * 2.0f) * 4.0f; /* wobble */
-                trick_lift = -arc * 2.0f;
+            }
+            case CAT_TRICK_ROLL: {
+                /* a real roll: the cat lies over (big tilt), squashes as it
+                 * goes round, and rocks side to side across the ground. */
+                roll_tilt = sinf(tp * (float)M_PI) * 12.0f;   /* rolls sideways */
+                float r = tp * 2.0f;
+                float rph = r - (float)((int)r);
+                squash_y = 0.6f + 0.4f * fabsf(cosf(rph * (float)M_PI)); /* flatten */
+                squash_x = 1.3f - 0.3f * squash_y;
+                trick_lift = -arc * 1.5f;
                 break;
+            }
             case CAT_TRICK_SIT:
             default:
-                sit_drop = arc * 3.0f;          /* settles down onto haunches */
+                /* a clear, deep sit: haunches drop, body leans back and
+                 * squashes down — unmistakable now. */
+                sit_drop = arc * 8.0f;
+                squash_y = 1.0f - arc * 0.18f;   /* compresses down */
+                squash_x = 1.0f + arc * 0.12f;   /* spreads a touch */
                 break;
         }
     }
     py += trick_lift;
+    roll_tilt += spin_wobble;
     int facing = (face_over != 0) ? face_over : cat->facing;
     (void)facing;  /* facing is used below for the spin flip on the tail */
 
@@ -143,36 +170,43 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
     px_rect(r, cx + 14, py + 4 + tw, 3, 3, col.body);
     px_rect(r, cx + 16, py + 2 + tw, 3, 4, col.body);
 
-    /* Body + darker belly band. Roll adds a horizontal wobble; sit lowers it. */
-    px_rect(r, cx - 9 + roll_tilt, py + 4 + sit_drop,  20, 14, col.body);
-    px_rect(r, cx - 9 + roll_tilt, py + 16 + sit_drop, 20,  2, col.dark);
+    /* Body + darker belly band. Squash/stretch (spin, roll, jump, sit) scales
+     * the main mass around its center; roll/spin shift it sideways. */
+    float bw = 20.0f * squash_x, bh = 14.0f * squash_y;
+    float bxo = (20.0f - bw) / 2.0f;             /* recenter horizontally */
+    float byo = (14.0f - bh);                    /* keep feet on the ground */
+    px_rect(r, cx - 9 + roll_tilt + bxo, py + 4 + sit_drop + byo, bw, bh, col.body);
+    px_rect(r, cx - 9 + roll_tilt + bxo, py + 16 + sit_drop, 20.0f * squash_x, 2, col.dark);
 
     /* Head offset combines the purr wobble and any grooming head-dip. */
     float ho = purr + head_dip;
+    /* the head follows the spin/roll squash and sideways shift too */
+    float hw = 16.0f * squash_x;
+    float hxo = (16.0f - hw) / 2.0f + roll_tilt * 0.7f;
 
     /* Head. */
-    px_rect(r, cx - 8, py - 8 + ho, 16, 14, col.body);
+    px_rect(r, cx - 8 + hxo, py - 8 + ho + sit_drop * 0.5f, hw, 14, col.body);
 
     /* Ears (outer + inner). */
-    px_rect(r, cx - 8, py - 12 + ho, 4, 5, col.body);
-    px_rect(r, cx + 4, py - 12 + ho, 4, 5, col.body);
-    px_rect(r, cx - 7, py - 11 + ho, 2, 3, col.ear);
-    px_rect(r, cx + 5, py - 11 + ho, 2, 3, col.ear);
+    px_rect(r, cx - 8 + hxo, py - 12 + ho + sit_drop * 0.5f, 4, 5, col.body);
+    px_rect(r, cx + 4 + hxo, py - 12 + ho + sit_drop * 0.5f, 4, 5, col.body);
+    px_rect(r, cx - 7 + hxo, py - 11 + ho + sit_drop * 0.5f, 2, 3, col.ear);
+    px_rect(r, cx + 5 + hxo, py - 11 + ho + sit_drop * 0.5f, 2, 3, col.ear);
 
     /* Eyes: closed (a slit) when blinking, sleeping, or grooming; open ovals
      * otherwise. Outline + nose stay a fixed soft mauve. */
     if (cat->blink > 0 || eyes_closed) {
-        px_rect(r, cx - 5, py - 3 + ho, 3, 1, KZ_CAT_OUTLINE);
-        px_rect(r, cx + 2, py - 3 + ho, 3, 1, KZ_CAT_OUTLINE);
+        px_rect(r, cx - 5 + hxo, py - 3 + ho, 3, 1, KZ_CAT_OUTLINE);
+        px_rect(r, cx + 2 + hxo, py - 3 + ho, 3, 1, KZ_CAT_OUTLINE);
     } else {
-        px_rect(r, cx - 5, py - 4 + ho, 2, 3, KZ_CAT_OUTLINE);
-        px_rect(r, cx + 3, py - 4 + ho, 2, 3, KZ_CAT_OUTLINE);
+        px_rect(r, cx - 5 + hxo, py - 4 + ho, 2, 3, KZ_CAT_OUTLINE);
+        px_rect(r, cx + 3 + hxo, py - 4 + ho, 2, 3, KZ_CAT_OUTLINE);
     }
 
     /* Nose + cheek blush. */
-    px_rect(r, cx - 1, py - 1 + ho, 2, 1, KZ_CAT_NOSE);
-    px_rect(r, cx - 6, py - 1 + ho, 2, 1, col.cheek);
-    px_rect(r, cx + 4, py - 1 + ho, 2, 1, col.cheek);
+    px_rect(r, cx - 1 + hxo, py - 1 + ho, 2, 1, KZ_CAT_NOSE);
+    px_rect(r, cx - 6 + hxo, py - 1 + ho, 2, 1, col.cheek);
+    px_rect(r, cx + 4 + hxo, py - 1 + ho, 2, 1, col.cheek);
 
     /* Stripes. */
     px_rect(r, cx - 6, py + 6, 2, 6, col.dark);
