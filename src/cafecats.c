@@ -6,21 +6,20 @@
 #include "text.h"
 #include <math.h>
 
-static const char *CNAMES[] = {
-    "Mochi", "Biscuit", "Pumpkin", "Clover", "Tofu", "Peaches",
-    "Marshmallow", "Ginger", "Olive", "Pepper", "Honey", "Nutmeg",
-};
-#define CNAME_COUNT ((int)(sizeof CNAMES / sizeof CNAMES[0]))
-
 /* lounging spots around the café interior (240x160) */
 static const float SPOT_X[CAFE_CATS_MAX] = { 52.0f, 120.0f, 176.0f, 92.0f };
 static const float SPOT_Y[CAFE_CATS_MAX] = { 120.0f, 128.0f, 118.0f, 132.0f };
 
+/* The café's resident cats: the same familiar faces greet you every visit.
+ * Fixed name, type, and spot so they feel like they truly live here. */
+static const char    *RES_NAME[CAFE_CATS_MAX] = { "Mochi", "Biscuit", "Clover", "Tofu" };
+static const CatType  RES_TYPE[CAFE_CATS_MAX] = { KZ_SUNNY, KZ_GENTLE, KZ_PLAYFUL, KZ_CLEVER };
+
 static void spawn_one(CafeCat *c, int slot) {
     c->present = true;
-    c->type = (CatType)SDL_rand(KZ_TYPE_COUNT);
-    c->shiny = (SDL_rand(12) == 0);        /* a rare sparkly visitor */
-    SDL_strlcpy(c->name, CNAMES[SDL_rand(CNAME_COUNT)], sizeof c->name);
+    c->type = RES_TYPE[slot];
+    c->shiny = false;
+    SDL_strlcpy(c->name, RES_NAME[slot], sizeof c->name);
     c->friendship = 0;
     c->adopted = false;
     c->home_x = SPOT_X[slot];
@@ -31,13 +30,57 @@ static void spawn_one(CafeCat *c, int slot) {
 
 CafeCats cafecats_new(void) {
     CafeCats cc;
-    for (int i = 0; i < CAFE_CATS_MAX; i++) {
-        /* most slots filled to start, so the café feels busy */
-        if (SDL_rand(4) != 0) spawn_one(&cc.cats[i], i);
-        else cc.cats[i].present = false;
-    }
+    /* all four residents are always here — the café's regulars */
+    for (int i = 0; i < CAFE_CATS_MAX; i++)
+        spawn_one(&cc.cats[i], i);
     cc.refresh_timer = 300.0f;
+    /* a different little crowd of patrons each visit */
+    cc.patron_count = 1 + SDL_rand(3);   /* 1..3 people */
+    for (int i = 0; i < cc.patron_count; i++) {
+        cc.patron_x[i] = 30.0f + i * 70.0f + (float)SDL_rand(20);
+        cc.patron_shirt[i] = SDL_rand(5);
+        cc.patron_has_cat[i] = SDL_rand(2);
+    }
     return cc;
+}
+
+/* draw one seated café patron: a simple, friendly figure at a table */
+static void draw_patron(SDL_Renderer *r, float x, int shirt, int has_cat,
+                        Uint64 frame) {
+    Color shirts[5] = { KZ_PETAL_PINK, KZ_MINT, KZ_BUTTER, KZ_LAVENDER,
+                        rgb(0xB8, 0xC8, 0xE0) };
+    Color skin[3] = { rgb(0xF0, 0xC8, 0xA8), rgb(0xC8, 0x94, 0x6E),
+                      rgb(0x9A, 0x6E, 0x50) };
+    Color sk = skin[(int)((x + shirt) ) % 3];
+    float y = 96;
+    /* chair back */
+    px_rect(r, x - 8, y - 2, 2, 20, rgb(0xB0, 0x8E, 0x76));
+    /* body/shirt */
+    px_rect(r, x - 6, y + 4, 12, 12, shirts[shirt % 5]);
+    /* head */
+    px_rect(r, x - 4, y - 5, 8, 8, sk);
+    /* hair */
+    px_rect(r, x - 4, y - 6, 8, 3, rgb(0x6A, 0x52, 0x44));
+    px_rect(r, x - 5, y - 5, 1, 4, rgb(0x6A, 0x52, 0x44));
+    px_rect(r, x + 4, y - 5, 1, 4, rgb(0x6A, 0x52, 0x44));
+    /* a coffee cup on the table, steam curling */
+    px_rect(r, x + 8, y + 12, 4, 3, KZ_CLOUD);
+    px_rect(r, x + 8, y + 12, 4, 1, rgb(0xC8, 0xA6, 0x8E));
+    if ((frame / 20) % 2 == 0)
+        px_rect(r, x + 9, y + 9, 1, 2, rgb(0xE0, 0xD8, 0xE4));
+    /* a little cat sitting with them, sometimes */
+    if (has_cat) {
+        px_rect(r, x + 10, y + 14, 6, 4, rgb(0xD8, 0xB0, 0x90));  /* body */
+        px_rect(r, x + 14, y + 11, 3, 4, rgb(0xD8, 0xB0, 0x90));  /* head */
+        px_rect(r, x + 14, y + 10, 1, 2, rgb(0xD8, 0xB0, 0x90));  /* ear */
+        px_rect(r, x + 16, y + 10, 1, 2, rgb(0xD8, 0xB0, 0x90));
+    }
+}
+
+void cafecats_draw_patrons(SDL_Renderer *r, const CafeCats *cc, Uint64 frame) {
+    for (int i = 0; i < cc->patron_count; i++)
+        draw_patron(r, cc->patron_x[i], cc->patron_shirt[i],
+                    cc->patron_has_cat[i], frame);
 }
 
 void cafecats_update(CafeCats *cc, Uint64 frame) {
@@ -45,49 +88,31 @@ void cafecats_update(CafeCats *cc, Uint64 frame) {
         CafeCat *c = &cc->cats[i];
         if (!c->present) continue;
         cat_update(&c->anim);
+        if (c->friendship > 0) c->friendship--;   /* heart fades after petting */
         /* gentle idle: occasionally shift pose */
         if ((frame + (Uint64)i * 37) % 360 == 0) {
             int r = SDL_rand(3);
             c->anim.act = (r == 0) ? ACT_SIT : (r == 1) ? ACT_GROOM : ACT_SLEEP;
         }
     }
-    /* a new cat may wander into an empty spot now and then */
-    cc->refresh_timer -= 1.0f;
-    if (cc->refresh_timer <= 0.0f) {
-        for (int i = 0; i < CAFE_CATS_MAX; i++) {
-            if (!cc->cats[i].present) { spawn_one(&cc->cats[i], i); break; }
-        }
-        cc->refresh_timer = 600.0f + (float)SDL_rand(600);
-    }
+    (void)cc->refresh_timer;   /* residents are permanent — no refresh */
 }
 
 void cafecats_draw(SDL_Renderer *r, const CafeCats *cc, Uint64 frame) {
     for (int i = 0; i < CAFE_CATS_MAX; i++) {
         const CafeCat *c = &cc->cats[i];
-        if (!c->present || c->adopted) continue;
-        CatColors col = c->shiny ? cat_shiny_colors()
-                                 : cattype_colors(c->type);
+        if (!c->present) continue;
+        CatColors col = cattype_colors(c->type);
         cat_draw(r, &c->anim, col, frame);
-        if (c->shiny) cat_draw_sparkles(r, &c->anim, frame);
 
-        /* a small friendship meter floats above the cat */
-        float mx = c->home_x - 10, my = c->home_y - 26;
-        if (c->friendship >= CAFE_FRIEND_FULL) {
-            /* ready to adopt: a bobbing heart */
-            float bob = sinf((float)frame * 0.15f + i) * 1.5f;
-            px_rect(r, mx + 7, my + bob, 2, 2, KZ_HEART);
-            px_rect(r, mx + 10, my + bob, 2, 2, KZ_HEART);
-            px_rect(r, mx + 6, my + 1 + bob, 7, 2, KZ_HEART);
-            px_rect(r, mx + 7, my + 3 + bob, 5, 1, KZ_HEART);
-            px_rect(r, mx + 8, my + 4 + bob, 3, 1, KZ_HEART);
-        } else if (c->friendship > 0) {
-            /* a little progress bar as you befriend it */
-            px_rect(r, mx, my + 2, 20, 3, rgb(0xE0, 0xD6, 0xE0));
-            px_rect(r, mx, my + 2,
-                    20.0f * (float)c->friendship / CAFE_FRIEND_FULL, 3,
-                    KZ_PETAL_PINK);
-            px_rect(r, mx, my + 2, 20, 1, KZ_COCOA);
-            px_rect(r, mx, my + 4, 20, 1, KZ_COCOA);
+        /* a brief happy heart floats up right after you pet this resident */
+        if (c->friendship > 0) {
+            float mx = c->home_x, my = c->home_y - 22 - (c->friendship % 20) * 0.4f;
+            px_rect(r, mx, my, 2, 2, KZ_HEART);
+            px_rect(r, mx + 3, my, 2, 2, KZ_HEART);
+            px_rect(r, mx - 1, my + 1, 7, 2, KZ_HEART);
+            px_rect(r, mx, my + 3, 5, 1, KZ_HEART);
+            px_rect(r, mx + 1, my + 4, 3, 1, KZ_HEART);
         }
     }
 }
@@ -103,22 +128,10 @@ int cafecats_hit(const CafeCats *cc, float px_, float py_) {
     return -1;
 }
 
-bool cafecats_pet(CafeCats *cc, int index) {
-    if (index < 0 || index >= CAFE_CATS_MAX) return false;
+void cafecats_pet(CafeCats *cc, int index) {
+    if (index < 0 || index >= CAFE_CATS_MAX) return;
     CafeCat *c = &cc->cats[index];
-    if (!c->present || c->adopted) return false;
+    if (!c->present) return;
     cat_pet(&c->anim);
-    if (c->friendship >= CAFE_FRIEND_FULL) return false;  /* already ready */
-    c->friendship += 20;
-    if (c->friendship >= CAFE_FRIEND_FULL) {
-        c->friendship = CAFE_FRIEND_FULL;
-        return true;   /* just became ready to adopt! */
-    }
-    return false;
-}
-
-bool cafecats_ready(const CafeCats *cc, int index) {
-    if (index < 0 || index >= CAFE_CATS_MAX) return false;
-    const CafeCat *c = &cc->cats[index];
-    return c->present && !c->adopted && c->friendship >= CAFE_FRIEND_FULL;
+    c->friendship = 40;   /* shows a happy heart for a little while */
 }

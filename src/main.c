@@ -438,11 +438,13 @@ int main(int argc, char *argv[]) {
                 if (location == LOC_COTTAGE)
                     screen_to_room_zoomed(&cam, cottage_zoom, lx, ly, &rx, &ry);
 
-                /* Tapping in the bottom-left (where the family strip lives)
-                 * wakes it if it has faded out. If it was faded, this tap only
-                 * reveals it — you tap again to actually pick a cat. */
+                /* Tapping in the bottom-left (family strip) or top-left (stat
+                 * panel) wakes the auto-hiding UI if it has faded out. If it
+                 * was hidden, the tap only reveals it; tap again to act. */
                 bool roster_was_hidden = (roster_show <= 0);
-                if (ly > KZ_H - 30 && lx < 130) {
+                bool near_ui = (ly > KZ_H - 30 && lx < 130)     /* roster strip */
+                            || (lx < 70 && ly < 74);            /* stat panel   */
+                if (near_ui) {
                     roster_show = 240;   /* reveal / keep it visible */
                     if (roster_was_hidden) { press_fx = 8; break; }
                 }
@@ -987,45 +989,16 @@ int main(int argc, char *argv[]) {
                             cam_last_y = ly;
                         }
                     } else if (location == LOC_CAFE) {
-                        /* At the cat café: tap a lounging cat to pet it (which
-                         * warms it up to you) and, once its heart is full, tap
-                         * again to adopt it into your family. */
+                        /* At the cat café: tap a resident cat to pet it. These
+                         * are the café's own cats — they live here, so you can
+                         * visit and pet them any time (no adopting). */
                         int cci = cafecats_hit(&cafecats, lx, ly);
                         if (cci >= 0) {
-                            if (cafecats_ready(&cafecats, cci)) {
-                                /* adopt this café cat! */
-                                CafeCat *cat = &cafecats.cats[cci];
-                                if (roster_adopt(&roster, cat->type,
-                                                 CAT_X, CAT_Y)) {
-                                    roster.cats[roster.count - 1].shiny = cat->shiny;
-                                    SDL_strlcpy(roster.cats[roster.count - 1].name,
-                                                cat->name,
-                                                sizeof roster.cats[0].name);
-                                    roster_save(&roster, KZ_SAVE_PATH);
-                                    cat->adopted = true;
-                                    SDL_snprintf(banner_line, sizeof banner_line,
-                                                 "You adopted %s! Welcome home",
-                                                 cat->name);
-                                    banner_timer = 300;
-                                } else {
-                                    SDL_strlcpy(banner_line,
-                                                "Your family is full!",
-                                                sizeof banner_line);
-                                    banner_timer = 220;
-                                }
-                            } else {
-                                /* pet to build friendship */
-                                bool ready = cafecats_pet(&cafecats, cci);
-                                if (ready)
-                                    SDL_snprintf(banner_line, sizeof banner_line,
-                                                 "%s loves you! Tap again to adopt",
-                                                 cafecats.cats[cci].name);
-                                else
-                                    SDL_snprintf(banner_line, sizeof banner_line,
-                                                 "%s enjoys the attention.",
-                                                 cafecats.cats[cci].name);
-                                banner_timer = 200;
-                            }
+                            cafecats_pet(&cafecats, cci);
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "%s purrs happily.",
+                                         cafecats.cats[cci].name);
+                            banner_timer = 160;
                             hit_one = true;
                             press_fx = 8;
                         }
@@ -1761,7 +1734,8 @@ int main(int argc, char *argv[]) {
                 decor_draw(renderer, &decor, frame);   /* décor only at home */
             } else {
                 cafe_draw(renderer, frame);
-                cafecats_draw(renderer, &cafecats, frame);  /* adoptable cats */
+                cafecats_draw_patrons(renderer, &cafecats, frame);  /* people */
+                cafecats_draw(renderer, &cafecats, frame);  /* resident cats */
             }
             /* Draw the roaming cats sorted by y so nearer (lower) cats overlap
              * farther ones. */
@@ -1852,7 +1826,8 @@ int main(int argc, char *argv[]) {
         }
 
         /* ---- UI (both locations) ---- */
-        ui_draw_panel(renderer, active, 4, 4, editing, edit_buf, frame);
+        ui_draw_panel(renderer, active, 4, 4, editing, edit_buf, frame,
+                      roster_show > 0);
         ui_draw_release_button(renderer, 4, 4, release_open);
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
         if (location == LOC_COTTAGE) {

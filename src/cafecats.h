@@ -31,7 +31,12 @@ typedef struct {
 
 typedef struct {
     CafeCat cats[CAFE_CATS_MAX];
-    float   refresh_timer;  /* frames until a new cat may wander in     */
+    float   refresh_timer;  /* (unused now — residents are permanent)   */
+    /* café patrons: a few people enjoying the café, different each visit */
+    int     patron_count;
+    float   patron_x[3];
+    int     patron_shirt[3];   /* which shirt color                     */
+    int     patron_has_cat[3]; /* is a little cat sitting with them?     */
 } CafeCats;
 
 /* A fresh café population (called when you arrive). */
@@ -46,11 +51,10 @@ void cafecats_draw(SDL_Renderer *r, const CafeCats *cc, Uint64 frame);
 /* Which café cat is at a screen point, or -1. */
 int  cafecats_hit(const CafeCats *cc, float px, float py);
 
-/* Pet a café cat: raises friendship, returns true if it JUST became ready
- * to adopt (friendship reached full on this pet). */
-bool cafecats_pet(CafeCats *cc, int index);
+/* Draw the café patrons (people) — call before drawing the cats. */
+void cafecats_draw_patrons(SDL_Renderer *r, const CafeCats *cc, Uint64 frame);
 
-/* Is this café cat ready to be adopted (friendship full)? */
-bool cafecats_ready(const CafeCats *cc, int index);
+/* Pet a café resident: they show a happy heart. */
+void cafecats_pet(CafeCats *cc, int index);
 
 #endif /* KATIZTIC_CAFECATS_H */

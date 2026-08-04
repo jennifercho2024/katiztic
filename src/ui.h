@@ -57,7 +57,8 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed);
  * cat's name and type as a header, then her four stat bars. When `editing` is
  * true, the name row shows `edit_buf` with a blinking caret instead. */
 void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
-                   bool editing, const char *edit_buf, Uint64 frame);
+                   bool editing, const char *edit_buf, Uint64 frame,
+                   bool show);
 
 /* Is point (px,py) on the name row of the stat card drawn at (x,y)?
  * (tap to rename) */

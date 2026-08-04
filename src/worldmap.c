@@ -10,6 +10,7 @@ static const MapCity CITIES[] = {
     { "Pearl City",  8,   28,  92, 58, 0xF0, 0xDD, 0xE8 },  /* home, left      */
     { "Satin City",  150, 26,  84, 62, 0xDD, 0xE4, 0xF2 },  /* town, right     */
     { "Fern Hollow", 30,  98, 116, 50, 0xD6, 0xE8, 0xD8 },  /* wild, low-middle */
+    { "Everbelle",   152, 100, 82, 50, 0xEC, 0xE0, 0xF4 },  /* the games grounds */
 };
 #define CITY_COUNT ((int)(sizeof CITIES / sizeof CITIES[0]))
 
@@ -24,7 +25,7 @@ static const MapPlace PLACES[MAP_PLACE_COUNT] = {
     { "Street",   1, 210,  70 },   /* Satin City, lower */
     { "Market",   1, 208,  46 },   /* Satin City, upper-right — the flea market */
     { "Park",     2, 120, 128 },   /* Fern Hollow, right of the forest */
-    { "Katlympics", 1, 176, 92 },  /* Satin City — the stadium */
+    { "Katlympics", 3, 190, 124 },  /* Everbelle — the games grounds */
 };
 
 int             map_place_count(void)   { return MAP_PLACE_COUNT; }

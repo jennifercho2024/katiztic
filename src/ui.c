@@ -286,7 +286,9 @@ void ui_draw_release_button(SDL_Renderer *r, float panel_x, float panel_y,
 }
 
 void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
-                   bool editing, const char *edit_buf, Uint64 frame) {
+                   bool editing, const char *edit_buf, Uint64 frame,
+                   bool show) {
+    if (!show) return;   /* auto-hidden — draw nothing */
     const Stats *s = &cat->stats;
     float w = 62, h = 66;   /* taller now: name + type + 3 stats + level/xp */
 
@@ -509,7 +511,7 @@ void ui_banner(SDL_Renderer *r, const char *line) {
         /* short message: a single tidy line, box sized to fit */
         float w = tw + 16, h = 16;
         if (w < 120) w = 120;
-        float x = (KZ_W - w) / 2.0f, y = KZ_H - h - 26;
+        float x = (KZ_W - w) / 2.0f, y = 26;
         px_rect_a(r, x + 2, y + 2, w, h, KZ_COCOA, 40);
         px_rect(r, x, y, w, h, KZ_CLOUD);
         px_rect(r, x, y, w, 1, KZ_COCOA);
@@ -538,7 +540,7 @@ void ui_banner(SDL_Renderer *r, const char *line) {
     float w1 = text_width(l1), w2 = text_width(l2);
     float w = (w1 > w2 ? w1 : w2) + 16, h = 26;
     if (w < 140) w = 140;
-    float x = (KZ_W - w) / 2.0f, y = KZ_H - h - 24;
+    float x = (KZ_W - w) / 2.0f, y = 26;
     px_rect_a(r, x + 2, y + 2, w, h, KZ_COCOA, 40);
     px_rect(r, x, y, w, h, KZ_CLOUD);
     px_rect(r, x, y, w, 1, KZ_COCOA);
