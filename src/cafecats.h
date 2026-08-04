@@ -1,12 +1,10 @@
-/* cafecats.h — the adoptable cats who live at the cat café.
+/* cafecats.h — the resident cats (and patrons) of the cat café.
  *
- * The café is now a proper cat café: several cats lounge around on cushions,
- * the counter, and the floor, each waiting to be petted and — once they warm
- * up to you — adopted into your family. Petting a café cat raises its little
- * "friendship" meter; once full, a heart appears and you can adopt it.
- *
- * These are separate from your owned roster until adopted. A fresh set of
- * visitors rotates in over time so the café always feels lived-in.
+ * The café is a proper cat café: four cats live here — the same friendly faces
+ * every visit — lounging on cushions and the floor. You can pet them any time
+ * you drop by (they show a happy little heart), and your own cats can play
+ * with them too. A rotating handful of people (patrons) also enjoy the café,
+ * a different little crowd each visit.
  */
 #ifndef KATIZTIC_CAFECATS_H
 #define KATIZTIC_CAFECATS_H
@@ -15,7 +13,7 @@
 #include "cattype.h"
 #include "cat.h"
 
-#define CAFE_CATS_MAX 4     /* how many cats lounge in the café at once */
+#define CAFE_CATS_MAX 4     /* how many cats live in the café */
 #define CAFE_FRIEND_FULL 100
 
 typedef struct {
