@@ -26,6 +26,7 @@
 #include "cottage.h"
 #include "camera.h"
 #include "cafe.h"
+#include "cafecats.h"
 #include "forest.h"
 #include "street.h"
 #include "streetlife.h"
@@ -293,6 +294,7 @@ int main(int argc, char *argv[]) {
     int meadow_respawn = 300;     /* frames until a new wild cat may wander in */
     StreetLife streetlife = streetlife_new();   /* people walking their cats */
     ParkLife parklife = parklife_new();         /* cats visiting the park */
+    CafeCats cafecats = cafecats_new();         /* adoptable cats at the café */
     bool walking = false;         /* is a scenic park walk in progress? */
     float walk_scroll = 0.0f;     /* how far along the trail we've strolled */
     int  walk_dir = 0;            /* -1 left, 0 still, +1 right (tap to steer) */
@@ -972,6 +974,49 @@ int main(int argc, char *argv[]) {
                             cam_last_x = lx;
                             cam_last_y = ly;
                         }
+                    } else if (location == LOC_CAFE) {
+                        /* At the cat café: tap a lounging cat to pet it (which
+                         * warms it up to you) and, once its heart is full, tap
+                         * again to adopt it into your family. */
+                        int cci = cafecats_hit(&cafecats, lx, ly);
+                        if (cci >= 0) {
+                            if (cafecats_ready(&cafecats, cci)) {
+                                /* adopt this café cat! */
+                                CafeCat *cat = &cafecats.cats[cci];
+                                if (roster_adopt(&roster, cat->type,
+                                                 CAT_X, CAT_Y)) {
+                                    roster.cats[roster.count - 1].shiny = cat->shiny;
+                                    SDL_strlcpy(roster.cats[roster.count - 1].name,
+                                                cat->name,
+                                                sizeof roster.cats[0].name);
+                                    roster_save(&roster, KZ_SAVE_PATH);
+                                    cat->adopted = true;
+                                    SDL_snprintf(banner_line, sizeof banner_line,
+                                                 "You adopted %s! Welcome home",
+                                                 cat->name);
+                                    banner_timer = 300;
+                                } else {
+                                    SDL_strlcpy(banner_line,
+                                                "Your family is full!",
+                                                sizeof banner_line);
+                                    banner_timer = 220;
+                                }
+                            } else {
+                                /* pet to build friendship */
+                                bool ready = cafecats_pet(&cafecats, cci);
+                                if (ready)
+                                    SDL_snprintf(banner_line, sizeof banner_line,
+                                                 "%s loves you! Tap again to adopt",
+                                                 cafecats.cats[cci].name);
+                                else
+                                    SDL_snprintf(banner_line, sizeof banner_line,
+                                                 "%s enjoys the attention.",
+                                                 cafecats.cats[cci].name);
+                                banner_timer = 200;
+                            }
+                            hit_one = true;
+                            press_fx = 8;
+                        }
                     } else if (location == LOC_PARK) {
                         /* At the park: greet a visiting cat first, else tap/hold
                          * one of your own cats (hold to train, like at home). */
@@ -1223,6 +1268,10 @@ int main(int argc, char *argv[]) {
                         roster.cats[i].anim.act = ACT_SIT;
                     }
                 }
+                /* Arriving at the café: a fresh set of adoptable cats. */
+                if (location == LOC_CAFE) {
+                    cafecats = cafecats_new();
+                }
                 /* Arriving at the park: gather the family onto the play lawn
                  * (the cottage's home spots are spread across a big room, so
                  * we place them within the park's screen here). */
@@ -1299,6 +1348,7 @@ int main(int argc, char *argv[]) {
         else if (location == LOC_CAFE || location == LOC_PARK)
             behavior_update(&roster, NULL, frame);
         if (location == LOC_PARK) parklife_update(&parklife, frame);
+        if (location == LOC_CAFE) cafecats_update(&cafecats, frame);
         if (location == LOC_KATLYMPICS && katlympics.active)
             katlympics_update(&katlympics);
         /* On a scenic walk, the scenery scrolls and the active cat pads along
@@ -1673,6 +1723,7 @@ int main(int argc, char *argv[]) {
                 decor_draw(renderer, &decor, frame);   /* décor only at home */
             } else {
                 cafe_draw(renderer, frame);
+                cafecats_draw(renderer, &cafecats, frame);  /* adoptable cats */
             }
             /* Draw the roaming cats sorted by y so nearer (lower) cats overlap
              * farther ones. */

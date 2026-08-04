@@ -1,0 +1,45 @@
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/behavior.c -o src/behavior.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/cafe.c -o src/cafe.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/camera.c -o src/camera.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/cat.c -o src/cat.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/cattype.c -o src/cattype.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/cottage.c -o src/cottage.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/decor.c -o src/decor.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/encounter.c -o src/encounter.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/forest.c -o src/forest.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/forestlife.c -o src/forestlife.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/friends.c -o src/friends.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/icon.c -o src/icon.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/katlympics.c -o src/katlympics.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/main.c -o src/main.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/market.c -o src/market.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/mood.c -o src/mood.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/music.c -o src/music.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/owners.c -o src/owners.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/pantry.c -o src/pantry.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/park.c -o src/park.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/playdate.c -o src/playdate.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/quests.c -o src/quests.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/render.c -o src/render.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/roster.c -o src/roster.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/scene.c -o src/scene.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/stats.c -o src/stats.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/story.c -o src/story.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/street.c -o src/street.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/streetlife.c -o src/streetlife.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/text.c -o src/text.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/title.c -o src/title.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/tricks.c -o src/tricks.o
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/ui.c -o src/ui.o
+src/ui.c:11:13: warning: unused function 'glyph_house' [-Wunused-function]
+   11 | static void glyph_house(SDL_Renderer *r, float x, float y, Color c) {
+      |             ^~~~~~~~~~~
+src/ui.c:22:13: warning: unused function 'glyph_sun' [-Wunused-function]
+   22 | static void glyph_sun(SDL_Renderer *r, float x, float y, Color c) {
+      |             ^~~~~~~~~
+src/ui.c:218:13: warning: unused function 'icon_star' [-Wunused-function]
+  218 | static void icon_star(SDL_Renderer *r, float x, float y, Color c) {
+      |             ^~~~~~~~~
+3 warnings generated.
+cc -std=c11 -Wall -Wextra -Wpedantic -O2 -I/opt/homebrew/include -c src/worldmap.c -o src/worldmap.o
+cc src/behavior.o src/cafe.o src/camera.o src/cat.o src/cattype.o src/cottage.o src/decor.o src/encounter.o src/forest.o src/forestlife.o src/friends.o src/icon.o src/katlympics.o src/main.o src/market.o src/mood.o src/music.o src/owners.o src/pantry.o src/park.o src/playdate.o src/quests.o src/render.o src/roster.o src/scene.o src/stats.o src/story.o src/street.o src/streetlife.o src/text.o src/title.o src/tricks.o src/ui.o src/worldmap.o -o katiztic -L/opt/homebrew/lib -Wl,-rpath,/opt/homebrew/lib -lSDL3 -lm

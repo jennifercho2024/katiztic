@@ -178,13 +178,13 @@ void ui_button_draw(SDL_Renderer *r, const Button *b, bool pressed) {
         case KZ_BTN_TRICK:   glyph_trick(r, gx, gy, KZ_PETAL_PINK); break;
         case KZ_BTN_WALK:    glyph_walk(r, gx, gy, KZ_COCOA); break;
         case KZ_BTN_ZOOM_IN:
-            /* a plus sign */
-            px_rect(r, gx + 3, gy, 2, 8, KZ_COCOA);
-            px_rect(r, gx, gy + 3, 8, 2, KZ_COCOA);
+            /* a bold plus sign in a bright color */
+            px_rect(r, gx + 3, gy - 1, 3, 11, KZ_HEART);
+            px_rect(r, gx - 1, gy + 3, 11, 3, KZ_HEART);
             break;
         case KZ_BTN_ZOOM_OUT:
-            /* a minus sign */
-            px_rect(r, gx, gy + 3, 8, 2, KZ_COCOA);
+            /* a bold minus sign */
+            px_rect(r, gx - 1, gy + 3, 11, 3, KZ_HEART);
             break;
         case KZ_BTN_DECOR:   glyph_chair(r, gx, gy, KZ_COCOA); break;
     }
