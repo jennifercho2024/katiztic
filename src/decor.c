@@ -27,6 +27,21 @@ const DecorInfo *decor_info(DecorKind k) {
     return &INFO[0];
 }
 
+int decor_price(DecorKind k) {
+    /* prices for the department store — furniture costs more than food */
+    switch (k) {
+        case DECOR_PLANT:   return 15;
+        case DECOR_LAMP:    return 20;
+        case DECOR_PICTURE: return 18;
+        case DECOR_TOWER:   return 40;   /* a cat tower is a treat */
+        case DECOR_CUSHION: return 12;
+        case DECOR_RUG2:    return 16;
+        case DECOR_YARN:    return 8;
+        case DECOR_MILK:    return 8;
+        default:            return 15;
+    }
+}
+
 Decor decor_new(void) {
     Decor d;
     for (int i = 0; i < DECOR_COUNT; i++) {

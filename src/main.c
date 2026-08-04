@@ -36,6 +36,7 @@
 #include "tricks.h"
 #include "park.h"
 #include "katlympics.h"
+#include "store.h"
 #include "text.h"
 #include "story.h"
 #include "worldmap.h"
@@ -50,7 +51,8 @@
 /* Where the player currently is. Sleeping happens in the cottage; the meadow
  * is the outdoors. Moving between them is a tap on an on-screen button. */
 typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST, LOC_STREET,
-               LOC_MARKET, LOC_PLAYDATE, LOC_PARK, LOC_KATLYMPICS } Location;
+               LOC_MARKET, LOC_PLAYDATE, LOC_PARK, LOC_KATLYMPICS,
+               LOC_STORE } Location;
 
 /* The world map lists real destinations 0..6 (Cottage, Meadow, Cafe, Forest,
  * Street, Market, Park). The Location enum has PLAYDATE tucked at index 6
@@ -59,6 +61,7 @@ typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST, LOC_STREET,
 static Location loc_from_map_place(int place) {
     if (place == 6) return LOC_PARK;         /* map place 6 = park       */
     if (place == 7) return LOC_KATLYMPICS;   /* map place 7 = katlympics */
+    if (place == 8) return LOC_STORE;        /* map place 8 = store      */
     return (Location)place;                  /* 0..5 line up directly    */
 }
 
@@ -67,6 +70,7 @@ static Location loc_from_map_place(int place) {
 static int map_place_from_loc(Location loc) {
     if (loc == LOC_PARK) return 6;
     if (loc == LOC_KATLYMPICS) return 7;
+    if (loc == LOC_STORE) return 8;
     if (loc == LOC_PLAYDATE) return -1;   /* not on the map */
     return (int)loc;                      /* 0..5 line up directly */
 }
@@ -206,8 +210,8 @@ int main(int argc, char *argv[]) {
      * button only shows in the cottage. Positions in logical 240x160 space. */
     Button btn_travel = { KZ_W - 24, 4,  20, 16, KZ_BTN_OUT };
     /* zoom controls, shown only in the cottage (stacked, right side) */
-    Button btn_zoom_in  = { KZ_W - 24, 24, 20, 16, KZ_BTN_ZOOM_IN };
-    Button btn_zoom_out = { KZ_W - 24, 42, 20, 16, KZ_BTN_ZOOM_OUT };
+    Button btn_zoom_in  = { KZ_W - 24, 84,  20, 16, KZ_BTN_ZOOM_IN };
+    Button btn_zoom_out = { KZ_W - 24, 104, 20, 16, KZ_BTN_ZOOM_OUT };
     bool   map_open = false;      /* is the world map showing?           */
     int    map_sel = 0;           /* cursor: which place is highlighted   */
     bool   map_confirm = false;   /* is the "Go here?" dialog up?         */
@@ -295,6 +299,7 @@ int main(int argc, char *argv[]) {
     StreetLife streetlife = streetlife_new();   /* people walking their cats */
     ParkLife parklife = parklife_new();         /* cats visiting the park */
     CafeCats cafecats = cafecats_new();         /* adoptable cats at the café */
+    StoreFloor store_floor = STORE_FURNITURE;   /* which department store floor */
     int roster_show = 240;        /* frames the roster strip stays visible; when
                                    * it runs down the strip fades away until you
                                    * tap near it again */
@@ -907,13 +912,13 @@ int main(int argc, char *argv[]) {
                 if (location == LOC_COTTAGE) {
                     if (ui_button_hit(&btn_zoom_in, lx, ly)) {
                         cottage_zoom += 0.25f;
-                        if (cottage_zoom > 2.0f) cottage_zoom = 2.0f;
+                        if (cottage_zoom > 2.5f) cottage_zoom = 2.5f;
                         press_fx = 8;
                         break;
                     }
                     if (ui_button_hit(&btn_zoom_out, lx, ly)) {
                         cottage_zoom -= 0.25f;
-                        if (cottage_zoom < 1.0f) cottage_zoom = 1.0f;
+                        if (cottage_zoom < 0.75f) cottage_zoom = 0.75f;
                         press_fx = 8;
                         break;
                     }
@@ -951,6 +956,47 @@ int main(int argc, char *argv[]) {
                             SDL_snprintf(banner_line, sizeof banner_line,
                                          "Bought %s!",
                                          food_name((FoodKind)stall));
+                        } else {
+                            SDL_strlcpy(banner_line, "Not enough coins.",
+                                        sizeof banner_line);
+                        }
+                        banner_timer = 180;
+                        press_fx = 8;
+                    }
+                }
+                else if (location == LOC_STORE) {
+                    StoreTap st = store_hit(store_floor, lx, ly);
+                    if (st.kind == STORE_TAP_SWITCH_FLOOR) {
+                        store_floor = (store_floor == STORE_FURNITURE)
+                                    ? STORE_SUPPLIES : STORE_FURNITURE;
+                        press_fx = 8;
+                    } else if (st.kind == STORE_TAP_BUY_DECOR) {
+                        DecorKind k = (DecorKind)st.index;
+                        if (decor.items[k].owned) {
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "You already own the %s.",
+                                         decor_info(k)->name);
+                            banner_timer = 180;
+                        } else if (pantry_spend(&pantry, decor_price(k))) {
+                            decor.items[k].owned = true;
+                            decor_save(&decor, KZ_DECOR_PATH);
+                            pantry_save(&pantry, KZ_PANTRY_PATH);
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "Bought the %s! Place it at home.",
+                                         decor_info(k)->name);
+                            banner_timer = 220;
+                        } else {
+                            SDL_strlcpy(banner_line, "Not enough coins.",
+                                        sizeof banner_line);
+                            banner_timer = 180;
+                        }
+                        press_fx = 8;
+                    } else if (st.kind == STORE_TAP_BUY_FOOD) {
+                        if (pantry_buy(&pantry, (FoodKind)st.index)) {
+                            pantry_save(&pantry, KZ_PANTRY_PATH);
+                            SDL_snprintf(banner_line, sizeof banner_line,
+                                         "Bought %s!",
+                                         food_name((FoodKind)st.index));
                         } else {
                             SDL_strlcpy(banner_line, "Not enough coins.",
                                         sizeof banner_line);
@@ -1407,6 +1453,7 @@ int main(int argc, char *argv[]) {
                       : (location == LOC_CAFE)    ? MUSIC_CAFE
                       : (location == LOC_FOREST)  ? MUSIC_FOREST
                       : (location == LOC_MARKET)  ? MUSIC_CAFE
+                      : (location == LOC_STORE)   ? MUSIC_CAFE
                       : (location == LOC_PLAYDATE)? MUSIC_MEADOW
                       : (location == LOC_PARK)    ? MUSIC_PARK
                       : (location == LOC_KATLYMPICS) ? MUSIC_PARK
@@ -1581,6 +1628,9 @@ int main(int argc, char *argv[]) {
         if (location == LOC_MARKET) {
             /* The flea market: a shop screen, no roaming cats here. */
             market_draw(renderer, &pantry, frame);
+        } else if (location == LOC_STORE) {
+            /* The department store: buy furniture and cat supplies. */
+            store_draw(renderer, store_floor, &decor, &pantry, frame);
         } else if (location == LOC_KATLYMPICS) {
             /* The Katlympics stadium: pick an event, choose your performance,
              * or watch it play out. */
@@ -1829,7 +1879,9 @@ int main(int argc, char *argv[]) {
         /* ---- UI (both locations) ---- */
         ui_draw_panel(renderer, active, 4, 4, editing, edit_buf, frame,
                       roster_show > 0);
-        ui_draw_release_button(renderer, 4, 4, release_open);
+        /* the release (X) button belongs to the name badge, so it hides with it */
+        if (roster_show > 0)
+            ui_draw_release_button(renderer, 4, 4, release_open);
         ui_button_draw(renderer, &btn_travel, press_fx > 0);
         if (location == LOC_COTTAGE) {
             ui_button_draw(renderer, &btn_zoom_in, press_fx > 0);

@@ -42,6 +42,9 @@ typedef struct {
 
 const DecorInfo *decor_info(DecorKind k);
 
+/* The coin price to buy a piece of furniture at the department store. */
+int decor_price(DecorKind k);
+
 /* One placed item's saved state. */
 typedef struct {
     bool  owned;     /* unlocked yet?                    */
