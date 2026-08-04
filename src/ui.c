@@ -396,49 +396,65 @@ static void portrait(SDL_Renderer *r, float x, float y, CatColors col) {
     px_rect(r, x + 15, y + 12, 2, 1, col.cheek);
 }
 
-void ui_roster_draw(SDL_Renderer *r, const Roster *ro) {
+/* the same portrait, drawn with a fade alpha for the auto-hiding roster */
+static void portrait_a(SDL_Renderer *r, float x, float y, CatColors col,
+                       Uint8 a) {
+    px_rect_a(r, x + 4, y + 6, 14, 12, col.body, a);
+    px_rect_a(r, x + 4,  y + 2, 4, 5, col.body, a);
+    px_rect_a(r, x + 14, y + 2, 4, 5, col.body, a);
+    px_rect_a(r, x + 5,  y + 3, 2, 3, col.ear, a);
+    px_rect_a(r, x + 15, y + 3, 2, 3, col.ear, a);
+    px_rect_a(r, x + 7,  y + 10, 2, 2, KZ_CAT_OUTLINE, a);
+    px_rect_a(r, x + 13, y + 10, 2, 2, KZ_CAT_OUTLINE, a);
+    px_rect_a(r, x + 10, y + 13, 2, 1, KZ_CAT_NOSE, a);
+    px_rect_a(r, x + 5,  y + 12, 2, 1, col.cheek, a);
+    px_rect_a(r, x + 15, y + 12, 2, 1, col.cheek, a);
+}
+
+void ui_roster_draw(SDL_Renderer *r, const Roster *ro, Uint8 fade) {
+    if (fade == 0) return;   /* fully hidden — draw nothing */
     for (int i = 0; i < ro->count; i++) {
         float x = rs_slot_x(i), y = RS_Y;
         bool active = (i == ro->active);
 
         /* slot background: cream, with a pink ring when active */
-        px_rect_a(r, x + 1, y + 2, RS_SLOT, RS_SLOT, KZ_COCOA, 40); /* shadow */
-        px_rect(r, x, y, RS_SLOT, RS_SLOT, KZ_CLOUD);
+        px_rect_a(r, x + 1, y + 2, RS_SLOT, RS_SLOT, KZ_COCOA,
+                  (Uint8)(40 * fade / 255)); /* shadow */
+        px_rect_a(r, x, y, RS_SLOT, RS_SLOT, KZ_CLOUD, fade);
         Color border = active ? KZ_PETAL_PINK : KZ_COCOA;
         int th = active ? 2 : 1;   /* thicker ring when active */
         for (int t = 0; t < th; t++) {
-            px_rect(r, x + t,             y + t,             RS_SLOT - 2*t, 1, border);
-            px_rect(r, x + t,             y + RS_SLOT-1 - t, RS_SLOT - 2*t, 1, border);
-            px_rect(r, x + t,             y + t,             1, RS_SLOT - 2*t, border);
-            px_rect(r, x + RS_SLOT-1 - t, y + t,             1, RS_SLOT - 2*t, border);
+            px_rect_a(r, x + t,             y + t,             RS_SLOT - 2*t, 1, border, fade);
+            px_rect_a(r, x + t,             y + RS_SLOT-1 - t, RS_SLOT - 2*t, 1, border, fade);
+            px_rect_a(r, x + t,             y + t,             1, RS_SLOT - 2*t, border, fade);
+            px_rect_a(r, x + RS_SLOT-1 - t, y + t,             1, RS_SLOT - 2*t, border, fade);
         }
 
         CatColors pc = ro->cats[i].shiny ? cat_shiny_colors()
                                          : cattype_colors(ro->cats[i].type);
-        portrait(r, x, y, pc);
+        portrait_a(r, x, y, pc, fade);
 
         /* shiny cats get a little gold sparkle in the corner of their slot */
         if (ro->cats[i].shiny) {
             float sx = x + RS_SLOT - 6, sy = y + 3;
             Color gold = rgb(0xFF, 0xE8, 0x9A);
-            px_rect(r, sx,     sy - 1, 1, 3, gold);
-            px_rect(r, sx - 1, sy,     3, 1, gold);
+            px_rect_a(r, sx,     sy - 1, 1, 3, gold, fade);
+            px_rect_a(r, sx - 1, sy,     3, 1, gold, fade);
         }
     }
 
     /* "+" adopt slot, if there's room */
     if (ro->count < KZ_MAX_CATS) {
         float x = rs_slot_x(ro->count), y = RS_Y;
-        px_rect_a(r, x + 1, y + 2, RS_SLOT, RS_SLOT, KZ_COCOA, 40);
-        px_rect(r, x, y, RS_SLOT, RS_SLOT, KZ_CLOUD);
-        px_rect(r, x, y, RS_SLOT, 1, KZ_COCOA);
-        px_rect(r, x, y + RS_SLOT-1, RS_SLOT, 1, KZ_COCOA);
-        px_rect(r, x, y, 1, RS_SLOT, KZ_COCOA);
-        px_rect(r, x + RS_SLOT-1, y, 1, RS_SLOT, KZ_COCOA);
-        /* plus sign in mint — a 10px cross, dead-centered in the 22px slot
-         * (bars span 6..16 so all four arms are equal) */
-        px_rect(r, x + 6,  y + 10, 10, 2, KZ_MINT);
-        px_rect(r, x + 10, y + 6,  2, 10, KZ_MINT);
+        px_rect_a(r, x + 1, y + 2, RS_SLOT, RS_SLOT, KZ_COCOA,
+                  (Uint8)(40 * fade / 255));
+        px_rect_a(r, x, y, RS_SLOT, RS_SLOT, KZ_CLOUD, fade);
+        px_rect_a(r, x, y, RS_SLOT, 1, KZ_COCOA, fade);
+        px_rect_a(r, x, y + RS_SLOT-1, RS_SLOT, 1, KZ_COCOA, fade);
+        px_rect_a(r, x, y, 1, RS_SLOT, KZ_COCOA, fade);
+        px_rect_a(r, x + RS_SLOT-1, y, 1, RS_SLOT, KZ_COCOA, fade);
+        px_rect_a(r, x + 6,  y + 10, 10, 2, KZ_MINT, fade);
+        px_rect_a(r, x + 10, y + 6,  2, 10, KZ_MINT, fade);
     }
 }
 

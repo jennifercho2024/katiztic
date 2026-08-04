@@ -295,6 +295,9 @@ int main(int argc, char *argv[]) {
     StreetLife streetlife = streetlife_new();   /* people walking their cats */
     ParkLife parklife = parklife_new();         /* cats visiting the park */
     CafeCats cafecats = cafecats_new();         /* adoptable cats at the café */
+    int roster_show = 240;        /* frames the roster strip stays visible; when
+                                   * it runs down the strip fades away until you
+                                   * tap near it again */
     bool walking = false;         /* is a scenic park walk in progress? */
     float walk_scroll = 0.0f;     /* how far along the trail we've strolled */
     int  walk_dir = 0;            /* -1 left, 0 still, +1 right (tap to steer) */
@@ -434,6 +437,15 @@ int main(int argc, char *argv[]) {
                 float rx = lx, ry = ly;
                 if (location == LOC_COTTAGE)
                     screen_to_room_zoomed(&cam, cottage_zoom, lx, ly, &rx, &ry);
+
+                /* Tapping in the bottom-left (where the family strip lives)
+                 * wakes it if it has faded out. If it was faded, this tap only
+                 * reveals it — you tap again to actually pick a cat. */
+                bool roster_was_hidden = (roster_show <= 0);
+                if (ly > KZ_H - 30 && lx < 130) {
+                    roster_show = 240;   /* reveal / keep it visible */
+                    if (roster_was_hidden) { press_fx = 8; break; }
+                }
 
                 /* If the friends list is open, any tap just closes it. */
                 if (friends_open) { friends_open = false; break; }
@@ -1348,7 +1360,32 @@ int main(int argc, char *argv[]) {
         else if (location == LOC_CAFE || location == LOC_PARK)
             behavior_update(&roster, NULL, frame);
         if (location == LOC_PARK) parklife_update(&parklife, frame);
-        if (location == LOC_CAFE) cafecats_update(&cafecats, frame);
+        if (location == LOC_CAFE) {
+            cafecats_update(&cafecats, frame);
+            /* your roaming cats mingle with the café cats: when one of yours
+             * gets close to a café cat, they play together (both perk up). */
+            for (int i = 0; i < roster.count; i++) {
+                for (int j = 0; j < CAFE_CATS_MAX; j++) {
+                    if (!cafecats.cats[j].present || cafecats.cats[j].adopted)
+                        continue;
+                    float dx = roster.cats[i].anim.cx - cafecats.cats[j].home_x;
+                    float dy = roster.cats[i].anim.cy - cafecats.cats[j].home_y;
+                    if (dx * dx + dy * dy <= 26.0f * 26.0f) {
+                        /* close enough to play — now and then, a happy bounce */
+                        if (SDL_rand(90) == 0) {
+                            roster.cats[i].anim.act = ACT_PLAY;
+                            cafecats.cats[j].anim.act = ACT_PLAY;
+                            roster.cats[i].anim.facing =
+                                (dx < 0) ? 1 : -1;   /* face the friend */
+                            stats_gain_xp(&roster.cats[i].stats, 2);
+                            /* playing warms the café cat up to your family too */
+                            if (cafecats.cats[j].friendship < CAFE_FRIEND_FULL)
+                                cafecats.cats[j].friendship += 1;
+                        }
+                    }
+                }
+            }
+        }
         if (location == LOC_KATLYMPICS && katlympics.active)
             katlympics_update(&katlympics);
         /* On a scenic walk, the scenery scrolls and the active cat pads along
@@ -1378,6 +1415,7 @@ int main(int argc, char *argv[]) {
             a->anim.cy = 130.0f;
         }
         if (press_fx > 0) press_fx--;
+        if (roster_show > 0) roster_show--;   /* fade the roster when idle */
 
         /* Time of day follows the real clock: the world lightens and darkens
          * with the actual time where you are. */
@@ -1830,7 +1868,13 @@ int main(int argc, char *argv[]) {
             ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray   */
             ui_feed_button_draw(renderer, press_fx > 0);   /* feed array   */
         }
-        ui_roster_draw(renderer, &roster);                /* the family strip */
+        /* The roster strip fades out when unused. It's fully opaque while the
+         * show timer is high, then fades over the last ~40 frames. */
+        Uint8 roster_fade;
+        if (roster_show >= 40) roster_fade = 255;
+        else if (roster_show <= 0) roster_fade = 0;
+        else roster_fade = (Uint8)(255 * roster_show / 40);
+        ui_roster_draw(renderer, &roster, roster_fade);   /* the family strip */
 
         /* Décor tray, when open (cottage only). */
         if (location == LOC_COTTAGE && decor_open) {

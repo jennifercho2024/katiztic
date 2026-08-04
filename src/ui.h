@@ -178,7 +178,7 @@ int  ui_place_menu_hit(float px, float py);
  * with the active cat highlighted, plus a "+" slot to adopt if there's room.
  * Draw it, and hit-test taps against it.
  */
-void ui_roster_draw(SDL_Renderer *r, const Roster *ro);
+void ui_roster_draw(SDL_Renderer *r, const Roster *ro, Uint8 fade);
 
 /* Given a tap at (px,py), return the portrait index tapped (0..count-1),
  * or -2 for the "+" adopt slot, or -1 for no hit. */
