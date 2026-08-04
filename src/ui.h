@@ -122,15 +122,14 @@ void ui_mailbox(SDL_Renderer *r, const Owners *o, Uint64 frame);
 /* which pending letter (owner index) was tapped, or -1 */
 int  ui_mailbox_hit(const Owners *o, float px, float py);
 
-/* ---- tricks: a trainer button and the trick tray ---- */
+/* ---- tricks: a small popup of trick icons that appears beside the cat ---- */
 #include "tricks.h"
-extern const Button KZ_TRICK_BUTTON;
-void ui_trick_button_draw(SDL_Renderer *r, bool pressed);
-bool ui_trick_button_hit(float px, float py);
-void ui_trick_tray(SDL_Renderer *r, const Tricks *tr, const char *cat,
-                   Uint64 frame);
-int  ui_trick_tray_hit(float px, float py);   /* returns TrickId or -1 */
-float ui_trick_tray_top(void);
+/* draw the trick popup anchored near a screen point (the cat), showing an icon
+ * per trick with a small mastery dot. */
+void ui_trick_popup(SDL_Renderer *r, const Tricks *tr, const char *cat,
+                    float anchor_x, float anchor_y, Uint64 frame);
+/* which trick icon a tap hit (given the same anchor), or -1 */
+int  ui_trick_popup_hit(float anchor_x, float anchor_y, float px, float py);
 
 
 /* ---- décor tray ----

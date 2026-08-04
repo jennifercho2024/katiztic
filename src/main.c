@@ -170,8 +170,8 @@ int main(int argc, char *argv[]) {
 
     /* The cottage is bigger than the screen so you can pan around it. The
      * camera is the view offset into that larger room. */
-    #define COTTAGE_ROOM_W 360.0f
-    #define COTTAGE_ROOM_H 240.0f
+    #define COTTAGE_ROOM_W 520.0f
+    #define COTTAGE_ROOM_H 340.0f
     Camera cam = camera_make(COTTAGE_ROOM_W, COTTAGE_ROOM_H);
     bool cam_dragging = false;    /* panning the room right now? */
     float cam_last_x = 0, cam_last_y = 0;
@@ -484,14 +484,17 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* trick tray: tap a trick to practice it, or tap outside to
-                 * close. (The tray opens by holding a cat — see the hold logic
-                 * in the update section — so there's no button to hunt for.) */
+                /* trick popup: tap a trick icon to practice it, or tap outside
+                 * to close. (The popup opens by holding a cat — see the hold
+                 * logic in the update section — and floats beside the cat.) */
                 if (trick_open) {
-                    int slot = ui_trick_tray_hit(lx, ly);
+                    OwnedCat *a = roster_active(&roster);
+                    /* the cat's screen position = room pos - camera offset */
+                    float ax = a->anim.cx - cam.x;
+                    float ay = a->anim.cy - cam.y;
+                    int slot = ui_trick_popup_hit(ax, ay, lx, ly);
                     if (slot >= 0) {
                         TrickId t = (TrickId)slot;
-                        OwnedCat *a = roster_active(&roster);
                         bool have_treat = pantry.stock[FOOD_TREAT] > 0;
                         int res = tricks_practice(&tricks, a->name, t, have_treat);
                         if (have_treat) {
@@ -510,7 +513,7 @@ int main(int argc, char *argv[]) {
                                          "%s practices %s.", a->name, trick_name(t));
                         banner_timer = 180;
                     } else {
-                        /* tapped away from the tray -> close it */
+                        /* tapped away from the popup -> close it */
                         trick_open = false;
                     }
                     press_fx = 8;
@@ -1291,7 +1294,10 @@ int main(int argc, char *argv[]) {
 
         /* Trick trainer tray, when open. */
         if (trick_open && location == LOC_COTTAGE) {
-            ui_trick_tray(renderer, &tricks, roster_active(&roster)->name, frame);
+            OwnedCat *a = roster_active(&roster);
+            float ax = a->anim.cx - cam.x;
+            float ay = a->anim.cy - cam.y;
+            ui_trick_popup(renderer, &tricks, a->name, ax, ay, frame);
         }
 
         /* Encounter UI: the treat button and the dialogue banner, when a wild
