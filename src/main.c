@@ -33,6 +33,7 @@
 #include "playdate.h"
 #include "forestlife.h"
 #include "tricks.h"
+#include "park.h"
 #include "story.h"
 #include "worldmap.h"
 #include "pantry.h"
@@ -46,7 +47,24 @@
 /* Where the player currently is. Sleeping happens in the cottage; the meadow
  * is the outdoors. Moving between them is a tap on an on-screen button. */
 typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST, LOC_STREET,
-               LOC_MARKET, LOC_PLAYDATE } Location;
+               LOC_MARKET, LOC_PLAYDATE, LOC_PARK } Location;
+
+/* The world map lists real destinations 0..6 (Cottage, Meadow, Cafe, Forest,
+ * Street, Market, Park). The Location enum has PLAYDATE tucked at index 6
+ * (it's reached via letters, not the map), so map place 6 (Park) must map to
+ * LOC_PARK rather than LOC_PLAYDATE. This translates a map index to a Location. */
+static Location loc_from_map_place(int place) {
+    if (place == 6) return LOC_PARK;      /* the 7th map place is the park */
+    return (Location)place;               /* 0..5 line up directly */
+}
+
+/* The reverse: which map place index represents the current Location (so the
+ * map can highlight where you are). PLAYDATE has no map pin. */
+static int map_place_from_loc(Location loc) {
+    if (loc == LOC_PARK) return 6;
+    if (loc == LOC_PLAYDATE) return -1;   /* not on the map */
+    return (int)loc;                      /* 0..5 line up directly */
+}
 
 /* Which story zone a location belongs to, or -1 if it isn't one. New zones
  * arrive faded (option A): only these get the warmth treatment. */
@@ -74,7 +92,7 @@ static void quest_fanfare(Roster *ro, Quests *qs, Pantry *pan, QuestId id,
     int coins = 3 + (int)qi->reward_xp / 10;
     pantry_earn(pan, coins);
     pantry_save(pan, KZ_PANTRY_PATH);
-    SDL_snprintf(banner, blen, "Quest done! +%u xp, +%dc",
+    SDL_snprintf(banner, blen, "Quest done! +%u xp, +%d coins",
                  (unsigned)qi->reward_xp, coins);
     *banner_timer = 320;
     quests_save(qs, KZ_QUESTS_PATH);   /* progress is never lost */
@@ -247,6 +265,7 @@ int main(int argc, char *argv[]) {
     Encounter enc = encounter_none();
     int meadow_respawn = 300;     /* frames until a new wild cat may wander in */
     StreetLife streetlife = streetlife_new();   /* people walking their cats */
+    ParkLife parklife = parklife_new();         /* cats visiting the park */
     bool mail_open = false;       /* is the mailbox inbox showing?      */
     bool pd_confirm = false;      /* "go to the playdate?" dialog up?   */
     int  pd_letter = 0;           /* which letter we're confirming       */
@@ -327,7 +346,7 @@ int main(int argc, char *argv[]) {
                 if (map_open) {
                     if (map_confirm) {
                         if (e.key.key == SDLK_A || e.key.key == SDLK_RETURN) {
-                            do_travel = map_sel;
+                            do_travel = loc_from_map_place(map_sel);
                             map_confirm = false;
                             map_open = false;
                         } else if (e.key.key == SDLK_B
@@ -411,7 +430,7 @@ int main(int argc, char *argv[]) {
                     if (map_confirm) {
                         int ans = ui_confirm_travel_hit(lx, ly);
                         if (ans == 1) {
-                            do_travel = (Location)map_sel;
+                            do_travel = loc_from_map_place(map_sel);
                             map_confirm = false;
                             map_open = false;
                         } else if (ans == 0) {
@@ -489,9 +508,10 @@ int main(int argc, char *argv[]) {
                  * logic in the update section — and floats beside the cat.) */
                 if (trick_open) {
                     OwnedCat *a = roster_active(&roster);
-                    /* the cat's screen position = room pos - camera offset */
-                    float ax = a->anim.cx - cam.x;
-                    float ay = a->anim.cy - cam.y;
+                    /* the cat's screen position = room pos - camera offset
+                     * (the park has no camera, so no offset there) */
+                    float ax = a->anim.cx - (location == LOC_COTTAGE ? cam.x : 0.0f);
+                    float ay = a->anim.cy - (location == LOC_COTTAGE ? cam.y : 0.0f);
                     int slot = ui_trick_popup_hit(ax, ay, lx, ly);
                     if (slot >= 0) {
                         TrickId t = (TrickId)slot;
@@ -663,7 +683,7 @@ int main(int argc, char *argv[]) {
                 if (ui_button_hit(&btn_travel, lx, ly)) {
                     map_open = true;
                     map_confirm = false;
-                    map_sel = (int)location;   /* start on where you are */
+                    { int mp = map_place_from_loc(location); map_sel = mp >= 0 ? mp : 0; }
                     press_fx = 8;
                     break;
                 }
@@ -728,6 +748,44 @@ int main(int argc, char *argv[]) {
                             cam_dragging = true;
                             cam_last_x = lx;
                             cam_last_y = ly;
+                        }
+                    } else if (location == LOC_PARK) {
+                        /* At the park: greet a visiting cat first, else tap/hold
+                         * one of your own cats (hold to train, like at home). */
+                        int pv = parklife_hit(&parklife, lx, ly);
+                        if (pv >= 0) {
+                            CatType pt = KZ_SUNNY;
+                            const char *who = parklife_greet(&parklife, pv, &pt);
+                            if (who) {
+                                int made = owners_greet(&owners, who, pt);
+                                owners_save(&owners, KZ_OWNERS_PATH);
+                                if (made)
+                                    SDL_snprintf(banner_line, sizeof banner_line,
+                                                 "You and %s are friends! A letter arrives...",
+                                                 who);
+                                else
+                                    SDL_snprintf(banner_line, sizeof banner_line,
+                                                 "%s's cat plays happily!", who);
+                                banner_timer = 220;
+                                press_fx = 8;
+                            }
+                        } else {
+                            for (int i = 0; i < roster.count; i++) {
+                                if (cat_hit(&roster.cats[i].anim, lx, ly)) {
+                                    roster_select(&roster, i);
+                                    cat_pet(&roster.cats[i].anim);
+                                    stats_pet(&roster.cats[i].stats);
+                                    if (quests_bump(&quests, QUEST_PET))
+                                        quest_fanfare(&roster, &quests, &pantry,
+                                                      QUEST_PET, banner_line,
+                                                      sizeof banner_line,
+                                                      &banner_timer);
+                                    holding_cat = true;   /* hold to train */
+                                    hold_frames = 0;
+                                    hit_one = true;
+                                    break;
+                                }
+                            }
                         }
                     } else {
                         /* In the meadow, a visiting wild cat can be petted —
@@ -926,6 +984,17 @@ int main(int argc, char *argv[]) {
                     for (int i = 0; i < roster.count; i++)
                         stats_outing(&roster.cats[i].stats);
                 }
+                /* Arriving at the park: gather the family onto the play lawn
+                 * (the cottage's home spots are spread across a big room, so
+                 * we place them within the park's screen here). */
+                if (location == LOC_PARK) {
+                    for (int i = 0; i < roster.count; i++) {
+                        roster.cats[i].anim.cx = 60.0f + (i % 4) * 44.0f
+                                               + (i / 4) * 22.0f;
+                        roster.cats[i].anim.cy = 128.0f + (i % 3) * 8.0f;
+                        roster.cats[i].anim.act = ACT_SIT;
+                    }
+                }
                 if (location == LOC_MEADOW) {
                     enc = encounter_begin(&friends);
                     if (enc.present) {
@@ -972,8 +1041,9 @@ int main(int argc, char *argv[]) {
          * Décor (yarn/milk to react to) exists only in the cottage. */
         if (location == LOC_COTTAGE)
             behavior_update(&roster, &decor, frame);
-        else if (location == LOC_CAFE)
+        else if (location == LOC_CAFE || location == LOC_PARK)
             behavior_update(&roster, NULL, frame);
+        if (location == LOC_PARK) parklife_update(&parklife, frame);
         if (press_fx > 0) press_fx--;
 
         /* Time of day follows the real clock: the world lightens and darkens
@@ -993,6 +1063,7 @@ int main(int argc, char *argv[]) {
                       : (location == LOC_FOREST)  ? MUSIC_FOREST
                       : (location == LOC_MARKET)  ? MUSIC_CAFE
                       : (location == LOC_PLAYDATE)? MUSIC_MEADOW
+                      : (location == LOC_PARK)    ? MUSIC_MEADOW
                       : MUSIC_STREET;
         music_set_theme(mt);
         if (location == LOC_MEADOW) {
@@ -1027,7 +1098,8 @@ int main(int argc, char *argv[]) {
 
         /* Hold-to-train: keep pressing a cat in the cottage and, after a
          * moment, the trick tray opens so you can ask for a trick. */
-        if (holding_cat && location == LOC_COTTAGE && !trick_open) {
+        if (holding_cat && (location == LOC_COTTAGE || location == LOC_PARK)
+            && !trick_open) {
             hold_frames++;
             /* a little sparkle-glow builds on the held cat as a cue */
             OwnedCat *a = roster_active(&roster);
@@ -1170,6 +1242,35 @@ int main(int argc, char *argv[]) {
             Activity sa0 = a->anim.act;
             playdate_draw(renderer, &playdate, &a->anim, col, frame);
             a->anim.cx = sx0; a->anim.cy = sy0; a->anim.act = sa0;
+        } else if (location == LOC_PARK) {
+            /* The playground park: your whole family roams here, other cats
+             * visit, and you can practice tricks out in the open. */
+            park_draw(renderer, frame, is_night);
+            parklife_draw(renderer, &parklife, frame);
+            /* draw the family sorted by y (nearer cats overlap farther ones) */
+            int order[KZ_MAX_CATS];
+            for (int i = 0; i < roster.count; i++) order[i] = i;
+            for (int a = 1; a < roster.count; a++) {
+                int key = order[a];
+                float ky = roster.cats[key].anim.cy;
+                int b = a - 1;
+                while (b >= 0 && roster.cats[order[b]].anim.cy > ky) {
+                    order[b + 1] = order[b];
+                    b--;
+                }
+                order[b + 1] = key;
+            }
+            for (int k = 0; k < roster.count; k++) {
+                int i = order[k];
+                CatColors cc = roster.cats[i].shiny
+                             ? cat_shiny_colors()
+                             : cattype_colors(roster.cats[i].type);
+                cat_draw(renderer, &roster.cats[i].anim, cc, frame);
+                if (roster.cats[i].shiny)
+                    cat_draw_sparkles(renderer, &roster.cats[i].anim, frame);
+            }
+            for (int i = 0; i < roster.count; i++)
+                mood_draw(renderer, &roster.cats[i].anim, frame);
         } else if (location == LOC_COTTAGE || location == LOC_CAFE) {
             /* Indoor places where the family roams and socializes. */
             if (location == LOC_COTTAGE) {
@@ -1293,10 +1394,10 @@ int main(int argc, char *argv[]) {
         }
 
         /* Trick trainer tray, when open. */
-        if (trick_open && location == LOC_COTTAGE) {
+        if (trick_open && (location == LOC_COTTAGE || location == LOC_PARK)) {
             OwnedCat *a = roster_active(&roster);
-            float ax = a->anim.cx - cam.x;
-            float ay = a->anim.cy - cam.y;
+            float ax = a->anim.cx - (location == LOC_COTTAGE ? cam.x : 0.0f);
+            float ay = a->anim.cy - (location == LOC_COTTAGE ? cam.y : 0.0f);
             ui_trick_popup(renderer, &tricks, a->name, ax, ay, frame);
         }
 
@@ -1339,7 +1440,7 @@ int main(int argc, char *argv[]) {
         if (map_open) {
             render_clear_offset();
             render_set_warmth(1.0f);
-            map_draw(renderer, map_sel, (int)location, frame);
+            map_draw(renderer, map_sel, map_place_from_loc(location), frame);
             if (map_confirm) {
                 const MapPlace *mp = map_place(map_sel);
                 ui_confirm_travel(renderer, mp->name);

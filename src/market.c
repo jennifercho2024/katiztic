@@ -102,7 +102,7 @@ void market_draw(SDL_Renderer *r, const Pantry *p, Uint64 frame) {
         text_draw_centered(r, food_name((FoodKind)i), x + STALL_W / 2.0f,
                            cy + 2, KZ_COCOA);
         char price[16];
-        SDL_snprintf(price, sizeof price, "%dc", food_price((FoodKind)i));
+        SDL_snprintf(price, sizeof price, "%d coins", food_price((FoodKind)i));
         text_draw_centered(r, price, x + STALL_W / 2.0f, cy + 14,
                            rgb(0x9A, 0x7A, 0x5A));
         char have[16];

@@ -75,6 +75,16 @@ Tap a stall to buy one — your coin purse shows in the corner. You earn coins b
 **finishing quests** and by **caring for your cats** (every level-up pays a few
 coins). What you buy stocks your pantry for feeding at home.
 
+## The park
+
+Travel to the **park** (in Pearl City) — a cheerful playground where your whole
+family roams together. There's cat-friendly equipment: a **climbing tree** with
+platforms and a dangling toy, a little **slide**, a striped **play tunnel**, and
+a **ball pit**, plus a bench and shade trees. Other neighbors' cats **visit**
+the park too — tap one to say hi (and befriend its owner, just like on the
+street). You can also **hold a cat to practice tricks** out in the open, so the
+park is a lovely place to train before the Katlympics.
+
 ## Teaching tricks
 
 Tap the **paw-and-star button** (in the cottage, and on playdates) to open the
@@ -260,6 +270,7 @@ src/
                befriend in the forest
   tricks.h/.c   the tricks cats learn (Sit, Spin, Jump, High-five, Roll)
                and each cat's skill, practiced to mastery
+  park.h/.c     the playground park scene, its equipment, and visiting cats
   title.h/.c    the embedded lavender title screen shown at startup
   pantry.h/.c  your coins and food supplies (cat food, milk, treats, water),
                with its own save file
