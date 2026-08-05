@@ -1660,9 +1660,9 @@ int main(int argc, char *argv[]) {
             hold_frames++;
             OwnedCat *a = roster_active(&roster);
             cat_pet(&a->anim);   /* keep the happy glow going as a cue */
-            if (hold_frames >= 180 && hold_frames < 185
+            if (hold_frames >= 120 && hold_frames < 125
                 && tricks_allowed_here(location) && !trick_open) {
-                /* 3s: open the trick trainer (a small window so a skipped
+                /* 2s: open the trick trainer (a small window so a skipped
                  * frame can't miss it) */
                 trick_open = true;
                 decor_open = false;
@@ -1672,8 +1672,8 @@ int main(int argc, char *argv[]) {
                              a->name);
                 banner_timer = 160;
             }
-            if (hold_frames >= 300) {
-                /* 5s: pick the cat up to carry it wherever you like */
+            if (hold_frames >= 240) {
+                /* 4s: pick the cat up to carry it wherever you like */
                 trick_open = false;      /* carrying overrides the trick tray */
                 drag_cat = roster.active;
                 holding_cat = false;
@@ -2149,9 +2149,9 @@ int main(int argc, char *argv[]) {
             float ax = a->anim.cx - off_x, ay = a->anim.cy - off_y;
             /* a small progress bar toward pick-up (fills over 5s); it turns
              * pink once the 3s trick point is passed */
-            float prog = (float)hold_frames / 300.0f;
+            float prog = (float)hold_frames / 240.0f;
             if (prog > 1.0f) prog = 1.0f;
-            Color barc = (hold_frames >= 180) ? KZ_HEART : KZ_BUTTER;
+            Color barc = (hold_frames >= 120) ? KZ_HEART : KZ_BUTTER;
             px_rect(renderer, ax - 12, ay - 26, 24, 4, KZ_CLOUD);
             px_rect(renderer, ax - 12, ay - 26, 24.0f * prog, 4, barc);
             px_rect(renderer, ax - 12, ay - 26, 24, 1, KZ_COCOA);
