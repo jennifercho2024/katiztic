@@ -277,6 +277,8 @@ void map_draw(SDL_Renderer *r, int selected, int current, Uint64 frame) {
     text_draw(r, nm, px0 + 6, py0 + 4, KZ_COCOA);
 
     /* a hint at the bottom-left, on a chip */
-    px_rect_a(r, 4, KZ_H - 11, 118, 10, KZ_CLOUD, 200);
-    text_draw(r, "arrows or tap  -  A/tap to go", 6, KZ_H - 9, KZ_COCOA);
+    const char *hint = "arrows or tap - A/tap to go";
+    float hint_w = text_width(hint) + 8;
+    px_rect_a(r, 4, KZ_H - 11, hint_w, 10, KZ_CLOUD, 200);
+    text_draw(r, hint, 8, KZ_H - 9, KZ_COCOA);
 }

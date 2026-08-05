@@ -1457,8 +1457,10 @@ int main(int argc, char *argv[]) {
                 for (int e = 0; e < EQUIP_N; e++) {
                     float dx = roster.cats[i].anim.cx - EQUIP_X[e];
                     if (dx * dx <= 18.0f * 18.0f) {   /* passing by this equipment */
-                        if (SDL_rand(40) == 0) {
+                        if (roster.cats[i].anim.act != ACT_PLAY
+                            && SDL_rand(40) == 0) {
                             roster.cats[i].anim.act = ACT_PLAY;
+                            roster.cats[i].anim.act_timer = 180;  /* keep playing */
                             stats_gain_xp(&roster.cats[i].stats, 3);
                             stats_pet(&roster.cats[i].stats);  /* playing is fun */
                         }
@@ -1935,6 +1937,24 @@ int main(int argc, char *argv[]) {
                 forestlife_draw(renderer, &forestlife, frame);
             if (location == LOC_STREET)
                 streetlife_draw(renderer, &streetlife, frame, is_night);
+            /* the whole family comes along: spread them across the ground so
+             * they all enjoy the outing together (active cat keeps her spot) */
+            for (int i = 0; i < roster.count; i++) {
+                if (i == roster.active) continue;
+                OwnedCat *fc = &roster.cats[i];
+                float fsx = fc->anim.cx, fsy = fc->anim.cy;
+                Activity fsa = fc->anim.act;
+                /* fan them out along the ground on either side */
+                float spread = (float)((i - roster.active) * 34);
+                fc->anim.cx = CAT_X + spread;
+                fc->anim.cy = (location == LOC_STREET) ? 96.0f : CAT_Y + 6.0f;
+                fc->anim.act = ACT_SIT;
+                CatColors fcc = fc->shiny ? cat_shiny_colors()
+                                          : cattype_colors(fc->type);
+                cat_draw(renderer, &fc->anim, fcc, frame);
+                mood_draw(renderer, &fc->anim, frame);
+                fc->anim.cx = fsx; fc->anim.cy = fsy; fc->anim.act = fsa;
+            }
             cat_draw(renderer, &active->anim, col, frame);
             if (active->shiny)
                 cat_draw_sparkles(renderer, &active->anim, frame);
@@ -1956,6 +1976,22 @@ int main(int argc, char *argv[]) {
             meadow_draw(renderer, &meadow, frame);
             render_clear_offset();   /* cat, visitor, wash stay screen-fixed */
             encounter_draw(renderer, &enc, frame);   /* the visitor, if present */
+            /* the whole family joins the outing, fanned across the meadow */
+            for (int i = 0; i < roster.count; i++) {
+                if (i == roster.active) continue;
+                OwnedCat *fc = &roster.cats[i];
+                float fsx = fc->anim.cx, fsy = fc->anim.cy;
+                Activity fsa = fc->anim.act;
+                float spread = (float)((i - roster.active) * 34);
+                fc->anim.cx = CAT_X + spread;
+                fc->anim.cy = CAT_Y + 6.0f;
+                fc->anim.act = ACT_SIT;
+                CatColors fcc = fc->shiny ? cat_shiny_colors()
+                                          : cattype_colors(fc->type);
+                cat_draw(renderer, &fc->anim, fcc, frame);
+                mood_draw(renderer, &fc->anim, frame);
+                fc->anim.cx = fsx; fc->anim.cy = fsy; fc->anim.act = fsa;
+            }
             cat_draw(renderer, &active->anim, col, frame);
             if (active->shiny)
                 cat_draw_sparkles(renderer, &active->anim, frame);
