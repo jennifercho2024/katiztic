@@ -556,13 +556,15 @@ void ui_friends_list(SDL_Renderer *r, const Friends *f) {
         for (int i = 0; i < f->count && i < 8; i++) {
             const Friend *fr = &f->list[i];
             float ry = y + 18 + i * 13;
-            /* little portrait dot in her type color */
+            /* little portrait dot in her type color, with a soft outline so
+             * each friend's face stands out */
+            px_rect(r, x + 5, ry - 1, 8, 8, KZ_COCOA);            /* outline */
             px_rect(r, x + 6, ry, 6, 6, cattype_colors(fr->type).body);
             px_rect(r, x + 6, ry, 6, 1, cattype_colors(fr->type).dark);
             /* name */
             text_draw(r, fr->name, x + 16, ry, KZ_COCOA);
             /* trust bar */
-            float bx = x + 96, bw = 60;
+            float bx = x + 78, bw = 42;
             px_rect(r, bx, ry, bw, 5, KZ_CLOUD);
             float fw = bw * ((float)fr->trust / (float)KZ_TRUST_FULL);
             if (fw > 0) px_rect(r, bx, ry, fw, 5, KZ_PETAL_PINK);
@@ -572,15 +574,37 @@ void ui_friends_list(SDL_Renderer *r, const Friends *f) {
             px_rect(r, bx + bw - 1, ry, 1, 5, KZ_COCOA);
             /* heart if fully befriended */
             if (fr->befriended) {
-                float hx = bx + bw + 4;
+                float hx = bx + bw + 2;
                 px_rect(r, hx, ry, 1, 1, KZ_HEART);
                 px_rect(r, hx + 2, ry, 1, 1, KZ_HEART);
                 px_rect(r, hx, ry + 1, 3, 1, KZ_HEART);
                 px_rect(r, hx + 1, ry + 2, 1, 1, KZ_HEART);
             }
+            /* "Hang out?" button: invites this friend over for a playdate */
+            float hbx = x + w - 46, hby = ry - 1;
+            px_rect(r, hbx, hby, 42, 9, KZ_MINT);
+            px_rect(r, hbx, hby, 42, 1, KZ_COCOA);
+            px_rect(r, hbx, hby + 8, 42, 1, KZ_COCOA);
+            px_rect(r, hbx, hby, 1, 9, KZ_COCOA);
+            px_rect(r, hbx + 41, hby, 1, 9, KZ_COCOA);
+            text_draw(r, "Hang out?", hbx + 3, ry, KZ_COCOA);
         }
     }
     text_draw_centered(r, "tap to close", KZ_W / 2.0f, y + h - 9, KZ_COCOA);
+}
+
+/* Which friend's "Hang out?" button was tapped, or -1. Layout mirrors
+ * ui_friends_list above. */
+int ui_friends_hangout_hit(const Friends *f, float px_, float py_) {
+    float w = 180, h = 132;
+    float x = (KZ_W - w) / 2.0f, y = (KZ_H - h) / 2.0f;
+    for (int i = 0; i < f->count && i < 8; i++) {
+        float ry = y + 18 + i * 13;
+        float hbx = x + w - 46, hby = ry - 1;
+        if (px_ >= hbx && px_ <= hbx + 42 && py_ >= hby && py_ <= hby + 9)
+            return i;
+    }
+    return -1;
 }
 
 /* ---- décor tray ---- */

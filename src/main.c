@@ -233,6 +233,8 @@ int main(int argc, char *argv[]) {
     Camera cam = camera_make(COTTAGE_ROOM_W, COTTAGE_ROOM_H);
     Camera meadow_cam = camera_make((float)MEADOW_ROOM_W, KZ_H);
     Camera park_cam = camera_make((float)PARK_ROOM_W, KZ_H);
+    Camera forest_cam = camera_make((float)FOREST_ROOM_W, KZ_H);
+    Camera street_cam = camera_make((float)STREET_ROOM_W, KZ_H);
     bool cam_dragging = false;    /* panning the room right now? */
     float cam_last_x = 0, cam_last_y = 0;
     float cottage_zoom = 1.0f;    /* 1 = normal; larger zooms in, smaller out */
@@ -479,8 +481,23 @@ int main(int argc, char *argv[]) {
                     if (roster_was_hidden) { press_fx = 8; break; }
                 }
 
-                /* If the friends list is open, any tap just closes it. */
-                if (friends_open) { friends_open = false; break; }
+                /* If the friends list is open: a "Hang out?" button invites
+                 * that friend over for a playdate; any other tap closes it. */
+                if (friends_open) {
+                    int hi = ui_friends_hangout_hit(&friends, lx, ly);
+                    if (hi >= 0) {
+                        const Friend *fr = &friends.list[hi];
+                        return_loc = (location == LOC_PLAYDATE)
+                                     ? return_loc : location;
+                        playdate = playdate_begin(fr->name, fr->type, frame);
+                        location = LOC_PLAYDATE;
+                        friends_open = false;
+                        press_fx = 8;
+                        break;
+                    }
+                    friends_open = false;
+                    break;
+                }
                 if (quests_open) {
                     /* start a potential swipe; button-up decides tap vs scroll */
                     quests_dragging = true;
@@ -1242,8 +1259,12 @@ int main(int argc, char *argv[]) {
                         OwnedCat *a = roster_active(&roster);
                         float hx = CAT_X, hy = CAT_Y;
                         if (location == LOC_STREET) {
-                            hx = CAT_X + sinf((float)frame * 0.008f) * 26.0f;
+                            hx = (float)STREET_ROOM_W / 2.0f - street_cam.x
+                               + sinf((float)frame * 0.008f) * 26.0f;
                             hy = 96.0f;
+                        } else if (location == LOC_FOREST) {
+                            hx = (float)FOREST_ROOM_W / 2.0f - forest_cam.x;
+                            hy = CAT_Y;
                         } else if (location == LOC_MEADOW) {
                             /* the meadow cat stands at a fixed world spot and
                              * pans; her on-screen x is world - camera */
@@ -1268,8 +1289,9 @@ int main(int argc, char *argv[]) {
                             int sz = story_zone_for(location);
                             if (sz >= 0)
                                 story_pet_boost(&story, (StoryZone)sz);
-                        } else if (location == LOC_MEADOW) {
-                            /* empty space in the meadow -> pan the scenery */
+                        } else if (location == LOC_MEADOW || location == LOC_FOREST
+                                   || location == LOC_STREET) {
+                            /* empty space outdoors -> pan the scenery */
                             cam_dragging = true;
                             cam_last_x = lx;
                             cam_last_y = ly;
@@ -1298,6 +1320,8 @@ int main(int argc, char *argv[]) {
                 if (cam_dragging) {
                     Camera *pc = (location == LOC_MEADOW) ? &meadow_cam
                                : (location == LOC_PARK)   ? &park_cam
+                               : (location == LOC_FOREST) ? &forest_cam
+                               : (location == LOC_STREET) ? &street_cam
                                : &cam;
                     camera_pan(pc, cam_last_x - lx, cam_last_y - ly);
                     /* re-clamp the cottage with zoom so you never pan into the
@@ -1420,6 +1444,12 @@ int main(int argc, char *argv[]) {
                  * on screen (you can then pan across the field). */
                 if (location == LOC_MEADOW) {
                     meadow_cam = camera_make((float)MEADOW_ROOM_W, KZ_H);
+                }
+                if (location == LOC_FOREST) {
+                    forest_cam = camera_make((float)FOREST_ROOM_W, KZ_H);
+                }
+                if (location == LOC_STREET) {
+                    street_cam = camera_make((float)STREET_ROOM_W, KZ_H);
                 }
                 /* Arriving at the park: gather the family onto the play lawn
                  * (the cottage's home spots are spread across a big room, so
@@ -1945,6 +1975,8 @@ int main(int argc, char *argv[]) {
             }
             for (int k = 0; k < roster.count; k++) {
                 int i = order[k];
+                if (i == roster.active)
+                    cat_draw_select_ring(renderer, &roster.cats[i].anim, frame);
                 CatColors cc = roster.cats[i].shiny
                              ? cat_shiny_colors()
                              : cattype_colors(roster.cats[i].type);
@@ -1986,6 +2018,8 @@ int main(int argc, char *argv[]) {
             }
             for (int k = 0; k < roster.count; k++) {
                 int i = order[k];
+                if (i == roster.active)
+                    cat_draw_select_ring(renderer, &roster.cats[i].anim, frame);
                 CatColors cc = roster.cats[i].shiny
                              ? cat_shiny_colors()
                              : cattype_colors(roster.cats[i].type);
@@ -2005,40 +2039,44 @@ int main(int argc, char *argv[]) {
             float save_x = active->anim.cx, save_y = active->anim.cy;
             Activity save_act = active->anim.act;
             int sz = story_zone_for(location);
+            Camera *scam = (location == LOC_FOREST) ? &forest_cam : &street_cam;
+            int room_w = (location == LOC_FOREST) ? FOREST_ROOM_W : STREET_ROOM_W;
+            /* the family stands at a fixed spot in the WORLD (middle of the
+             * lane/wood) so panning slides them along with the scenery */
+            float world_cx = (float)room_w / 2.0f;
             if (location == LOC_STREET) {
-                /* on the street she strolls the pavement with you, gently
-                 * pacing back and forth */
                 float pace = sinf((float)frame * 0.008f);
-                active->anim.cx = CAT_X + pace * 26.0f;
+                active->anim.cx = world_cx + pace * 26.0f;
                 active->anim.cy = 96.0f;   /* on the sidewalk */
                 active->anim.act = ACT_WALK;
                 active->anim.facing = (cosf((float)frame * 0.008f) >= 0) ? 1 : -1;
             } else {
-                active->anim.cx = CAT_X;
+                active->anim.cx = world_cx;
                 active->anim.cy = CAT_Y;
                 active->anim.act = ACT_SIT;
             }
             float wm = story_warmth(&story, (StoryZone)sz);
+            render_set_offset(scam->x, scam->y);   /* pan the whole scene */
             /* never fully colorless — a whisper of pastel remains as a promise */
             render_set_warmth(0.22f + 0.78f * wm);
-            if (location == LOC_FOREST) forest_draw(renderer, frame, is_night);
-            else                        street_draw(renderer, frame, is_night);
+            if (location == LOC_FOREST)
+                forest_draw_wide(renderer, frame, is_night, room_w);
+            else
+                street_draw_wide(renderer, frame, is_night, room_w);
             render_set_warmth(1.0f);
             /* woodland animals (and street walkers) live in full color */
             if (location == LOC_FOREST)
                 forestlife_draw(renderer, &forestlife, frame);
             if (location == LOC_STREET)
                 streetlife_draw(renderer, &streetlife, frame, is_night);
-            /* the whole family comes along: spread them across the ground so
-             * they all enjoy the outing together (active cat keeps her spot) */
+            /* the whole family comes along, fanned out beside the active cat */
             for (int i = 0; i < roster.count; i++) {
                 if (i == roster.active) continue;
                 OwnedCat *fc = &roster.cats[i];
                 float fsx = fc->anim.cx, fsy = fc->anim.cy;
                 Activity fsa = fc->anim.act;
-                /* fan them out along the ground on either side */
                 float spread = (float)((i - roster.active) * 34);
-                fc->anim.cx = CAT_X + spread;
+                fc->anim.cx = world_cx + spread;
                 fc->anim.cy = (location == LOC_STREET) ? 96.0f : CAT_Y + 6.0f;
                 fc->anim.act = ACT_SIT;
                 CatColors fcc = fc->shiny ? cat_shiny_colors()
@@ -2047,10 +2085,12 @@ int main(int argc, char *argv[]) {
                 mood_draw(renderer, &fc->anim, frame);
                 fc->anim.cx = fsx; fc->anim.cy = fsy; fc->anim.act = fsa;
             }
+            cat_draw_select_ring(renderer, &active->anim, frame);
             cat_draw(renderer, &active->anim, col, frame);
             if (active->shiny)
                 cat_draw_sparkles(renderer, &active->anim, frame);
             mood_draw(renderer, &active->anim, frame);
+            render_clear_offset();   /* UI is screen-fixed */
             active->anim.cx = save_x;
             active->anim.cy = save_y;
             active->anim.act = save_act;
@@ -2088,6 +2128,7 @@ int main(int argc, char *argv[]) {
                 mood_draw(renderer, &fc->anim, frame);
                 fc->anim.cx = fsx; fc->anim.cy = fsy; fc->anim.act = fsa;
             }
+            cat_draw_select_ring(renderer, &active->anim, frame);
             cat_draw(renderer, &active->anim, col, frame);
             if (active->shiny)
                 cat_draw_sparkles(renderer, &active->anim, frame);

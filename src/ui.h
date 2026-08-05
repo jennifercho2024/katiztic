@@ -99,6 +99,7 @@ bool ui_friends_button_hit(float px, float py);
  * friends marked. Returns nothing; tapping anywhere closes it (handled in
  * main). */
 void ui_friends_list(SDL_Renderer *r, const Friends *f);
+int  ui_friends_hangout_hit(const Friends *f, float px_, float py_);
 
 /* ---- quests: a checklist button and the quest-log overlay ---- */
 #include "quests.h"

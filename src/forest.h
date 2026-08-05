@@ -17,5 +17,9 @@
 /* Draw the forest. `frame` drives the gentle sway and drifting motes;
  * `night` dims it after dark like the other places. */
 void forest_draw(SDL_Renderer *r, Uint64 frame, bool night);
+void forest_draw_wide(SDL_Renderer *r, Uint64 frame, bool night, int room_w);
+
+/* The forest is wider than the screen so you can pan deeper into the wood. */
+#define FOREST_ROOM_W 480
 
 #endif /* KATIZTIC_FOREST_H */

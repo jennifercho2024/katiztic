@@ -285,3 +285,21 @@ void cat_draw_sparkles(SDL_Renderer *r, const Cat *cat, Uint64 frame) {
         px_rect_a(r, sx,     sy,     1, 1, KZ_CLOUD, a); /* center    */
     }
 }
+
+void cat_draw_select_ring(SDL_Renderer *r, const Cat *cat, Uint64 frame) {
+    /* a gently pulsing pink oval on the ground beneath the cat's feet */
+    float cx = cat->cx, cy = cat->cy;
+    float pulse = 0.5f + 0.5f * sinf((float)frame * 0.10f);
+    Uint8 a = (Uint8)(120.0f + 80.0f * pulse);
+    Color ring = KZ_HEART;
+    /* an oval outline, drawn as a few stacked rows so it reads as a ring */
+    float ry = cy + 18;                 /* at the paws */
+    px_rect_a(r, cx - 13, ry,     26, 2, ring, a);          /* front edge */
+    px_rect_a(r, cx - 15, ry - 2, 3,  4, ring, a);          /* left curve */
+    px_rect_a(r, cx + 12, ry - 2, 3,  4, ring, a);          /* right curve*/
+    px_rect_a(r, cx - 13, ry - 4, 26, 2, ring, (Uint8)(a / 2)); /* back, fainter */
+    /* two little sparkles to draw the eye */
+    Uint8 sa = (Uint8)(200.0f * pulse);
+    px_rect_a(r, cx - 16, cy - 14, 2, 2, KZ_CLOUD, sa);
+    px_rect_a(r, cx + 15, cy - 12, 2, 2, KZ_CLOUD, sa);
+}

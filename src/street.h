@@ -16,5 +16,9 @@
 /* Draw the street. `frame` drives ambient motion; `night` dims the scene and
  * lights the lamps. */
 void street_draw(SDL_Renderer *r, Uint64 frame, bool night);
+void street_draw_wide(SDL_Renderer *r, Uint64 frame, bool night, int room_w);
+
+/* The street is wider than the screen so you can stroll down the lane. */
+#define STREET_ROOM_W 480
 
 #endif /* KATIZTIC_STREET_H */

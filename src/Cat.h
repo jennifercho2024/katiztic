@@ -77,4 +77,8 @@ CatColors cat_shiny_colors(void);
  * when the cat is shiny. */
 void cat_draw_sparkles(SDL_Renderer *r, const Cat *cat, Uint64 frame);
 
+/* A soft glowing ring under a cat, marking it as the currently selected one
+ * so you can tell your cats apart at a glance. */
+void cat_draw_select_ring(SDL_Renderer *r, const Cat *cat, Uint64 frame);
+
 #endif /* KATIZTIC_CAT_H */
