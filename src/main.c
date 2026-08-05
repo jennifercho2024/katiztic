@@ -817,6 +817,16 @@ int main(int argc, char *argv[]) {
                 /* During a playdate, tap either cat to pet it — a burst of joy
                  * and a little bond for your cat. */
                 if (location == LOC_PLAYDATE) {
+                    /* the "leave" button (top-right) heads home right away */
+                    if (lx >= KZ_W - 46 && lx <= KZ_W - 6
+                        && ly >= 6 && ly <= 18) {
+                        playdate.active = false;
+                        location = return_loc;
+                        btn_travel.kind = (location == LOC_COTTAGE)
+                                          ? KZ_BTN_OUT : KZ_BTN_HOME;
+                        press_fx = 8;
+                        break;
+                    }
                     int who = playdate_hit(&playdate, &roster_active(&roster)->anim,
                                            lx, ly);
                     if (who == 1) {
@@ -1952,7 +1962,17 @@ int main(int argc, char *argv[]) {
             Activity sa0 = a->anim.act;
             playdate_draw(renderer, &playdate, &a->anim, col, frame);
             a->anim.cx = sx0; a->anim.cy = sy0; a->anim.act = sa0;
-        } else if (location == LOC_PARK) {
+            /* a "leave" button so you can head home whenever you like */
+            {
+                float bx = KZ_W - 46, by = 6, bw = 40, bh = 12;
+                px_rect(renderer, bx, by, bw, bh, KZ_PETAL_PINK);
+                px_rect(renderer, bx, by, bw, 1, KZ_COCOA);
+                px_rect(renderer, bx, by + bh - 1, bw, 1, KZ_COCOA);
+                px_rect(renderer, bx, by, 1, bh, KZ_COCOA);
+                px_rect(renderer, bx + bw - 1, by, 1, bh, KZ_COCOA);
+                text_draw_centered(renderer, "Leave", bx + bw / 2.0f, by + 3,
+                                   KZ_COCOA);
+            }
             if (walking) {
                 /* A scenic walk: scenery scrolls by and just your active cat
                  * strolls the path beside you. */
