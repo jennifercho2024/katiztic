@@ -580,14 +580,14 @@ void ui_friends_list(SDL_Renderer *r, const Friends *f) {
                 px_rect(r, hx, ry + 1, 3, 1, KZ_HEART);
                 px_rect(r, hx + 1, ry + 2, 1, 1, KZ_HEART);
             }
-            /* "Hang out?" button: invites this friend over for a playdate */
-            float hbx = x + w - 46, hby = ry - 1;
-            px_rect(r, hbx, hby, 42, 9, KZ_MINT);
-            px_rect(r, hbx, hby, 42, 1, KZ_COCOA);
-            px_rect(r, hbx, hby + 8, 42, 1, KZ_COCOA);
+            /* "Visit" button: invites this friend over for a playdate */
+            float hbx = x + w - 40, hby = ry - 1;
+            px_rect(r, hbx, hby, 36, 9, KZ_MINT);
+            px_rect(r, hbx, hby, 36, 1, KZ_COCOA);
+            px_rect(r, hbx, hby + 8, 36, 1, KZ_COCOA);
             px_rect(r, hbx, hby, 1, 9, KZ_COCOA);
-            px_rect(r, hbx + 41, hby, 1, 9, KZ_COCOA);
-            text_draw(r, "Hang out?", hbx + 3, ry, KZ_COCOA);
+            px_rect(r, hbx + 35, hby, 1, 9, KZ_COCOA);
+            text_draw_centered(r, "Visit", hbx + 18, ry, KZ_COCOA);
         }
     }
     text_draw_centered(r, "tap to close", KZ_W / 2.0f, y + h - 9, KZ_COCOA);
@@ -600,8 +600,8 @@ int ui_friends_hangout_hit(const Friends *f, float px_, float py_) {
     float x = (KZ_W - w) / 2.0f, y = (KZ_H - h) / 2.0f;
     for (int i = 0; i < f->count && i < 8; i++) {
         float ry = y + 18 + i * 13;
-        float hbx = x + w - 46, hby = ry - 1;
-        if (px_ >= hbx && px_ <= hbx + 42 && py_ >= hby && py_ <= hby + 9)
+        float hbx = x + w - 40, hby = ry - 1;
+        if (px_ >= hbx && px_ <= hbx + 36 && py_ >= hby && py_ <= hby + 9)
             return i;
     }
     return -1;

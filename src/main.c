@@ -89,11 +89,16 @@ static int map_place_from_loc(Location loc) {
  * `top_y` is the requested top; returns the resting top. */
 static float decor_rest_y(DecorKind kind, float top_y) {
     if (kind == DECOR_PICTURE) {
-        if (top_y > 100.0f) top_y = 100.0f;   /* keep it up on the wall */
+        /* the picture hangs on the wall: keep it in the upper area */
+        if (top_y > 100.0f) top_y = 100.0f;
         if (top_y < 20.0f)  top_y = 20.0f;
         return top_y;
     }
-    return 156.0f - 18.0f;   /* floor items: base rests on the floor (~156) */
+    /* Other items can be placed freely wherever you drag them, clamped so they
+     * stay on screen (not above the wall line, not below the floor). */
+    if (top_y < 24.0f)  top_y = 24.0f;    /* don't float off the top    */
+    if (top_y > 156.0f) top_y = 156.0f;   /* don't sink through the floor */
+    return top_y;
 }
 
 /* Screen point -> room point, accounting for cottage zoom. Drawing does
@@ -1390,7 +1395,8 @@ int main(int argc, char *argv[]) {
                         decor.items[drag_item].x = rx - 8;
                         decor.items[drag_item].y = decor_rest_y(
                             (DecorKind)drag_item, ry - 8);
-                        /* floor items fall to the floor; the picture hangs */
+                        /* items stay where you place them (the picture stays
+                         * up on the wall); everything is clamped on screen */
                     }
                     decor_save(&decor, KZ_DECOR_PATH);
                     drag_item = -1;
