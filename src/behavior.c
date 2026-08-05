@@ -107,8 +107,9 @@ void behavior_update(Roster *ro, Decor *decor, Uint64 frame) {
     }
 
     /* Fourth pass: cats notice placed yarn and milk and react to them. A calm
-     * cat near yarn bats at it (a little play bounce); near milk she laps it
-     * (a grooming pose). Only when décor exists here (the cottage). */
+     * cat near an item uses it: batting yarn, lapping milk, napping on a
+     * cushion or bean bag, scratching the post, or perching by the tower. Only
+     * where décor exists (the cottage). */
     if (decor) {
         for (int i = 0; i < ro->count; i++) {
             Cat *c = &ro->cats[i].anim;
@@ -117,20 +118,47 @@ void behavior_update(Roster *ro, Decor *decor, Uint64 frame) {
             for (int k = 0; k < DECOR_COUNT; k++) {
                 if (!decor->items[k].placed) continue;
                 DecorKind kind = (DecorKind)k;
-                if (kind != DECOR_YARN && kind != DECOR_MILK) continue;
+                /* only these items are interactive */
+                if (kind != DECOR_YARN && kind != DECOR_MILK
+                    && kind != DECOR_TOWER && kind != DECOR_CUSHION
+                    && kind != DECOR_BEANBAG && kind != DECOR_POST)
+                    continue;
 
                 float ix = decor->items[k].x + 8;   /* item center-ish */
                 float iy = decor->items[k].y + 6;
                 float dx = ix - c->cx, dy = iy - c->cy;
                 float d = sqrtf(dx * dx + dy * dy);
-                if (d <= 22.0f && SDL_rand(150) == 0) {
+
+                /* if the cat is near-ish but not right at the item, it may
+                 * wander over to use it */
+                if (d > 20.0f && d <= 60.0f && SDL_rand(220) == 0) {
+                    c->act = ACT_WALK;
+                    c->tx = ix;
+                    c->ty = iy + 6;
+                    c->act_timer = 120;
+                    break;
+                }
+                /* right at the item: use it */
+                if (d <= 22.0f && SDL_rand(120) == 0) {
                     c->facing = (dx >= 0) ? 1 : -1;
-                    if (kind == DECOR_YARN) {
-                        c->act = ACT_PLAY;         /* bat at the yarn */
-                    } else {
-                        c->act = ACT_GROOM;        /* lap the milk    */
+                    switch (kind) {
+                        case DECOR_YARN:
+                        case DECOR_TOWER:
+                            c->act = ACT_PLAY;      /* bat / clamber & play */
+                            break;
+                        case DECOR_MILK:
+                            c->act = ACT_GROOM;     /* lap the milk */
+                            break;
+                        case DECOR_POST:
+                            c->act = ACT_PLAY;      /* scratch (a lively pose) */
+                            break;
+                        case DECOR_CUSHION:
+                        case DECOR_BEANBAG:
+                            c->act = ACT_SLEEP;     /* curl up for a nap */
+                            break;
+                        default: break;
                     }
-                    c->act_timer = 180 + SDL_rand(120);
+                    c->act_timer = 180 + SDL_rand(150);
                     stats_gain_xp(&ro->cats[i].stats, 3);  /* a little joy */
                     break;
                 }

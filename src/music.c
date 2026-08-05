@@ -129,6 +129,8 @@ typedef struct {
     double ph_c, ph_c_det;
     double ph_bass;
     double ph_arp, ph_arp_det;
+    /* one-pole low-pass state per channel, for a soft hazy top-end */
+    float lp_l, lp_r;
 } Music;
 
 static Music M;
@@ -167,6 +169,18 @@ static float bass_pulse(Uint64 sample_pos) {
     return env * env;   /* rounder */
 }
 
+/* Per-note envelope for each arpeggio pluck: a soft attack and a long gentle
+ * decay so notes ring like a music box instead of clicking on and off. `pos`
+ * is samples into the current arp step, `total` the step length. */
+static float arp_env(Uint64 pos, Uint64 total) {
+    float t = (float)pos / (float)total;   /* 0..1 across the note */
+    float atk = 0.06f;
+    if (t < atk) return t / atk;           /* quick soft attack */
+    /* smooth exponential-ish decay over the rest of the note */
+    float d = (t - atk) / (1.0f - atk);
+    return (1.0f - d) * (1.0f - d);
+}
+
 static void SDLCALL feed(void *userdata, SDL_AudioStream *stream,
                          int additional_amount, int total_amount) {
     (void)userdata; (void)total_amount;
@@ -192,33 +206,50 @@ static void SDLCALL feed(void *userdata, SDL_AudioStream *stream,
             const Chord *ch = &theme[M.chord_index];
             float env = envelope(M.sample_pos, chord_samples);
 
-            float s = 0.0f;
+            /* pad + bass go to both channels (centered) */
+            float mid = 0.0f;
 
             /* Pad triad — each note is a voice plus a detuned twin, very soft. */
-            s += tone(&M.ph_a,     ch->a,        0.055f);
-            s += tone(&M.ph_a_det, ch->a + DET,  0.055f);
-            s += tone(&M.ph_b,     ch->b,        0.045f);
-            s += tone(&M.ph_b_det, ch->b + DET,  0.045f);
-            s += tone(&M.ph_c,     ch->c,        0.040f);
-            s += tone(&M.ph_c_det, ch->c - DET,  0.040f);
-
-            /* Drifting arpeggio — which note depends on time within the chord. */
-            int step = (int)((M.sample_pos / arp_step) % 4);
-            float arpf = ch->arp[step];
-            if (arpf > 0) {
-                s += tone(&M.ph_arp,     arpf,       0.050f);
-                s += tone(&M.ph_arp_det, arpf + DET, 0.050f);
-            }
+            mid += tone(&M.ph_a,     ch->a,        0.055f);
+            mid += tone(&M.ph_a_det, ch->a + DET,  0.055f);
+            mid += tone(&M.ph_b,     ch->b,        0.045f);
+            mid += tone(&M.ph_b_det, ch->b + DET,  0.045f);
+            mid += tone(&M.ph_c,     ch->c,        0.040f);
+            mid += tone(&M.ph_c_det, ch->c - DET,  0.040f);
 
             /* Soft bass pulse — low and quiet, the head-nod groove. */
             float bp = bass_pulse(M.sample_pos);
-            s += tone(&M.ph_bass, ch->bass, 0.11f * bp);
+            mid += tone(&M.ph_bass, ch->bass, 0.11f * bp);
+
+            /* Drifting arpeggio — now with a soft per-note envelope so each
+             * pluck rings and fades like a music box, and panned slightly to
+             * one side for a touch of stereo width. */
+            Uint64 into_step = M.sample_pos % arp_step;
+            int step = (int)((M.sample_pos / arp_step) % 4);
+            float arpf = ch->arp[step];
+            float arp_l = 0.0f, arp_r = 0.0f;
+            if (arpf > 0) {
+                float ae = arp_env(into_step, arp_step);
+                float a1 = tone(&M.ph_arp,     arpf,       0.060f) * ae;
+                float a2 = tone(&M.ph_arp_det, arpf + DET, 0.060f) * ae;
+                /* pan the two arp voices gently apart (alternating per step) */
+                if (step % 2 == 0) { arp_l = a1 * 1.0f + a2 * 0.6f;
+                                     arp_r = a1 * 0.6f + a2 * 1.0f; }
+                else               { arp_l = a1 * 0.6f + a2 * 1.0f;
+                                     arp_r = a1 * 1.0f + a2 * 0.6f; }
+            }
 
             /* Overall level: gentle, background. Chord envelope shapes it. */
-            s *= env * 0.5f;
+            float l = (mid + arp_l) * env * 0.5f;
+            float r = (mid + arp_r) * env * 0.5f;
 
-            buf[i * 2 + 0] = s;
-            buf[i * 2 + 1] = s;
+            /* One-pole low-pass: softens the high end into a warm haze. */
+            const float k = 0.35f;   /* lower = hazier */
+            M.lp_l += k * (l - M.lp_l);
+            M.lp_r += k * (r - M.lp_r);
+
+            buf[i * 2 + 0] = M.lp_l;
+            buf[i * 2 + 1] = M.lp_r;
 
             M.sample_pos++;
             if (M.sample_pos >= chord_samples) {
@@ -246,6 +277,7 @@ bool music_init(void) {
     M.sample_pos = 0;
     M.ph_a = M.ph_a_det = M.ph_b = M.ph_b_det = 0.0;
     M.ph_c = M.ph_c_det = M.ph_bass = M.ph_arp = M.ph_arp_det = 0.0;
+    M.lp_l = M.lp_r = 0.0f;
 
     SDL_ResumeAudioStreamDevice(M.stream);
     return true;
