@@ -16,6 +16,12 @@ static const DecorInfo INFO[DECOR_COUNT] = {
     { DECOR_TOWER,   "Tower",   UNLOCK_BOND,    90 },  /* a cat bond >= 90 */
     { DECOR_YARN,    "Yarn",    UNLOCK_FRIENDS, 2  },  /* 2 friends made   */
     { DECOR_MILK,    "Milk",    UNLOCK_LEVEL,   8  },  /* total levels >= 8 */
+    { DECOR_BOOKSHELF, "Bookshelf", UNLOCK_STORE, 0 },
+    { DECOR_CLOCK,   "Clock",   UNLOCK_STORE,   0 },
+    { DECOR_BEANBAG, "Bean Bag", UNLOCK_STORE,  0 },
+    { DECOR_POST,    "Post",    UNLOCK_STORE,   0 },
+    { DECOR_PLANT2,  "Tall Plant", UNLOCK_STORE, 0 },
+    { DECOR_TABLE,   "Table",   UNLOCK_STORE,   0 },
 };
 
 const DecorInfo *decor_info(DecorKind k) {
@@ -38,6 +44,12 @@ int decor_price(DecorKind k) {
         case DECOR_RUG2:    return 16;
         case DECOR_YARN:    return 8;
         case DECOR_MILK:    return 8;
+        case DECOR_BOOKSHELF: return 30;
+        case DECOR_CLOCK:   return 22;
+        case DECOR_BEANBAG: return 25;
+        case DECOR_POST:    return 28;
+        case DECOR_PLANT2:  return 18;
+        case DECOR_TABLE:   return 20;
         default:            return 15;
     }
 }
@@ -71,6 +83,7 @@ int decor_check_unlocks(Decor *d, int max_bond, int friends_count,
             case UNLOCK_FRIENDS: ok = (friends_count >= in->threshold); break;
             case UNLOCK_FAMILY:  ok = (family_count  >= in->threshold); break;
             case UNLOCK_LEVEL:   ok = (total_levels  >= in->threshold); break;
+            case UNLOCK_STORE:   ok = false; break;  /* buy at the store only */
         }
         if (ok) { d->items[i].owned = true; newly++; }
     }
@@ -161,6 +174,76 @@ static void draw_milk(SDL_Renderer *r, float x, float y, Uint64 frame) {
     px_rect(r, x, y + 9, 16, 1, rgb(0xB0,0xA0,0xB4)); /* base shadow */
 }
 
+static void draw_bookshelf(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    (void)frame;
+    Color wood = rgb(0xB0, 0x8E, 0x76), dark = rgb(0x96, 0x76, 0x60);
+    px_rect(r, x, y, 20, 26, wood);                    /* frame */
+    px_rect(r, x + 2, y + 2, 16, 6, dark);             /* shelf gaps */
+    px_rect(r, x + 2, y + 10, 16, 6, dark);
+    px_rect(r, x + 2, y + 18, 16, 6, dark);
+    /* colorful book spines */
+    Color books[4] = { KZ_PETAL_PINK, KZ_MINT, KZ_BUTTER, KZ_LAVENDER };
+    for (int s = 0; s < 3; s++)
+        for (int b = 0; b < 4; b++)
+            px_rect(r, x + 3 + b * 4, y + 2 + s * 8, 3, 6, books[(s + b) % 4]);
+}
+
+static void draw_clock(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    Color face = KZ_CLOUD, rim = rgb(0xB0, 0x92, 0xCE);
+    px_rect(r, x, y, 14, 14, rim);                     /* rim */
+    px_rect(r, x + 2, y + 2, 10, 10, face);            /* face */
+    /* hands sweep slowly */
+    float a = (float)(frame % 600) / 600.0f * 6.28f;
+    px_rect(r, x + 6, y + 7, 1 + (int)(3 * 0), 1, KZ_COCOA);
+    px_rect(r, x + 6, y + 4, 1, 3, KZ_COCOA);          /* hour hand up */
+    px_rect(r, x + 6 + (int)(3 * (a > 3.14f ? -1 : 1)), y + 7, 3, 1, KZ_COCOA);
+    px_rect(r, x + 6, y + 6, 2, 2, KZ_HEART);          /* center */
+}
+
+static void draw_beanbag(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    (void)frame;
+    Color bag = KZ_PETAL_PINK, sh = rgb(0xE0, 0x9A, 0xB0);
+    px_rect(r, x + 1, y + 4, 18, 10, bag);             /* squishy body */
+    px_rect(r, x, y + 6, 20, 7, bag);
+    px_rect(r, x + 3, y + 3, 14, 3, bag);              /* top pucker */
+    px_rect(r, x + 2, y + 11, 16, 2, sh);              /* shadow crease */
+}
+
+static void draw_post(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    (void)frame;
+    Color base = rgb(0xC8, 0xA6, 0x8E), rope = rgb(0xD8, 0xC0, 0x9A);
+    px_rect(r, x + 2, y + 20, 12, 4, base);            /* base */
+    px_rect(r, x + 6, y, 4, 20, rope);                 /* rope post */
+    for (int i = 0; i < 5; i++)                          /* rope texture */
+        px_rect(r, x + 6, y + i * 4, 4, 1, base);
+    px_rect(r, x + 5, y - 2, 6, 3, KZ_MINT);           /* little top pad */
+}
+
+static void draw_plant2(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    (void)frame;
+    Color pot = rgb(0xC8, 0x8E, 0x6E), leaf = rgb(0x8F, 0xC0, 0x7A),
+          leaf2 = rgb(0x9C, 0xC6, 0x8E);
+    px_rect(r, x + 3, y + 18, 8, 8, pot);              /* tall pot */
+    px_rect(r, x + 5, y + 2, 4, 18, rgb(0x7A, 0xA0, 0x62)); /* stem */
+    px_rect(r, x + 1, y + 4, 5, 4, leaf);              /* fronds */
+    px_rect(r, x + 8, y + 2, 5, 4, leaf2);
+    px_rect(r, x + 2, y + 10, 4, 4, leaf2);
+    px_rect(r, x + 8, y + 9, 4, 4, leaf);
+    px_rect(r, x + 5, y - 2, 4, 5, leaf);              /* crown */
+}
+
+static void draw_table(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    (void)frame;
+    Color wood = rgb(0xC8, 0xA6, 0x8E), dark = rgb(0xA8, 0x86, 0x6E);
+    px_rect(r, x, y, 20, 4, wood);                     /* top */
+    px_rect(r, x, y + 3, 20, 1, dark);
+    px_rect(r, x + 2, y + 4, 2, 10, dark);             /* legs */
+    px_rect(r, x + 16, y + 4, 2, 10, dark);
+    /* a little vase on top */
+    px_rect(r, x + 8, y - 4, 3, 4, KZ_MINT);
+    px_rect(r, x + 8, y - 6, 3, 2, KZ_PETAL_PINK);
+}
+
 /* Bounding box of each item's art relative to the (x,y) passed to
  * decor_draw_one: {min-x offset, min-y offset, width, height}. Used to center
  * previews in the tray so nothing spills out of the slot. */
@@ -176,6 +259,12 @@ static DecorBox decor_box(DecorKind k) {
         case DECOR_RUG2:    return (DecorBox){  0,  0, 27, 11 };
         case DECOR_YARN:    return (DecorBox){  0,  0, 14, 11 };
         case DECOR_MILK:    return (DecorBox){  0,  0, 16, 10 };
+        case DECOR_BOOKSHELF: return (DecorBox){ 0,  0, 20, 26 };
+        case DECOR_CLOCK:   return (DecorBox){  0,  0, 14, 14 };
+        case DECOR_BEANBAG: return (DecorBox){  0,  3, 20, 11 };
+        case DECOR_POST:    return (DecorBox){  0, -2, 16, 26 };
+        case DECOR_PLANT2:  return (DecorBox){  0, -2, 14, 28 };
+        case DECOR_TABLE:   return (DecorBox){  0, -6, 20, 20 };
         default:            return (DecorBox){  0,  0, 16, 16 };
     }
 }
@@ -201,6 +290,12 @@ void decor_draw_one(SDL_Renderer *r, DecorKind k, float x, float y,
         case DECOR_RUG2:    draw_rug2(r, x, y, frame);    break;
         case DECOR_YARN:    draw_yarn(r, x, y, frame);    break;
         case DECOR_MILK:    draw_milk(r, x, y, frame);    break;
+        case DECOR_BOOKSHELF: draw_bookshelf(r, x, y, frame); break;
+        case DECOR_CLOCK:   draw_clock(r, x, y, frame);   break;
+        case DECOR_BEANBAG: draw_beanbag(r, x, y, frame); break;
+        case DECOR_POST:    draw_post(r, x, y, frame);    break;
+        case DECOR_PLANT2:  draw_plant2(r, x, y, frame);  break;
+        case DECOR_TABLE:   draw_table(r, x, y, frame);   break;
         default: break;
     }
 }
@@ -216,6 +311,12 @@ static void item_size(DecorKind k, float *w, float *h) {
         case DECOR_RUG2:    *w = 30; *h = 14; break;
         case DECOR_YARN:    *w = 14; *h = 12; break;
         case DECOR_MILK:    *w = 16; *h = 10; break;
+        case DECOR_BOOKSHELF: *w = 20; *h = 26; break;
+        case DECOR_CLOCK:   *w = 14; *h = 14; break;
+        case DECOR_BEANBAG: *w = 20; *h = 14; break;
+        case DECOR_POST:    *w = 16; *h = 26; break;
+        case DECOR_PLANT2:  *w = 14; *h = 28; break;
+        case DECOR_TABLE:   *w = 20; *h = 18; break;
         default:            *w = 16; *h = 16; break;
     }
 }
@@ -275,9 +376,13 @@ bool decor_load(Decor *out, const char *path) {
     ok = ok && SDL_ReadIO(io, &ver, 1) == 1;
     ok = ok && ver == KZ_DECOR_VERSION;
     ok = ok && SDL_ReadIO(io, &count, 1) == 1;
-    ok = ok && count == DECOR_COUNT;
+    /* accept saves with fewer items than we now have: any new furniture just
+     * starts un-owned. (count must not exceed what we can store.) */
+    ok = ok && count >= 1 && count <= DECOR_COUNT;
 
     Decor tmp = decor_new();
+    /* start everything from a fresh (mostly un-owned) base, then load what the
+     * save has */
     for (int i = 0; i < (int)count && ok; i++) {
         Uint8 flags = 0; Sint16 x = 0, y = 0;
         ok = ok && SDL_ReadIO(io, &flags, 1) == 1;

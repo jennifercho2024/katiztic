@@ -96,6 +96,10 @@ bool katlympics_update(Katlympics *k);
 void katlympics_draw(SDL_Renderer *r, const Katlympics *k,
                      CatType your_type, bool your_shiny, Uint64 frame);
 
+/* Draw the ceremonial stadium background (stands, flags, banner, rings emblem)
+ * — used for the event picker screen so it looks official from the start. */
+void katlympics_draw_arena(SDL_Renderer *r, Uint64 frame);
+
 /* Medal name for banners. */
 const char *medal_name(Medal m);
 

@@ -318,6 +318,28 @@ static void stadium_backdrop(SDL_Renderer *r, Uint64 frame) {
     px_rect(r, 0, KZ_H - 22, KZ_W, 1, rgb(0x8E, 0xB0, 0x7C));
 }
 
+/* the Katlympics rings emblem, centered at (ex, ey) */
+static void draw_rings(SDL_Renderer *r, float ex, float ey) {
+    Color rings[5] = { KZ_PETAL_PINK, KZ_MINT, KZ_BUTTER, KZ_LAVENDER, KZ_HEART };
+    for (int i = 0; i < 5; i++) {
+        float cx = ex + (i % 3) * 18 + ((i >= 3) ? 9 : 0);
+        float cy = ey + ((i >= 3) ? 6 : 0);
+        px_rect(r, cx, cy, 12, 2, rings[i]);
+        px_rect(r, cx, cy + 8, 12, 2, rings[i]);
+        px_rect(r, cx, cy, 2, 10, rings[i]);
+        px_rect(r, cx + 10, cy, 2, 10, rings[i]);
+    }
+}
+
+void katlympics_draw_arena(SDL_Renderer *r, Uint64 frame) {
+    stadium_backdrop(r, frame);
+    /* a ceremonial banner header with the title */
+    px_rect(r, 20, 4, KZ_W - 40, 16, rgb(0x6E, 0x58, 0x92));
+    px_rect(r, 20, 4, KZ_W - 40, 1, KZ_BUTTER);
+    px_rect(r, 20, 19, KZ_W - 40, 1, KZ_BUTTER);
+    text_draw_centered(r, "KATLYMPICS", KZ_W / 2.0f, 8, KZ_CLOUD);
+}
+
 void katlympics_draw(SDL_Renderer *r, const Katlympics *k,
                      CatType your_type, bool your_shiny, Uint64 frame) {
     if (!k->active) return;
@@ -327,14 +349,57 @@ void katlympics_draw(SDL_Renderer *r, const Katlympics *k,
     CatColors yc = your_shiny ? cat_shiny_colors() : cattype_colors(your_type);
 
     if (k->phase == 0) {
-        /* intro card */
-        text_draw_scaled(r, "Katlympics!", 54, 24, rgb(0x6E, 0x58, 0x92), 2);
-        px_rect_a(r, 40, 74, 160, 40, KZ_CLOUD, 230);
-        px_rect(r, 40, 74, 160, 1, KZ_COCOA);
-        px_rect(r, 40, 113, 160, 1, KZ_COCOA);
-        text_draw_centered(r, event_name(k->event), KZ_W / 2.0f, 84, KZ_COCOA);
-        text_draw_centered(r, "get ready!", KZ_W / 2.0f, 98,
-                           rgb(0x9A, 0x7A, 0x5A));
+        /* ---- an official opening-ceremony intro ---- */
+
+        /* a grand ceremonial banner draped across the top */
+        px_rect(r, 20, 30, KZ_W - 40, 30, rgb(0x6E, 0x58, 0x92));
+        px_rect(r, 20, 30, KZ_W - 40, 2, KZ_BUTTER);
+        px_rect(r, 20, 58, KZ_W - 40, 2, KZ_BUTTER);
+        /* banner tassels hanging below */
+        for (int i = 0; i < 9; i++) {
+            float bx = 30 + i * 22;
+            px_rect(r, bx, 60, 4, 4, KZ_BUTTER);
+            px_rect(r, bx + 1, 64, 2, 2, rgb(0xE8, 0xC8, 0x8A));
+        }
+        /* the title, large and centered on the banner */
+        text_draw_scaled(r, "KATLYMPICS", 44, 38, KZ_CLOUD, 2);
+
+        /* the Katlympics emblem: five interlocking rings (its own official mark) */
+        Color rings[5] = { KZ_PETAL_PINK, KZ_MINT, KZ_BUTTER, KZ_LAVENDER,
+                           KZ_HEART };
+        float rx0 = 78, ry0 = 82;
+        for (int i = 0; i < 5; i++) {
+            float cx = rx0 + (i % 3) * 18 + ((i >= 3) ? 9 : 0);
+            float cy = ry0 + ((i >= 3) ? 6 : 0);
+            /* draw a little ring (hollow square) */
+            px_rect(r, cx, cy, 12, 2, rings[i]);
+            px_rect(r, cx, cy + 8, 12, 2, rings[i]);
+            px_rect(r, cx, cy, 2, 10, rings[i]);
+            px_rect(r, cx + 10, cy, 2, 10, rings[i]);
+        }
+
+        /* a ceremonial torch on each side, flames flickering */
+        for (int s = 0; s < 2; s++) {
+            float tx = s == 0 ? 30 : KZ_W - 38;
+            px_rect(r, tx + 2, 96, 4, 14, rgb(0xC8, 0xA6, 0x8E));   /* handle */
+            px_rect(r, tx, 92, 8, 5, rgb(0xC0, 0x9A, 0x6E));       /* bowl */
+            /* flame */
+            float flick = ((frame / 6 + s) % 2) ? 0.0f : 1.0f;
+            px_rect(r, tx + 2, 86 - flick, 4, 6, rgb(0xF2, 0xA0, 0x50));
+            px_rect(r, tx + 3, 83 - flick, 2, 4, KZ_BUTTER);
+        }
+
+        /* the event name plate */
+        px_rect_a(r, 50, 116, 140, 26, KZ_CLOUD, 235);
+        px_rect(r, 50, 116, 140, 1, KZ_COCOA);
+        px_rect(r, 50, 141, 140, 1, KZ_COCOA);
+        px_rect(r, 50, 116, 1, 26, KZ_COCOA);
+        px_rect(r, 189, 116, 1, 26, KZ_COCOA);
+        text_draw_centered(r, event_name(k->event), KZ_W / 2.0f, 121, KZ_COCOA);
+        /* a blinking "get ready" so it feels like a countdown */
+        if ((frame / 24) % 2 == 0)
+            text_draw_centered(r, "get ready!", KZ_W / 2.0f, 132,
+                               rgb(0x6E, 0x58, 0x92));
     } else if (k->phase == 1) {
         /* performance */
         text_draw(r, event_name(k->event), 8, 8, KZ_COCOA);

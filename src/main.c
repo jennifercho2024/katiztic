@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
                                    * tap near it again */
     bool walking = false;         /* is a scenic park walk in progress? */
     float walk_scroll = 0.0f;     /* how far along the trail we've strolled */
-    int  walk_dir = 0;            /* -1 left, 0 still, +1 right (tap to steer) */
+    int  walk_dir = 0;            /* -1 left, 0 still, +1 right (hold to walk) */
     Uint64 walk_xp_tick = 0;      /* accumulates walked frames for XP */
     Katlympics katlympics = katlympics_none();
     bool kat_choosing = false;    /* showing the event-picker at the stadium? */
@@ -596,13 +596,13 @@ int main(int argc, char *argv[]) {
                     if (kat_choosing && !katlympics.active && kat_select < 0) {
                         float bw = 130, bx = (KZ_W - bw) / 2.0f;
                         if (lx >= bx && lx <= bx + bw) {
-                            if (ly >= 70 && ly <= 90) {
+                            if (ly >= 70 && ly <= 92) {
                                 /* Trick Showcase -> choose up to 3 tricks */
                                 kat_select = 0;
                                 kat_picked_n = 0;
                                 kat_choosing = false;
                                 press_fx = 8;
-                            } else if (ly >= 98 && ly <= 118) {
+                            } else if (ly >= 100 && ly <= 122) {
                                 /* Obstacle Course -> choose an action each */
                                 kat_select = 1;
                                 kat_obstacle_i = 0;
@@ -695,10 +695,10 @@ int main(int argc, char *argv[]) {
                 /* walk button (park only): start or stop a scenic walk */
                 if (location == LOC_PARK && ui_walk_button_hit(lx, ly)) {
                     walking = !walking;
-                    walk_dir = 0;   /* start still; you steer by tapping */
+                    walk_dir = 0;   /* start still; hold a side to walk */
                     if (walking) {
                         SDL_snprintf(banner_line, sizeof banner_line,
-                                     "Tap left or right to walk %s",
+                                     "Hold left or right to walk %s",
                                      roster_active(&roster)->name);
                         banner_timer = 200;
                     }
@@ -706,16 +706,15 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                /* while walking, tapping the left or right half steers the cat
-                 * that way (tap the same side again to stop). Only taps in the
-                 * open middle of the screen steer — taps up in the button rows
-                 * or bottom UI still reach their buttons, so you can always
-                 * stop walking or leave the park. */
+                /* Hold-to-walk: while walking, PRESS the left or right half of
+                 * the open area to stroll that way; the cat walks only while
+                 * you hold, and stops the moment you lift your finger (see the
+                 * MOUSE_BUTTON_UP handler). Taps in the button rows/edges still
+                 * reach their buttons so you can stop or leave the park. */
                 if (location == LOC_PARK && walking
                     && ly > 40 && ly < KZ_H - 24
                     && lx > 28 && lx < KZ_W - 28) {
-                    int want = (lx < KZ_W / 2.0f) ? -1 : 1;
-                    walk_dir = (walk_dir == want) ? 0 : want;
+                    walk_dir = (lx < KZ_W / 2.0f) ? -1 : 1;
                     press_fx = 8;
                     break;
                 }
@@ -1242,6 +1241,8 @@ int main(int argc, char *argv[]) {
 
             case SDL_EVENT_MOUSE_BUTTON_UP: {
                 holding_cat = false;   /* released: stop any training hold */
+                /* hold-to-walk: releasing the screen stops the park stroll */
+                if (location == LOC_PARK && walking) walk_dir = 0;
                 if (quests_dragging) {
                     /* a gesture that never scrolled is a tap -> close */
                     if (!quests_scrolled) quests_open = false;
@@ -1420,8 +1421,8 @@ int main(int argc, char *argv[]) {
          * beside you at the center of the path. */
         if (location == LOC_PARK && walking) {
             OwnedCat *a = roster_active(&roster);
-            /* the cat walks only while you steer it: tapping the left or right
-             * half of the screen sets walk_dir; it strolls that way. */
+            /* the cat walks only while you HOLD a side of the screen: holding
+             * sets walk_dir and it strolls that way; releasing stops it. */
             if (walk_dir != 0) {
                 walk_scroll += 1.3f * walk_dir;
                 /* keep the scroll bounded either way so it loops forever */
@@ -1709,26 +1710,29 @@ int main(int argc, char *argv[]) {
                 text_draw_centered(renderer, "pick your move!", KZ_W / 2.0f,
                                    KZ_H - 10, KZ_CLOUD);
             } else {
-                /* the event picker */
-                park_draw(renderer, frame, is_night);   /* a green field bg */
-                px_rect_a(renderer, 0, 0, KZ_W, KZ_H, rgb(0x6E, 0x58, 0x92), 40);
-                text_draw_scaled(renderer, "Katlympics!", 54, 22,
-                                 rgb(0x6E, 0x58, 0x92), 2);
-                text_draw_centered(renderer, "choose an event", KZ_W / 2.0f, 52,
-                                   KZ_CLOUD);
+                /* the event picker — on the official ceremonial arena */
+                katlympics_draw_arena(renderer, frame);
+                text_draw_centered(renderer, "choose your event", KZ_W / 2.0f,
+                                   30, rgb(0x6E, 0x58, 0x92));
                 float bw = 130, bx = (KZ_W - bw) / 2.0f;
-                px_rect(renderer, bx, 70, bw, 20, KZ_PETAL_PINK);
+                /* Trick Showcase button */
+                px_rect(renderer, bx, 70, bw, 22, KZ_PETAL_PINK);
                 px_rect(renderer, bx, 70, bw, 1, KZ_COCOA);
-                px_rect(renderer, bx, 89, bw, 1, KZ_COCOA);
-                text_draw_centered(renderer, "Trick Showcase", KZ_W / 2.0f, 76,
+                px_rect(renderer, bx, 91, bw, 1, KZ_COCOA);
+                px_rect(renderer, bx, 70, 1, 22, KZ_COCOA);
+                px_rect(renderer, bx + bw - 1, 70, 1, 22, KZ_COCOA);
+                text_draw_centered(renderer, "Trick Showcase", KZ_W / 2.0f, 78,
                                    KZ_COCOA);
-                px_rect(renderer, bx, 98, bw, 20, KZ_MINT);
-                px_rect(renderer, bx, 98, bw, 1, KZ_COCOA);
-                px_rect(renderer, bx, 117, bw, 1, KZ_COCOA);
-                text_draw_centered(renderer, "Obstacle Course", KZ_W / 2.0f, 104,
+                /* Obstacle Course button */
+                px_rect(renderer, bx, 100, bw, 22, KZ_MINT);
+                px_rect(renderer, bx, 100, bw, 1, KZ_COCOA);
+                px_rect(renderer, bx, 121, bw, 1, KZ_COCOA);
+                px_rect(renderer, bx, 100, 1, 22, KZ_COCOA);
+                px_rect(renderer, bx + bw - 1, 100, 1, 22, KZ_COCOA);
+                text_draw_centered(renderer, "Obstacle Course", KZ_W / 2.0f, 108,
                                    KZ_COCOA);
                 text_draw_centered(renderer,
-                                   "travel to leave", KZ_W / 2.0f, KZ_H - 10,
+                                   "travel to leave", KZ_W / 2.0f, KZ_H - 8,
                                    KZ_CLOUD);
             }
         } else if (location == LOC_PLAYDATE) {

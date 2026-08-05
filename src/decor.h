@@ -21,6 +21,12 @@ typedef enum {
     DECOR_RUG2,      /* a second little rug            */
     DECOR_YARN,      /* a ball of yarn — cats bat at it (earned)   */
     DECOR_MILK,      /* a saucer of milk — cats lap it (earned)    */
+    DECOR_BOOKSHELF, /* a cozy bookshelf                */
+    DECOR_CLOCK,     /* a wall clock                    */
+    DECOR_BEANBAG,   /* a comfy bean bag                */
+    DECOR_POST,      /* a scratching post               */
+    DECOR_PLANT2,    /* a tall leafy plant              */
+    DECOR_TABLE,     /* a little side table             */
     DECOR_COUNT
 } DecorKind;
 
@@ -31,6 +37,7 @@ typedef enum {
     UNLOCK_FRIENDS,      /* befriend N cats on walks            */
     UNLOCK_FAMILY,       /* have N cats in your roster          */
     UNLOCK_LEVEL,        /* total levels across cats (socializing + care) */
+    UNLOCK_STORE,        /* only obtainable by buying at the store */
 } UnlockKind;
 
 typedef struct {

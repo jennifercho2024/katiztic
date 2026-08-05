@@ -10,19 +10,21 @@
 static const DecorKind SHELF[] = {
     DECOR_PLANT, DECOR_LAMP, DECOR_PICTURE, DECOR_TOWER,
     DECOR_CUSHION, DECOR_RUG2, DECOR_YARN, DECOR_MILK,
+    DECOR_BOOKSHELF, DECOR_CLOCK, DECOR_BEANBAG, DECOR_POST,
+    DECOR_PLANT2, DECOR_TABLE,
 };
 #define SHELF_COUNT ((int)(sizeof SHELF / sizeof SHELF[0]))
 
 /* grid layout for the furniture shelves: 4 columns, 2 rows */
 #define COLS 4
-#define CELL_W 52
-#define CELL_H 42
-#define GRID_X0 12
-#define GRID_Y0 40
+#define CELL_W 54
+#define CELL_H 27
+#define GRID_X0 10
+#define GRID_Y0 34
 
 static void cell_xy(int i, float *x, float *y) {
-    *x = GRID_X0 + (i % COLS) * (CELL_W + 4);
-    *y = GRID_Y0 + (i / COLS) * (CELL_H + 6);
+    *x = GRID_X0 + (i % COLS) * (CELL_W + 3);
+    *y = GRID_Y0 + (i / COLS) * (CELL_H + 3);
 }
 
 /* the floor toggle button, top-right */
@@ -69,6 +71,39 @@ static void decor_icon(SDL_Renderer *r, DecorKind k, float x, float y) {
         default:
             px_rect(r, x + 2, y + 5, 8, 4, KZ_CLOUD);   /* saucer */
             px_rect(r, x + 3, y + 4, 6, 2, rgb(0xF3, 0xF0, 0xF6));
+            break;
+        case DECOR_BOOKSHELF:
+            px_rect(r, x + 1, y, 10, 11, rgb(0xB0, 0x8E, 0x76));
+            px_rect(r, x + 2, y + 1, 2, 3, KZ_PETAL_PINK);
+            px_rect(r, x + 5, y + 1, 2, 3, KZ_MINT);
+            px_rect(r, x + 2, y + 6, 2, 3, KZ_BUTTER);
+            px_rect(r, x + 5, y + 6, 2, 3, KZ_LAVENDER);
+            break;
+        case DECOR_CLOCK:
+            px_rect(r, x + 2, y + 1, 8, 8, rgb(0xB0, 0x92, 0xCE));
+            px_rect(r, x + 3, y + 2, 6, 6, KZ_CLOUD);
+            px_rect(r, x + 5, y + 3, 1, 3, KZ_COCOA);
+            break;
+        case DECOR_BEANBAG:
+            px_rect(r, x + 1, y + 3, 10, 6, KZ_PETAL_PINK);
+            px_rect(r, x + 2, y + 2, 8, 2, KZ_PETAL_PINK);
+            break;
+        case DECOR_POST:
+            px_rect(r, x + 4, y, 3, 10, rgb(0xD8, 0xC0, 0x9A));
+            px_rect(r, x + 2, y + 9, 7, 2, rgb(0xC8, 0xA6, 0x8E));
+            px_rect(r, x + 3, y - 1, 5, 2, KZ_MINT);
+            break;
+        case DECOR_PLANT2:
+            px_rect(r, x + 4, y + 6, 4, 5, rgb(0xC8, 0x8E, 0x6E));
+            px_rect(r, x + 5, y, 2, 7, rgb(0x7A, 0xA0, 0x62));
+            px_rect(r, x + 2, y, 4, 3, rgb(0x8F, 0xC0, 0x7A));
+            px_rect(r, x + 6, y - 1, 4, 3, rgb(0x9C, 0xC6, 0x8E));
+            break;
+        case DECOR_TABLE:
+            px_rect(r, x + 1, y + 3, 10, 2, rgb(0xC8, 0xA6, 0x8E));
+            px_rect(r, x + 2, y + 5, 2, 5, rgb(0xA8, 0x86, 0x6E));
+            px_rect(r, x + 8, y + 5, 2, 5, rgb(0xA8, 0x86, 0x6E));
+            px_rect(r, x + 5, y, 2, 3, KZ_MINT);
             break;
     }
 }
@@ -163,22 +198,20 @@ void store_draw(SDL_Renderer *r, StoreFloor floor, const Decor *decor,
             px_rect(r, x, y + CELL_H - 1, CELL_W, 1, KZ_COCOA);
             px_rect(r, x, y, 1, CELL_H, KZ_COCOA);
             px_rect(r, x + CELL_W - 1, y, 1, CELL_H, KZ_COCOA);
-            /* icon */
-            decor_icon(r, k, x + CELL_W / 2 - 6, y + 6);
-            /* name */
-            text_draw_centered(r, decor_info(k)->name, x + CELL_W / 2.0f,
-                               y + 22, KZ_COCOA);
-            /* price or owned */
+            /* icon on the left */
+            decor_icon(r, k, x + 3, y + 8);
+            /* name (top-right) */
+            text_draw(r, decor_info(k)->name, x + 16, y + 4, KZ_COCOA);
+            /* price or owned (bottom-right) */
             if (owned) {
-                text_draw_centered(r, "owned", x + CELL_W / 2.0f, y + 31,
-                                   rgb(0x6A, 0xA0, 0x7A));
+                text_draw(r, "owned", x + 16, y + 15, rgb(0x6A, 0xA0, 0x7A));
             } else {
                 char pr[16];
                 SDL_snprintf(pr, sizeof pr, "%d coins", decor_price(k));
                 bool afford = pantry->coins >= (Uint16)decor_price(k);
-                text_draw_centered(r, pr, x + CELL_W / 2.0f, y + 31,
-                                   afford ? rgb(0x9A, 0x7A, 0x5A)
-                                          : rgb(0xC8, 0x9A, 0x9A));
+                text_draw(r, pr, x + 16, y + 15,
+                          afford ? rgb(0x9A, 0x7A, 0x5A)
+                                 : rgb(0xC8, 0x9A, 0x9A));
             }
         }
     } else {
