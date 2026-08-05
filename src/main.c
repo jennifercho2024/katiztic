@@ -352,6 +352,11 @@ int main(int argc, char *argv[]) {
     char banner_line[48];
     banner_line[0] = '\0';
     int  banner_timer = 0;      /* frames the banner stays up (0 = hidden) */
+    /* Growth celebration: a burst of rising hearts around a cat that just hit a
+     * growth milestone (mid-growth at 12, fully grown at 25). */
+    int   grow_celebrate = 0;      /* frames of celebration left (0 = none)  */
+    float grow_cx = 0, grow_cy = 0;/* where the celebration plays            */
+    int   grow_stage = 0;          /* 1 = mid-growth, 2 = fully grown        */
     bool friends_open = false;
 
     /* Track each cat's level so we can celebrate when one goes up. */
@@ -1850,6 +1855,7 @@ int main(int argc, char *argv[]) {
                               sizeof banner_line, &banner_timer);
         }
         if (banner_timer > 0) banner_timer--;
+        if (grow_celebrate > 0) grow_celebrate--;
 
         /* Celebrate any cat who just leveled up (from care or socializing).
          * Leveling earns a few coins too — caring for your cats pays off. */
@@ -1862,6 +1868,32 @@ int main(int argc, char *argv[]) {
                              "%s reached level %u! (+5 coins)",
                              roster.cats[i].name, (unsigned)lv);
                 banner_timer = 240;
+                /* Growth milestones get their own celebration: crossing into
+                 * mid-growth (level 12) or fully grown (level 25). */
+                if (prev_level[i] < 12 && lv >= 12) {
+                    grow_stage = 1;
+                    grow_celebrate = 200;
+                    grow_cx = roster.cats[i].anim.cx;
+                    grow_cy = roster.cats[i].anim.cy;
+                    pantry_earn(&pantry, 15);
+                    pantry_save(&pantry, KZ_PANTRY_PATH);
+                    SDL_snprintf(banner_line, sizeof banner_line,
+                                 "%s is growing up! (+15 coins)",
+                                 roster.cats[i].name);
+                    banner_timer = 320;
+                }
+                if (prev_level[i] < 25 && lv >= 25) {
+                    grow_stage = 2;
+                    grow_celebrate = 260;
+                    grow_cx = roster.cats[i].anim.cx;
+                    grow_cy = roster.cats[i].anim.cy;
+                    pantry_earn(&pantry, 30);
+                    pantry_save(&pantry, KZ_PANTRY_PATH);
+                    SDL_snprintf(banner_line, sizeof banner_line,
+                                 "%s is all grown up! (+30 coins)",
+                                 roster.cats[i].name);
+                    banner_timer = 360;
+                }
             }
             prev_level[i] = lv;
         }
@@ -2303,6 +2335,56 @@ int main(int argc, char *argv[]) {
         if (location == LOC_MEADOW && enc.present) {
             ui_treat_button_draw(renderer, press_fx > 0);
         }
+        /* Growth celebration: hearts and sparkles rise around the cat that
+         * just grew, with a little "sparkle ring" that expands outward. */
+        if (grow_celebrate > 0) {
+            /* convert the celebration spot to screen coords via the camera */
+            float ox = (location == LOC_COTTAGE) ? cam.x
+                     : (location == LOC_PARK)    ? park_cam.x
+                     : (location == LOC_MEADOW)  ? meadow_cam.x : 0.0f;
+            float oy = (location == LOC_COTTAGE) ? cam.y : 0.0f;
+            float scx = grow_cx - ox, scy = grow_cy - oy;
+            int age = ((grow_stage == 2) ? 260 : 200) - grow_celebrate;
+            /* rising hearts/sparkles */
+            for (int p = 0; p < 14; p++) {
+                float ph = (float)((age * 2 + p * 40) % 120) / 120.0f;
+                float ang = (float)p * 0.9f;
+                float px_ = scx + sinf(ang + (float)p) * (10.0f + ph * 22.0f);
+                float py_ = scy - 4.0f - ph * 40.0f;   /* float upward */
+                Uint8 a = (Uint8)((1.0f - ph) * 235.0f);
+                Color c = (p % 3 == 0) ? KZ_HEART
+                        : (p % 3 == 1) ? KZ_PETAL_PINK : KZ_BUTTER;
+                if (p % 2 == 0) {
+                    /* a tiny heart */
+                    px_rect_a(renderer, px_,     py_, 1, 1, c, a);
+                    px_rect_a(renderer, px_ + 2, py_, 1, 1, c, a);
+                    px_rect_a(renderer, px_ - 1, py_ + 1, 5, 1, c, a);
+                    px_rect_a(renderer, px_,     py_ + 2, 3, 1, c, a);
+                    px_rect_a(renderer, px_ + 1, py_ + 3, 1, 1, c, a);
+                } else {
+                    /* a sparkle */
+                    px_rect_a(renderer, px_,     py_ - 1, 1, 3, KZ_CLOUD, a);
+                    px_rect_a(renderer, px_ - 1, py_,     3, 1, KZ_CLOUD, a);
+                }
+            }
+            /* an expanding sparkle ring in the first moments */
+            if (age < 40) {
+                float rr = (float)age * 1.4f;
+                Uint8 ra = (Uint8)((1.0f - age / 40.0f) * 180.0f);
+                for (int s = 0; s < 10; s++) {
+                    float a2 = (float)s / 10.0f * 6.2831853f;
+                    px_rect_a(renderer, scx + cosf(a2) * rr,
+                              scy - 6 + sinf(a2) * rr * 0.7f, 2, 2,
+                              KZ_MINT, ra);
+                }
+            }
+            /* a small label under the effect */
+            const char *lbl = (grow_stage == 2) ? "All grown up!"
+                                                : "Growing up!";
+            text_draw_centered(renderer, lbl, scx, scy - 52,
+                               (grow_stage == 2) ? KZ_HEART : KZ_PETAL_PINK);
+        }
+
         if (banner_timer > 0) {
             ui_banner(renderer, banner_line);
         }
