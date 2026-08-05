@@ -36,6 +36,10 @@ void px_rect_a(SDL_Renderer *r, float x, float y, float w, float h,
 void render_set_offset(float x, float y);
 void render_clear_offset(void);
 void render_set_zoom(float z);
+/* Scale everything drawn by s around the pivot point (grows/shrinks a sprite
+ * as one). Call render_clear_pivot_scale() right after to stop. */
+void render_set_pivot_scale(float px, float py, float s);
+void render_clear_pivot_scale(void);
 float render_get_zoom(void);
 
 /* Story warmth for the re-coloring magic: 1 = full color, 0 = faded grey.

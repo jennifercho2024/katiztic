@@ -72,6 +72,12 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
     float cx = cat->cx;
     Uint64 f = frame + cat->act_seed;   /* per-cat phase so they differ */
 
+    /* Growth: scale the whole sprite around the cat's feet so a kitten is a
+     * smaller version of the same drawing (every part scales together). */
+    float gs = (cat->scale > 0.0f) ? cat->scale : 1.0f;
+    if (gs != 1.0f)
+        render_set_pivot_scale(cat->cx, cat->cy + 20.0f, gs);
+
     /* Breathing: gentle vertical bob. Petting adds a faster purr wobble. */
     float bob  = sinf((float)f * 0.04f) * 1.2f;
     float purr = cat->pet > 0 ? sinf((float)frame * 0.5f) * 0.6f : 0.0f;
@@ -173,15 +179,6 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
 
     /* Body + darker belly band. Squash/stretch (spin, roll, jump, sit) scales
      * the main mass around its center; roll/spin shift it sideways. */
-    /* ---- growth scale: kittens are smaller, adults full size ---- */
-    float gs = (cat->scale > 0.0f) ? cat->scale : 1.0f;
-    /* fold growth into the squash factors so the whole silhouette scales, and
-     * lift the draw origin so a smaller cat still rests on the ground */
-    squash_x *= gs;
-    squash_y *= gs;
-    float grow_lift = (1.0f - gs) * 12.0f;   /* keep paws on the floor */
-    py += grow_lift;
-
     float bw = 20.0f * squash_x, bh = 14.0f * squash_y;
     float bxo = (20.0f - bw) / 2.0f;             /* recenter horizontally */
     float byo = (14.0f - bh);                    /* keep feet on the ground */
@@ -265,6 +262,9 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
             px_rect_a(r, zx,     zy + 2, 3, 1, KZ_COCOA, a);
         }
     }
+
+    if (gs != 1.0f)
+        render_clear_pivot_scale();   /* stop growth scaling */
 }
 
 CatColors cat_shiny_colors(void) {

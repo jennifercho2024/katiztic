@@ -313,6 +313,8 @@ int main(int argc, char *argv[]) {
     bool feed_open = false;       /* is the feed array showing?         */
     int  drag_item = -1;          /* décor item being dragged, or -1    */
     int  drag_cat = -1;           /* cat being carried (long-press), or -1 */
+    float cursor_x = -999, cursor_y = -999;  /* last cursor pos (room coords) */
+    bool  cursor_in = false;                 /* is the cursor over the window? */
 
     /* The wild cat currently visiting the meadow (if any), the banner line
      * that describes the moment, and whether the friends-list overlay is open. */
@@ -1321,6 +1323,13 @@ int main(int argc, char *argv[]) {
                 float lx, ly;
                 SDL_RenderCoordinatesFromWindow(renderer, e.motion.x,
                                                 e.motion.y, &lx, &ly);
+                /* Remember where the cursor is (in room coords for the cottage,
+                 * so cats can look toward it / chase it). */
+                cursor_in = true;
+                if (location == LOC_COTTAGE)
+                    screen_to_room_zoomed(&cam, cottage_zoom, lx, ly,
+                                          &cursor_x, &cursor_y);
+                else { cursor_x = lx; cursor_y = ly; }
                 /* Swiping the open quest log scrolls it. */
                 if (quests_dragging) {
                     float dy = ly - quests_drag_y;
@@ -1530,6 +1539,40 @@ int main(int argc, char *argv[]) {
             roster.cats[i].anim.scale =
                 cat_growth_scale(roster.cats[i].stats.level);
         }
+        /* ---- cats notice the cursor ---- */
+        /* In places where cats roam at their real positions (home, café, park),
+         * a cat near the pointer turns to look at it, and now and then a curious
+         * one pads over to investigate — like chasing a toy. */
+        if (cursor_in && drag_cat < 0 && !holding_cat
+            && (location == LOC_COTTAGE || location == LOC_CAFE
+                || location == LOC_PARK)) {
+            for (int i = 0; i < roster.count; i++) {
+                Cat *ct = &roster.cats[i].anim;
+                if (ct->act == ACT_SLEEP) continue;   /* let sleepers lie */
+                float dx = cursor_x - ct->cx;
+                float dy = cursor_y - ct->cy;
+                float d2 = dx * dx + dy * dy;
+                if (d2 < 70.0f * 70.0f) {
+                    /* look toward the cursor */
+                    ct->facing = (dx < 0) ? -1 : 1;
+                    /* if it's close-ish and the cat isn't busy playing, it may
+                     * amble toward the pointer to bat at it */
+                    if (d2 > 20.0f * 20.0f && ct->act != ACT_PLAY
+                        && SDL_rand(70) == 0) {
+                        ct->act = ACT_WALK;
+                        ct->tx = cursor_x;
+                        ct->ty = cursor_y;
+                        ct->act_timer = 90;
+                    }
+                    /* right on top of the cat: a happy little play bat */
+                    if (d2 < 16.0f * 16.0f && SDL_rand(40) == 0) {
+                        ct->act = ACT_PLAY;
+                        ct->act_timer = 60;
+                    }
+                }
+            }
+        }
+
         /* At home and at the café, the whole family roams and socializes.
          * Décor (yarn/milk to react to) exists only in the cottage. */
         if (location == LOC_COTTAGE) {
