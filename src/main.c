@@ -301,6 +301,7 @@ int main(int argc, char *argv[]) {
     bool decor_open = false;      /* is the décor tray showing?         */
     bool feed_open = false;       /* is the feed array showing?         */
     int  drag_item = -1;          /* décor item being dragged, or -1    */
+    int  drag_cat = -1;           /* cat being carried (long-press), or -1 */
 
     /* The wild cat currently visiting the meadow (if any), the banner line
      * that describes the moment, and whether the friends-list overlay is open. */
@@ -742,10 +743,14 @@ int main(int argc, char *argv[]) {
                  * logic in the update section — and floats beside the cat.) */
                 if (trick_open) {
                     OwnedCat *a = roster_active(&roster);
-                    /* the cat's screen position = room pos - camera offset
-                     * (the park has no camera, so no offset there) */
-                    float ax = a->anim.cx - (location == LOC_COTTAGE ? cam.x : 0.0f);
-                    float ay = a->anim.cy - (location == LOC_COTTAGE ? cam.y : 0.0f);
+                    /* the cat's screen position = room pos - camera offset */
+                    float off_x = (location == LOC_COTTAGE) ? cam.x
+                                : (location == LOC_PARK)    ? park_cam.x
+                                : (location == LOC_MEADOW)  ? meadow_cam.x
+                                : 0.0f;
+                    float off_y = (location == LOC_COTTAGE) ? cam.y : 0.0f;
+                    float ax = a->anim.cx - off_x;
+                    float ay = a->anim.cy - off_y;
                     int slot = ui_trick_popup_hit(ax, ay, lx, ly);
                     if (slot >= 0) {
                         TrickId t = (TrickId)slot;
@@ -1301,11 +1306,30 @@ int main(int argc, char *argv[]) {
                                                             ry - 8);
                     decor.items[drag_item].placed = true;
                 }
+                /* Carrying a cat: it follows your finger (converted to room
+                 * coordinates in the panned/zoomed cottage). */
+                else if (drag_cat >= 0) {
+                    float rx = lx, ry = ly;
+                    if (location == LOC_COTTAGE)
+                        screen_to_room_zoomed(&cam, cottage_zoom, lx, ly, &rx, &ry);
+                    else if (location == LOC_PARK)
+                        { rx = lx + park_cam.x; ry = ly + park_cam.y; }
+                    roster.cats[drag_cat].anim.cx = rx;
+                    roster.cats[drag_cat].anim.cy = ry;
+                    roster.cats[drag_cat].anim.act = ACT_SIT;
+                }
                 break;
             }
 
             case SDL_EVENT_MOUSE_BUTTON_UP: {
                 holding_cat = false;   /* released: stop any training hold */
+                if (drag_cat >= 0) {
+                    /* set the carried cat down where you released it */
+                    roster.cats[drag_cat].anim.act = ACT_SIT;
+                    if (location == LOC_COTTAGE) roster_save(&roster, KZ_SAVE_PATH);
+                    drag_cat = -1;
+                    break;
+                }
                 /* hold-to-walk: releasing the screen stops the park stroll */
                 if (location == LOC_PARK && walking) walk_dir = 0;
                 if (quests_dragging) {
@@ -1596,25 +1620,44 @@ int main(int argc, char *argv[]) {
                 meadow_respawn = 300 + SDL_rand(300);
             }
         }
+        /* A carried cat stays exactly where you hold it — freeze its roam
+         * target so behavior_update doesn't try to walk it away. */
+        if (drag_cat >= 0 && drag_cat < roster.count) {
+            roster.cats[drag_cat].anim.act = ACT_SIT;
+            roster.cats[drag_cat].anim.tx = roster.cats[drag_cat].anim.cx;
+            roster.cats[drag_cat].anim.ty = roster.cats[drag_cat].anim.cy;
+        }
+
         if (location == LOC_STREET) streetlife_update(&streetlife, frame);
         if (location == LOC_FOREST) forestlife_update(&forestlife, frame);
 
-        /* Hold-to-train: keep pressing a cat in the cottage and, after a
-         * moment, the trick tray opens so you can ask for a trick. */
-        if (holding_cat && tricks_allowed_here(location)
-            && !trick_open) {
+        /* Hold-to-interact on a cat, in stages:
+         *   ~3 seconds  -> open the trick tray (ask for a trick)
+         *   ~5 seconds  -> pick the cat up so you can carry it anywhere
+         * A quick tap just pets. Release cancels the hold. */
+        if (holding_cat && !trick_open && drag_cat < 0) {
             hold_frames++;
-            /* a little sparkle-glow builds on the held cat as a cue */
             OwnedCat *a = roster_active(&roster);
-            cat_pet(&a->anim);   /* keep the happy glow going */
-            if (hold_frames >= 45) {   /* ~0.75s hold */
+            cat_pet(&a->anim);   /* keep the happy glow going as a cue */
+            if (hold_frames == 180 && tricks_allowed_here(location)) {
+                /* 3s: open the trick trainer */
                 trick_open = true;
                 decor_open = false;
                 feed_open = false;
+                SDL_snprintf(banner_line, sizeof banner_line,
+                             "What shall %s learn?  (keep holding to carry)",
+                             a->name);
+                banner_timer = 160;
+            }
+            if (hold_frames >= 300) {
+                /* 5s: pick the cat up to carry it wherever you like */
+                trick_open = false;      /* carrying overrides the trick tray */
+                drag_cat = roster.active;
                 holding_cat = false;
                 SDL_snprintf(banner_line, sizeof banner_line,
-                             "What shall %s learn?", a->name);
-                banner_timer = 160;
+                             "Carrying %s - drag to move, release to set down",
+                             a->name);
+                banner_timer = 200;
             }
         }
 
@@ -2074,8 +2117,13 @@ int main(int argc, char *argv[]) {
         /* Trick trainer tray, when open. */
         if (trick_open && tricks_allowed_here(location)) {
             OwnedCat *a = roster_active(&roster);
-            float ax = a->anim.cx - (location == LOC_COTTAGE ? cam.x : 0.0f);
-            float ay = a->anim.cy - (location == LOC_COTTAGE ? cam.y : 0.0f);
+            float off_x = (location == LOC_COTTAGE) ? cam.x
+                        : (location == LOC_PARK)    ? park_cam.x
+                        : (location == LOC_MEADOW)  ? meadow_cam.x
+                        : 0.0f;
+            float off_y = (location == LOC_COTTAGE) ? cam.y : 0.0f;
+            float ax = a->anim.cx - off_x;
+            float ay = a->anim.cy - off_y;
             ui_trick_popup(renderer, &tricks, a->name, ax, ay, frame);
         }
 
