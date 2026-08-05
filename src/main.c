@@ -1632,8 +1632,15 @@ int main(int argc, char *argv[]) {
                 meadow_respawn = 300 + SDL_rand(300);
             }
         }
-        /* A carried cat stays exactly where you hold it — freeze its roam
-         * target so behavior_update doesn't try to walk it away. */
+        /* A held or carried cat stays put — freeze its roam target so
+         * behavior_update doesn't walk it out from under your finger. */
+        if (holding_cat) {
+            cam_dragging = false;   /* a hold is never a pan */
+            OwnedCat *h = roster_active(&roster);
+            h->anim.act = ACT_SIT;
+            h->anim.tx = h->anim.cx;
+            h->anim.ty = h->anim.cy;
+        }
         if (drag_cat >= 0 && drag_cat < roster.count) {
             roster.cats[drag_cat].anim.act = ACT_SIT;
             roster.cats[drag_cat].anim.tx = roster.cats[drag_cat].anim.cx;
