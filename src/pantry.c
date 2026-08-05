@@ -1,8 +1,9 @@
 /* pantry.c — see pantry.h. Coins, food stock, and remembering them. */
 #include "pantry.h"
 
-static const char *NAMES[FOOD_COUNT] = { "Cat Food", "Milk", "Treat", "Water" };
-static const int   PRICES[FOOD_COUNT] = { 5, 4, 6, 2 };
+static const char *NAMES[FOOD_COUNT] = { "Cat Food", "Milk", "Treat", "Water",
+                                         "Tuna", "Catnip", "Salmon", "Jerky" };
+static const int   PRICES[FOOD_COUNT] = { 5, 4, 6, 2, 10, 8, 12, 7 };
 
 const char *food_name(FoodKind f) {
     if (f < 0 || f >= FOOD_COUNT) return "?";
@@ -16,6 +17,7 @@ int food_price(FoodKind f) {
 Pantry pantry_new(void) {
     Pantry p;
     p.coins = 12;                 /* a small starting purse */
+    for (int i = 0; i < FOOD_COUNT; i++) p.stock[i] = 0;
     p.stock[FOOD_KIBBLE] = 3;
     p.stock[FOOD_MILK]   = 2;
     p.stock[FOOD_TREAT]  = 1;

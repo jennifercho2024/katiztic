@@ -204,25 +204,125 @@ static void draw_medal(SDL_Renderer *r, Medal m, float x, float y) {
 }
 
 /* a small podium */
-static void draw_podium(SDL_Renderer *r, float x, float y) {
-    px_rect(r, x + 10, y - 10, 12, 10, rgb(0xF2, 0xD0, 0x7A));   /* 1st */
-    px_rect(r, x, y - 6, 10, 6, rgb(0xD8, 0xD8, 0xE0));          /* 2nd */
-    px_rect(r, x + 22, y - 4, 10, 4, rgb(0xD0, 0xA6, 0x7A));     /* 3rd */
-    px_rect(r, x, y, 32, 3, KZ_COCOA);
+/* A proper award podium: three tiers (2nd left, 1st tall center, 3rd right),
+ * each labelled, with a little cat standing on top of its block. `types` gives
+ * the cat type for each of the three places (index 0=1st,1=2nd,2=3rd). */
+static void draw_podium(SDL_Renderer *r, float cx, float base_y,
+                        const CatType *types, Uint64 frame) {
+    /* block sizes */
+    float bw = 30;
+    float h1 = 34, h2 = 26, h3 = 20;   /* 1st tallest */
+    float x1 = cx - bw / 2.0f;          /* center (1st) */
+    float x2 = cx - bw - bw / 2.0f - 4; /* left (2nd)   */
+    float x3 = cx + bw / 2.0f + 4;      /* right (3rd)  */
+
+    /* a soft spotlight glow behind the winner */
+    px_rect_a(r, x1 - 4, base_y - h1 - 40, bw + 8, h1 + 40, KZ_BUTTER, 40);
+
+    /* the three blocks, gold/silver/bronze */
+    Color gold = rgb(0xF2, 0xD0, 0x7A), silver = rgb(0xD8, 0xD8, 0xE0),
+          bronze = rgb(0xD8, 0xAE, 0x82);
+    /* 2nd */
+    px_rect(r, x2, base_y - h2, bw, h2, silver);
+    px_rect(r, x2, base_y - h2, bw, 1, KZ_CLOUD);
+    px_rect(r, x2, base_y - h2, 1, h2, KZ_COCOA);
+    px_rect(r, x2 + bw - 1, base_y - h2, 1, h2, KZ_COCOA);
+    text_draw_centered(r, "2", x2 + bw / 2.0f, base_y - h2 / 2.0f - 3, KZ_COCOA);
+    /* 3rd */
+    px_rect(r, x3, base_y - h3, bw, h3, bronze);
+    px_rect(r, x3, base_y - h3, bw, 1, rgb(0xE8, 0xC8, 0xA8));
+    px_rect(r, x3, base_y - h3, 1, h3, KZ_COCOA);
+    px_rect(r, x3 + bw - 1, base_y - h3, 1, h3, KZ_COCOA);
+    text_draw_centered(r, "3", x3 + bw / 2.0f, base_y - h3 / 2.0f - 3, KZ_COCOA);
+    /* 1st (center, tallest) */
+    px_rect(r, x1, base_y - h1, bw, h1, gold);
+    px_rect(r, x1, base_y - h1, bw, 1, rgb(0xFB, 0xEE, 0xC0));
+    px_rect(r, x1, base_y - h1, 1, h1, KZ_COCOA);
+    px_rect(r, x1 + bw - 1, base_y - h1, 1, h1, KZ_COCOA);
+    text_draw_centered(r, "1", x1 + bw / 2.0f, base_y - h1 / 2.0f - 3, KZ_COCOA);
+
+    /* a little cat standing on each block (a gentle winner's bounce on 1st) */
+    float bounce = fabsf(sinf((float)frame * 0.12f)) * 2.0f;
+    Cat c1 = cat_make(x1 + bw / 2.0f, base_y - h1 - 8 - bounce);
+    c1.facing = 1;
+    cat_draw(r, &c1, cattype_colors(types[0]), frame);
+    /* a sparkle crown on the winner */
+    px_rect(r, x1 + bw / 2.0f - 1, base_y - h1 - 20 - bounce, 2, 3, KZ_BUTTER);
+    px_rect(r, x1 + bw / 2.0f - 3, base_y - h1 - 18 - bounce, 6, 2, KZ_BUTTER);
+
+    Cat c2 = cat_make(x2 + bw / 2.0f, base_y - h2 - 8);
+    c2.facing = 1;
+    cat_draw(r, &c2, cattype_colors(types[1]), frame);
+    Cat c3 = cat_make(x3 + bw / 2.0f, base_y - h3 - 8);
+    c3.facing = 1;
+    cat_draw(r, &c3, cattype_colors(types[2]), frame);
+
+    /* podium floor line */
+    px_rect(r, x2 - 2, base_y, bw * 3 + 12, 2, KZ_COCOA);
+}
+
+/* A proper stadium: tiered stands packed with spectators, flags along the
+ * rim, floodlights, and a clean arena floor with lane markings. Drawn behind
+ * every phase so the Katlympics feels like a real venue. */
+static void stadium_backdrop(SDL_Renderer *r, Uint64 frame) {
+    /* bright daytime sky over the stadium */
+    px_rect(r, 0, 0, KZ_W, 46, rgb(0xCF, 0xE6, 0xF2));
+    px_rect(r, 0, 0, KZ_W, 14, rgb(0xBE, 0xDA, 0xEE));
+
+    /* floodlight towers at the corners */
+    for (int s = 0; s < 2; s++) {
+        float lx = s == 0 ? 18 : KZ_W - 22;
+        px_rect(r, lx + 1, 6, 2, 22, rgb(0x8A, 0x8A, 0x9A));   /* pole */
+        px_rect(r, lx - 3, 2, 10, 5, rgb(0x6A, 0x6A, 0x7A));   /* housing */
+        for (int b = 0; b < 6; b++)                             /* bulbs */
+            px_rect(r, lx - 2 + (b % 3) * 3, 3 + (b / 3) * 2, 2, 1,
+                    rgb(0xFC, 0xF4, 0xC8));
+    }
+
+    /* tiered stands: three banded rows of seats full of spectators */
+    Color tier[3] = { rgb(0x8E, 0x7C, 0xB0), rgb(0x9E, 0x8C, 0xC0),
+                      rgb(0xAE, 0x9C, 0xCE) };
+    for (int row = 0; row < 3; row++) {
+        float y = 20 + row * 10;
+        px_rect(r, 0, y, KZ_W, 10, tier[row]);
+        px_rect(r, 0, y, KZ_W, 1, rgb(0x6E, 0x5C, 0x90));
+        /* spectators: little dotted heads that gently shift (a lively crowd) */
+        for (int c = 0; c < KZ_W / 6; c++) {
+            int seed = (row * 97 + c * 13);
+            Color head = ((seed % 4) == 0) ? KZ_PETAL_PINK
+                       : ((seed % 4) == 1) ? KZ_BUTTER
+                       : ((seed % 4) == 2) ? KZ_MINT : KZ_CLOUD;
+            float wob = ((int)((frame / 20 + seed) % 2)) ? 0.0f : 1.0f;
+            px_rect(r, 2 + c * 6, y + 3 + wob, 3, 3, head);
+        }
+    }
+
+    /* pennant flags strung along the top of the stands */
+    for (int i = 0; i < 16; i++) {
+        Color f = (i % 3 == 0) ? KZ_PETAL_PINK : (i % 3 == 1) ? KZ_BUTTER : KZ_MINT;
+        px_rect(r, i * 16, 16, 1, 4, KZ_COCOA);       /* string tick */
+        px_rect(r, i * 16 - 2, 16, 5, 2, f);          /* flag */
+    }
+
+    /* arena wall + floor */
+    px_rect(r, 0, 50, KZ_W, 4, rgb(0xE6, 0xDE, 0xE8));      /* barrier wall */
+    px_rect(r, 0, 50, KZ_W, 1, rgb(0x6E, 0x5C, 0x90));
+    px_rect(r, 0, 54, KZ_W, KZ_H - 54, rgb(0xC2, 0xB6, 0x8E));  /* sandy track */
+    px_rect(r, 0, 54, KZ_W, 2, rgb(0xB2, 0xA6, 0x7E));
+    /* lane lines on the track for an athletic look */
+    for (int lane = 1; lane < 5; lane++)
+        px_rect(r, 0, 54 + lane * ((KZ_H - 54) / 5), KZ_W, 1,
+                rgb(0xD6, 0xCC, 0xB0));
+    /* a green infield strip */
+    px_rect(r, 0, KZ_H - 22, KZ_W, 22, rgb(0xA8, 0xC8, 0x92));
+    px_rect(r, 0, KZ_H - 22, KZ_W, 1, rgb(0x8E, 0xB0, 0x7C));
 }
 
 void katlympics_draw(SDL_Renderer *r, const Katlympics *k,
                      CatType your_type, bool your_shiny, Uint64 frame) {
     if (!k->active) return;
 
-    /* stadium: sky, field, a bunting banner */
-    px_rect(r, 0, 0, KZ_W, 60, rgb(0xCF, 0xE6, 0xF2));
-    px_rect(r, 0, 60, KZ_W, KZ_H - 60, rgb(0xB6, 0xD6, 0xA0));
-    px_rect(r, 0, 60, KZ_W, 3, rgb(0xC6, 0xE0, 0xAC));
-    for (int i = 0; i < 12; i++) {
-        Color f = (i % 3 == 0) ? KZ_PETAL_PINK : (i % 3 == 1) ? KZ_BUTTER : KZ_MINT;
-        px_rect(r, 6 + i * 20, 8 + (int)(sinf((float)i * 0.9f) * 2), 6, 5, f);
-    }
+    stadium_backdrop(r, frame);
 
     CatColors yc = your_shiny ? cat_shiny_colors() : cattype_colors(your_type);
 
@@ -323,53 +423,68 @@ void katlympics_draw(SDL_Renderer *r, const Katlympics *k,
         text_draw_centered(r, "your cat is doing great!", KZ_W / 2.0f,
                            KZ_H - 12, rgb(0x6E, 0x58, 0x92));
     } else {
-        /* results */
-        text_draw_scaled(r, "Results", 78, 12, rgb(0x6E, 0x58, 0x92), 2);
-        draw_podium(r, 104, 60);
+        /* results — an award ceremony on the winners' stage */
+        /* a broad spotlight cone shining down onto the podium */
+        for (int i = 0; i < 20; i++) {
+            float halfw = 8 + i * 3.0f;
+            px_rect_a(r, KZ_W / 2.0f - halfw, 40 + i * 2.6f, halfw * 2, 3,
+                      KZ_BUTTER, 18);
+        }
+        /* a ceremony banner across the top */
+        px_rect(r, 40, 4, KZ_W - 80, 16, rgb(0x6E, 0x58, 0x92));
+        px_rect(r, 40, 4, KZ_W - 80, 1, KZ_BUTTER);
+        px_rect(r, 40, 19, KZ_W - 80, 1, KZ_BUTTER);
+        text_draw_centered(r, "Awards Ceremony", KZ_W / 2.0f, 8, KZ_CLOUD);
 
-        /* the standings list: you + rivals, sorted by score */
-        struct Row { const char *name; int score; bool you; };
+        /* build the ranked list: you + rivals, sorted by score */
+        struct Row { const char *name; int score; bool you; CatType type; };
         struct Row rows[KAT_RIVALS + 1];
         rows[0].name = "You"; rows[0].score = k->your_score; rows[0].you = true;
+        rows[0].type = your_type;
         for (int i = 0; i < KAT_RIVALS; i++) {
             rows[i + 1].name = k->rivals[i].name;
             rows[i + 1].score = k->rivals[i].score;
             rows[i + 1].you = false;
+            rows[i + 1].type = k->rivals[i].cat_type;
         }
-        /* sort desc by score (tiny bubble sort) */
         for (int a = 0; a < KAT_RIVALS + 1; a++)
             for (int b = a + 1; b < KAT_RIVALS + 1; b++)
                 if (rows[b].score > rows[a].score) {
                     struct Row tmp = rows[a]; rows[a] = rows[b]; rows[b] = tmp;
                 }
 
-        float ly = 74;
+        /* the podium, with the top three cats standing on their places */
+        CatType top3[3] = { rows[0].type, rows[1].type, rows[2].type };
+        draw_podium(r, KZ_W / 2.0f, 96, top3, frame);
+
+        /* a compact standings strip across the bottom */
+        float ly = 116;
         for (int i = 0; i < KAT_RIVALS + 1; i++) {
             Color rowc = rows[i].you ? KZ_PETAL_PINK : KZ_CLOUD;
-            px_rect_a(r, 54, ly, 132, 11, rowc, 230);
-            char line[40];
+            px_rect_a(r, 20, ly, 200, 9, rowc, 220);
+            /* a little medal for the top three */
+            if (i < 3) {
+                Medal m = (i == 0) ? MEDAL_GOLD : (i == 1) ? MEDAL_SILVER
+                                                           : MEDAL_BRONZE;
+                draw_medal(r, m, 21, ly - 2);
+            }
+            char line[48];
             SDL_snprintf(line, sizeof line, "%d.  %s", i + 1, rows[i].name);
-            text_draw(r, line, 60, ly + 2, KZ_COCOA);
+            text_draw(r, line, 34, ly + 1, KZ_COCOA);
             char sc[16];
-            SDL_snprintf(sc, sizeof sc, "%d", rows[i].score);
-            text_draw(r, sc, 168, ly + 2, rgb(0x9A, 0x7A, 0x5A));
-            ly += 13;
+            SDL_snprintf(sc, sizeof sc, "%d pts", rows[i].score);
+            text_draw(r, sc, 180, ly + 1, rgb(0x9A, 0x7A, 0x5A));
+            ly += 10;
         }
 
-        /* your medal + rewards */
-        if (k->your_medal != MEDAL_NONE) {
-            draw_medal(r, k->your_medal, 60, ly + 2);
-            char m[48];
+        /* your reward line */
+        char m[52];
+        if (k->your_medal != MEDAL_NONE)
             SDL_snprintf(m, sizeof m, "%s medal!  +%d coins, +%d xp",
                          medal_name(k->your_medal), k->coins_won, k->xp_won);
-            text_draw(r, m, 74, ly + 6, rgb(0x6E, 0x58, 0x92));
-        } else {
-            char m[48];
-            SDL_snprintf(m, sizeof m, "Good effort!  +%d coins, +%d xp",
+        else
+            SDL_snprintf(m, sizeof m, "Nice try!  +%d coins, +%d xp",
                          k->coins_won, k->xp_won);
-            text_draw(r, m, 60, ly + 6, rgb(0x6E, 0x58, 0x92));
-        }
-        text_draw_centered(r, "tap to continue", KZ_W / 2.0f, KZ_H - 10,
-                           KZ_COCOA);
+        text_draw_centered(r, m, KZ_W / 2.0f, KZ_H - 8, rgb(0x6E, 0x58, 0x92));
     }
 }

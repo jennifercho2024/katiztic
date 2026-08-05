@@ -380,25 +380,7 @@ static float rs_slot_x(int i) {
     return (float)RS_X + i * (RS_SLOT + RS_GAP);
 }
 
-/* A tiny cat face in the given type color, filling a portrait slot at (x,y). */
-static void portrait(SDL_Renderer *r, float x, float y, CatColors col) {
-    /* head */
-    px_rect(r, x + 4, y + 6, 14, 12, col.body);
-    /* ears */
-    px_rect(r, x + 4,  y + 2, 4, 5, col.body);
-    px_rect(r, x + 14, y + 2, 4, 5, col.body);
-    px_rect(r, x + 5,  y + 3, 2, 3, col.ear);
-    px_rect(r, x + 15, y + 3, 2, 3, col.ear);
-    /* eyes + nose (fixed mauve) */
-    px_rect(r, x + 7,  y + 10, 2, 2, KZ_CAT_OUTLINE);
-    px_rect(r, x + 13, y + 10, 2, 2, KZ_CAT_OUTLINE);
-    px_rect(r, x + 10, y + 13, 2, 1, KZ_CAT_NOSE);
-    /* cheeks */
-    px_rect(r, x + 5,  y + 12, 2, 1, col.cheek);
-    px_rect(r, x + 15, y + 12, 2, 1, col.cheek);
-}
-
-/* the same portrait, drawn with a fade alpha for the auto-hiding roster */
+/* A tiny cat face in the given type color, faded for the auto-hiding roster. */
 static void portrait_a(SDL_Renderer *r, float x, float y, CatColors col,
                        Uint8 a) {
     px_rect_a(r, x + 4, y + 6, 14, 12, col.body, a);
@@ -668,34 +650,37 @@ void ui_feed_tray(SDL_Renderer *r, const Pantry *p, Uint64 frame) {
     px_rect(r, 0, FEED_Y - 2, KZ_W, 1, KZ_COCOA);
     text_draw(r, "feed - tap a food", 6, FEED_Y - 10, KZ_COCOA);
 
+    /* show only foods you actually have, so the strip never runs off-screen */
+    int slot = 0;
     for (int i = 0; i < FOOD_COUNT; i++) {
-        float x = feed_slot_x(i);
-        bool have = p->stock[i] > 0;
-        /* slot */
-        px_rect(r, x, (float)FEED_Y + 2, FEED_SLOT, FEED_H - 4,
-                have ? KZ_CLOUD : rgb(0xE4, 0xDC, 0xE0));
+        if (p->stock[i] == 0) continue;
+        float x = feed_slot_x(slot);
+        if (x + FEED_SLOT > KZ_W) break;   /* safety: don't draw past the edge */
+        px_rect(r, x, (float)FEED_Y + 2, FEED_SLOT, FEED_H - 4, KZ_CLOUD);
         px_rect(r, x, (float)FEED_Y + 2, FEED_SLOT, 1, KZ_COCOA);
         px_rect(r, x, (float)FEED_Y + FEED_H - 3, FEED_SLOT, 1, KZ_COCOA);
         px_rect(r, x, (float)FEED_Y + 2, 1, FEED_H - 4, KZ_COCOA);
         px_rect(r, x + FEED_SLOT - 1, (float)FEED_Y + 2, 1, FEED_H - 4, KZ_COCOA);
-        /* icon */
         feed_food_icon(r, (FoodKind)i, x + 6, (float)FEED_Y + 5);
-        /* name + count */
-        text_draw(r, food_name((FoodKind)i), x + 24, (float)FEED_Y + 6,
-                  have ? KZ_COCOA : rgb(0xB0, 0x9E, 0xA8));
+        text_draw(r, food_name((FoodKind)i), x + 24, (float)FEED_Y + 6, KZ_COCOA);
         char cnt[16];
         SDL_snprintf(cnt, sizeof cnt, "x%u", (unsigned)p->stock[i]);
-        text_draw(r, cnt, x + 24, (float)FEED_Y + 16,
-                  have ? rgb(0x9A, 0x7A, 0x5A) : rgb(0xB0, 0x9E, 0xA8));
+        text_draw(r, cnt, x + 24, (float)FEED_Y + 16, rgb(0x9A, 0x7A, 0x5A));
+        slot++;
     }
+    if (slot == 0)
+        text_draw(r, "no food - buy some at the store!", 6, (float)FEED_Y + 14,
+                  rgb(0x9A, 0x7A, 0x5A));
 }
 
 int ui_feed_tray_hit(const Pantry *p, float px_, float py_) {
-    (void)p;
     if (py_ < FEED_Y + 2 || py_ > FEED_Y + FEED_H - 2) return -1;
+    int slot = 0;
     for (int i = 0; i < FOOD_COUNT; i++) {
-        float x = feed_slot_x(i);
+        if (p->stock[i] == 0) continue;
+        float x = feed_slot_x(slot);
         if (px_ >= x && px_ <= x + FEED_SLOT) return i;
+        slot++;
     }
     return -1;
 }

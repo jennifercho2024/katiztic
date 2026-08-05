@@ -74,7 +74,7 @@ void market_draw(SDL_Renderer *r, const Pantry *p, Uint64 frame) {
     text_draw(r, "Flea Market", 8, 16, KZ_COCOA);
 
     /* ---- the four stalls ---- */
-    for (int i = 0; i < FOOD_COUNT; i++) {
+    for (int i = 0; i < 4; i++) {  /* market: the 4 basics; store has the rest */
         float x = stall_x(i);
         /* striped awning */
         for (int s = 0; s < STALL_W / 6; s++) {
@@ -141,7 +141,7 @@ void market_draw(SDL_Renderer *r, const Pantry *p, Uint64 frame) {
 }
 
 int market_hit(float px, float py) {
-    for (int i = 0; i < FOOD_COUNT; i++) {
+    for (int i = 0; i < 4; i++) {  /* market: the 4 basics; store has the rest */
         float x = stall_x(i);
         /* the whole stall column is tappable (awning down through buy chip) */
         if (px >= x && px <= x + STALL_W

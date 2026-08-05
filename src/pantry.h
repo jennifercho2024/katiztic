@@ -15,6 +15,10 @@ typedef enum {
     FOOD_MILK,
     FOOD_TREAT,
     FOOD_WATER,
+    FOOD_TUNA,     /* a fancy tuna feast */
+    FOOD_CATNIP,   /* a pinch of catnip — a big mood boost */
+    FOOD_SALMON,   /* a salmon dinner */
+    FOOD_JERKY,    /* chewy meat jerky */
     FOOD_COUNT
 } FoodKind;
 

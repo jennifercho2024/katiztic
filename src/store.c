@@ -89,9 +89,31 @@ static void food_icon(SDL_Renderer *r, FoodKind f, float x, float y) {
             px_rect(r, x + 4, y + 2, 4, 2, KZ_HEART);
             break;
         case FOOD_WATER:
-        default:
             px_rect(r, x + 3, y + 2, 6, 8, KZ_SKY_WASH);
             px_rect(r, x + 3, y + 2, 6, 2, KZ_MINT);
+            break;
+        case FOOD_TUNA:   /* a can */
+            px_rect(r, x + 2, y + 3, 8, 6, rgb(0xC8, 0xC8, 0xD4));
+            px_rect(r, x + 2, y + 3, 8, 1, rgb(0xE4, 0xE4, 0xEC));
+            px_rect(r, x + 4, y + 5, 4, 2, rgb(0xE8, 0xA8, 0x88));  /* fish */
+            break;
+        case FOOD_CATNIP: /* a leafy sprig */
+            px_rect(r, x + 4, y + 4, 4, 6, rgb(0x8F, 0xC0, 0x7A));
+            px_rect(r, x + 2, y + 3, 3, 3, rgb(0x9C, 0xC6, 0x8E));
+            px_rect(r, x + 7, y + 3, 3, 3, rgb(0x9C, 0xC6, 0x8E));
+            break;
+        case FOOD_SALMON: /* a pink fillet */
+            px_rect(r, x + 2, y + 4, 8, 4, rgb(0xE8, 0x9A, 0x8A));
+            px_rect(r, x + 2, y + 4, 8, 1, rgb(0xF2, 0xB4, 0xA4));
+            px_rect(r, x + 3, y + 5, 1, 2, KZ_CLOUD);              /* stripe */
+            px_rect(r, x + 6, y + 5, 1, 2, KZ_CLOUD);
+            break;
+        case FOOD_JERKY:  /* a chewy strip */
+        default:
+            px_rect(r, x + 3, y + 2, 4, 8, rgb(0xA8, 0x6E, 0x4E));
+            px_rect(r, x + 3, y + 2, 4, 1, rgb(0xC0, 0x8E, 0x6E));
+            px_rect(r, x + 4, y + 4, 2, 1, rgb(0x8A, 0x56, 0x3E));
+            px_rect(r, x + 4, y + 7, 2, 1, rgb(0x8A, 0x56, 0x3E));
             break;
     }
 }
@@ -160,30 +182,29 @@ void store_draw(SDL_Renderer *r, StoreFloor floor, const Decor *decor,
             }
         }
     } else {
-        /* supplies floor: 4 food items in a row */
+        /* supplies floor: a grid of food/supply items (4 per row) */
         for (int i = 0; i < FOOD_COUNT; i++) {
-            float x = 14 + i * 56, y = 46;
-            px_rect(r, x, y, 50, 60, KZ_CLOUD);
+            float x = 12 + (i % 4) * 56, y = 34 + (i / 4) * 56;
+            px_rect(r, x, y, 50, 50, KZ_CLOUD);
             px_rect(r, x, y, 50, 1, KZ_COCOA);
-            px_rect(r, x, y + 59, 50, 1, KZ_COCOA);
-            px_rect(r, x, y, 1, 60, KZ_COCOA);
-            px_rect(r, x + 49, y, 1, 60, KZ_COCOA);
-            food_icon(r, (FoodKind)i, x + 19, y + 6);
-            text_draw_centered(r, food_name((FoodKind)i), x + 25, y + 22,
+            px_rect(r, x, y + 49, 50, 1, KZ_COCOA);
+            px_rect(r, x, y, 1, 50, KZ_COCOA);
+            px_rect(r, x + 49, y, 1, 50, KZ_COCOA);
+            food_icon(r, (FoodKind)i, x + 19, y + 4);
+            text_draw_centered(r, food_name((FoodKind)i), x + 25, y + 18,
                                KZ_COCOA);
             char have[16];
-            SDL_snprintf(have, sizeof have, "have %u",
+            SDL_snprintf(have, sizeof have, "x%u",
                          (unsigned)pantry->stock[i]);
-            text_draw_centered(r, have, x + 25, y + 32, rgb(0x9A, 0x7A, 0x5A));
+            text_draw_centered(r, have, x + 25, y + 26, rgb(0x9A, 0x7A, 0x5A));
             char pr[16];
             SDL_snprintf(pr, sizeof pr, "%d coins", food_price((FoodKind)i));
             bool afford = pantry->coins >= (Uint16)food_price((FoodKind)i);
-            /* buy chip */
-            px_rect(r, x + 8, y + 44, 34, 11, afford ? KZ_MINT
+            px_rect(r, x + 6, y + 36, 38, 10, afford ? KZ_MINT
                                                      : rgb(0xE0, 0xD0, 0xD0));
-            px_rect(r, x + 8, y + 44, 34, 1, KZ_COCOA);
-            px_rect(r, x + 8, y + 54, 34, 1, KZ_COCOA);
-            text_draw_centered(r, pr, x + 25, y + 46, KZ_COCOA);
+            px_rect(r, x + 6, y + 36, 38, 1, KZ_COCOA);
+            px_rect(r, x + 6, y + 45, 38, 1, KZ_COCOA);
+            text_draw_centered(r, pr, x + 25, y + 38, KZ_COCOA);
         }
     }
 
@@ -211,8 +232,8 @@ StoreTap store_hit(StoreFloor floor, float px_, float py_) {
         }
     } else {
         for (int i = 0; i < FOOD_COUNT; i++) {
-            float x = 14 + i * 56, y = 46;
-            if (px_ >= x && px_ <= x + 50 && py_ >= y && py_ <= y + 60) {
+            float x = 12 + (i % 4) * 56, y = 34 + (i / 4) * 56;
+            if (px_ >= x && px_ <= x + 50 && py_ >= y && py_ <= y + 50) {
                 t.kind = STORE_TAP_BUY_FOOD;
                 t.index = i;
                 return t;

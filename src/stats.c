@@ -94,10 +94,33 @@ int stats_feed_food(Stats *s, int food /* FoodKind */) {
             xp = 6;
             break;
         case 3:  /* water: refreshing — a gentle energy top-up */
-        default:
             s->energy = bump(s->energy, 12);
             s->mood   = bump(s->mood, 2);
             xp = 2;
+            break;
+        case 4:  /* tuna: a fancy feast — big energy and mood */
+            s->energy = bump(s->energy, 22);
+            s->mood   = bump(s->mood, 10);
+            s->bond   = bump(s->bond, 4);
+            xp = 8;
+            break;
+        case 5:  /* catnip: a blissful mood and bond boost */
+            s->mood   = bump(s->mood, 20);
+            s->bond   = bump(s->bond, 10);
+            xp = 7;
+            break;
+        case 6:  /* salmon: a rich dinner — hearty all around */
+            s->energy = bump(s->energy, 20);
+            s->mood   = bump(s->mood, 12);
+            s->bond   = bump(s->bond, 8);
+            xp = 10;
+            break;
+        case 7:  /* jerky: chewy and satisfying */
+        default:
+            s->energy = bump(s->energy, 14);
+            s->mood   = bump(s->mood, 6);
+            s->bond   = bump(s->bond, 4);
+            xp = 6;
             break;
     }
     grow(s);
