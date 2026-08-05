@@ -24,6 +24,7 @@ void camera_pan(Camera *c, float dx, float dy);
 
 /* Clamp the offset so the view stays inside the room. */
 void camera_clamp(Camera *c);
+void camera_clamp_zoom(Camera *c, float zoom);
 
 /* Convert a screen point to a room point (add the offset). */
 void camera_to_room(const Camera *c, float sx, float sy, float *rx, float *ry);

@@ -919,12 +919,14 @@ int main(int argc, char *argv[]) {
                     if (ui_button_hit(&btn_zoom_in, lx, ly)) {
                         cottage_zoom += 0.25f;
                         if (cottage_zoom > 2.5f) cottage_zoom = 2.5f;
+                        camera_clamp_zoom(&cam, cottage_zoom);
                         press_fx = 8;
                         break;
                     }
                     if (ui_button_hit(&btn_zoom_out, lx, ly)) {
                         cottage_zoom -= 0.25f;
-                        if (cottage_zoom < 0.75f) cottage_zoom = 0.75f;
+                        if (cottage_zoom < 1.0f) cottage_zoom = 1.0f;
+                        camera_clamp_zoom(&cam, cottage_zoom);
                         press_fx = 8;
                         break;
                     }
@@ -1236,6 +1238,10 @@ int main(int argc, char *argv[]) {
                 if (cam_dragging) {
                     Camera *pc = (location == LOC_MEADOW) ? &meadow_cam : &cam;
                     camera_pan(pc, cam_last_x - lx, cam_last_y - ly);
+                    /* re-clamp the cottage with zoom so you never pan into the
+                     * empty space beyond the room when zoomed out */
+                    if (location == LOC_COTTAGE)
+                        camera_clamp_zoom(&cam, cottage_zoom);
                     cam_last_x = lx;
                     cam_last_y = ly;
                 }
