@@ -65,48 +65,66 @@ static void ball_pit(SDL_Renderer *r, float x, float y, Uint64 frame) {
 }
 
 void park_draw(SDL_Renderer *r, Uint64 frame, bool night) {
-    /* sky + grass */
-    px_rect(r, 0, 0, KZ_W, 54, night ? rgb(0x9C, 0x92, 0xC0)
-                                     : rgb(0xCF, 0xE6, 0xF2));
-    px_rect(r, 0, 54, KZ_W, KZ_H - 54, night ? rgb(0x8C, 0xA0, 0x84)
-                                             : rgb(0xB6, 0xD6, 0xA0));
-    px_rect(r, 0, 54, KZ_W, 3, night ? rgb(0x9C, 0xB0, 0x90)
-                                     : rgb(0xC6, 0xE0, 0xAC));
+    park_draw_wide(r, frame, night, KZ_W);
+}
 
-    /* distant soft hills */
+void park_draw_wide(SDL_Renderer *r, Uint64 frame, bool night, int room_w) {
+    const int PW = room_w;
+    /* sky + grass */
+    px_rect(r, 0, 0, PW, 54, night ? rgb(0x9C, 0x92, 0xC0)
+                                   : rgb(0xCF, 0xE6, 0xF2));
+    px_rect(r, 0, 54, PW, KZ_H - 54, night ? rgb(0x8C, 0xA0, 0x84)
+                                           : rgb(0xB6, 0xD6, 0xA0));
+    px_rect(r, 0, 54, PW, 3, night ? rgb(0x9C, 0xB0, 0x90)
+                                   : rgb(0xC6, 0xE0, 0xAC));
+
+    /* distant soft hills across the whole room */
     for (int i = 0; i < 3; i++) {
         float base = 44.0f + i * 4;
         Color hill = night ? rgb(0x86, 0x9A, 0x80) : rgb(0xAC, 0xCE, 0x98);
-        for (float x = 0; x < KZ_W; x += 2)
+        for (float x = 0; x < PW; x += 2)
             px_rect(r, x, base + sinf(x * 0.04f + i) * 4, 2, 14, hill);
     }
 
-    /* a winding path */
-    for (int i = 0; i < 26; i++) {
+    /* a winding path spanning the room */
+    for (int i = 0; i < PW / 10 + 1; i++) {
         float px_ = i * 10;
         float py_ = 120 + sinf(i * 0.4f) * 8;
         px_rect(r, px_, py_, 11, 6, rgb(0xE0, 0xCE, 0xB4));
     }
 
-    /* a couple of shade trees */
-    for (int t = 0; t < 2; t++) {
-        float tx = t == 0 ? 20 : 210;
+    /* shade trees scattered across the room */
+    for (int t = 0; t < PW / 120 + 2; t++) {
+        float tx = 20 + t * 120;
         px_rect(r, tx, 60, 5, 20, rgb(0xA8, 0x86, 0x6E));
         px_rect(r, tx - 8, 44, 21, 18, rgb(0x9C, 0xC6, 0x8E));
         px_rect(r, tx - 5, 38, 15, 12, rgb(0xB6, 0xDA, 0xA0));
     }
 
-    /* ---- the playground equipment ---- */
+    /* ---- the playground equipment, spread across the wider park ---- */
     climbing_tree(r, 34, 62);
     slide(r, 168, 70);
     tunnel(r, 96, 96);
     ball_pit(r, 30, 116, frame);
+    /* extra equipment further right, revealed as you pan */
+    if (PW > KZ_W) {
+        slide(r, 300, 70);
+        climbing_tree(r, 400, 62);
+        tunnel(r, 250, 96);
+        ball_pit(r, 430, 116, frame);
+        /* a see-saw */
+        px_rect(r, 340, 120, 40, 2, rgb(0xC8, 0xA6, 0x8E));
+        px_rect(r, 358, 116, 4, 8, rgb(0xB0, 0x8E, 0x76));
+    }
 
-    /* a little bench */
-    px_rect(r, 150, 128, 20, 3, rgb(0xC8, 0xA6, 0x8E));
-    px_rect(r, 151, 131, 2, 5, rgb(0xB0, 0x8E, 0x76));
-    px_rect(r, 167, 131, 2, 5, rgb(0xB0, 0x8E, 0x76));
-    px_rect(r, 150, 123, 20, 2, rgb(0xC8, 0xA6, 0x8E));
+    /* benches */
+    for (int b = 0; b < (PW > KZ_W ? 2 : 1); b++) {
+        float bxp = 150 + b * 210;
+        px_rect(r, bxp, 128, 20, 3, rgb(0xC8, 0xA6, 0x8E));
+        px_rect(r, bxp + 1, 131, 2, 5, rgb(0xB0, 0x8E, 0x76));
+        px_rect(r, bxp + 17, 131, 2, 5, rgb(0xB0, 0x8E, 0x76));
+        px_rect(r, bxp, 123, 20, 2, rgb(0xC8, 0xA6, 0x8E));
+    }
 
     /* a fluttering butterfly for ambiance */
     float bx = 130 + sinf((float)frame * 0.03f) * 30;

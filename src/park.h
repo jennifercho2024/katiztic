@@ -17,6 +17,11 @@
 /* Draw the park scene: grass, path, and the playground equipment. `night`
  * tints it for evening visits. */
 void park_draw(SDL_Renderer *r, Uint64 frame, bool night);
+/* the playground drawn across a wider, pannable room */
+void park_draw_wide(SDL_Renderer *r, Uint64 frame, bool night, int room_w);
+
+/* The park playground is wider than the screen so you can pan across it. */
+#define PARK_ROOM_W 480
 
 /* Draw the scenic walking path: scenery drifts by as you and your cat stroll.
  * `scroll` advances as you walk, moving trees, flowers, and lamp posts past. */

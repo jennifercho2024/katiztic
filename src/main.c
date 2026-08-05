@@ -223,6 +223,7 @@ int main(int argc, char *argv[]) {
     #define COTTAGE_ROOM_H 240.0f
     Camera cam = camera_make(COTTAGE_ROOM_W, COTTAGE_ROOM_H);
     Camera meadow_cam = camera_make((float)MEADOW_ROOM_W, KZ_H);
+    Camera park_cam = camera_make((float)PARK_ROOM_W, KZ_H);
     bool cam_dragging = false;    /* panning the room right now? */
     float cam_last_x = 0, cam_last_y = 0;
     float cottage_zoom = 1.0f;    /* 1 = normal; larger zooms in, smaller out */
@@ -879,6 +880,26 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
+                /* zoom controls are screen-fixed UI too, so check them here in
+                 * SCREEN coords BEFORE any room-space hit-tests (else a décor
+                 * item under them, in room space, would swallow the tap). */
+                if (location == LOC_COTTAGE) {
+                    if (ui_button_hit(&btn_zoom_in, lx, ly)) {
+                        cottage_zoom += 0.25f;
+                        if (cottage_zoom > 2.5f) cottage_zoom = 2.5f;
+                        camera_clamp_zoom(&cam, cottage_zoom);
+                        press_fx = 8;
+                        break;
+                    }
+                    if (ui_button_hit(&btn_zoom_out, lx, ly)) {
+                        cottage_zoom -= 0.25f;
+                        if (cottage_zoom < 1.0f) cottage_zoom = 1.0f;
+                        camera_clamp_zoom(&cam, cottage_zoom);
+                        press_fx = 8;
+                        break;
+                    }
+                }
+
                 /* 0d) grabbing an item already placed in the room works anytime
                  * you're home — tray open or not — so you can rearrange your
                  * cottage freely. Checked before the pet-the-cat handler so a
@@ -912,24 +933,6 @@ int main(int argc, char *argv[]) {
                     roster_select(&roster, slot);
                     press_fx = 8;
                     break;
-                }
-
-                /* zoom controls (cottage only): step the zoom in or out */
-                if (location == LOC_COTTAGE) {
-                    if (ui_button_hit(&btn_zoom_in, lx, ly)) {
-                        cottage_zoom += 0.25f;
-                        if (cottage_zoom > 2.5f) cottage_zoom = 2.5f;
-                        camera_clamp_zoom(&cam, cottage_zoom);
-                        press_fx = 8;
-                        break;
-                    }
-                    if (ui_button_hit(&btn_zoom_out, lx, ly)) {
-                        cottage_zoom -= 0.25f;
-                        if (cottage_zoom < 1.0f) cottage_zoom = 1.0f;
-                        camera_clamp_zoom(&cam, cottage_zoom);
-                        press_fx = 8;
-                        break;
-                    }
                 }
 
                 /* 3) travel button: open the world map */
@@ -1065,8 +1068,11 @@ int main(int argc, char *argv[]) {
                         }
                     } else if (location == LOC_PARK) {
                         /* At the park: greet a visiting cat first, else tap/hold
-                         * one of your own cats (hold to train, like at home). */
-                        int pv = parklife_hit(&parklife, lx, ly);
+                         * one of your own cats (hold to train, like at home).
+                         * The park pans, so convert taps into park-room coords
+                         * (add the camera offset) for hit-testing. */
+                        float plx = lx + park_cam.x, ply = ly + park_cam.y;
+                        int pv = parklife_hit(&parklife, plx, ply);
                         if (pv >= 0) {
                             CatType pt = KZ_SUNNY;
                             const char *who = parklife_greet(&parklife, pv, &pt);
@@ -1082,10 +1088,11 @@ int main(int argc, char *argv[]) {
                                                  "%s's cat plays happily!", who);
                                 banner_timer = 220;
                                 press_fx = 8;
+                                hit_one = true;
                             }
                         } else {
                             for (int i = 0; i < roster.count; i++) {
-                                if (cat_hit(&roster.cats[i].anim, lx, ly)) {
+                                if (cat_hit(&roster.cats[i].anim, plx, ply)) {
                                     roster_select(&roster, i);
                                     cat_pet(&roster.cats[i].anim);
                                     stats_pet(&roster.cats[i].stats);
@@ -1100,6 +1107,12 @@ int main(int argc, char *argv[]) {
                                     break;
                                 }
                             }
+                        }
+                        /* empty park space (and not walking) -> pan the park */
+                        if (!hit_one && !walking) {
+                            cam_dragging = true;
+                            cam_last_x = lx;
+                            cam_last_y = ly;
                         }
                     } else {
                         /* In the meadow, a visiting wild cat can be petted —
@@ -1236,7 +1249,9 @@ int main(int argc, char *argv[]) {
                 }
                 /* Panning the room: move the camera opposite the drag. */
                 if (cam_dragging) {
-                    Camera *pc = (location == LOC_MEADOW) ? &meadow_cam : &cam;
+                    Camera *pc = (location == LOC_MEADOW) ? &meadow_cam
+                               : (location == LOC_PARK)   ? &park_cam
+                               : &cam;
                     camera_pan(pc, cam_last_x - lx, cam_last_y - ly);
                     /* re-clamp the cottage with zoom so you never pan into the
                      * empty space beyond the room when zoomed out */
@@ -1775,8 +1790,10 @@ int main(int argc, char *argv[]) {
                 mood_draw(renderer, &active->anim, frame);
             } else {
             /* The playground park: your whole family roams here, other cats
-             * visit, and you can practice tricks out in the open. */
-            park_draw(renderer, frame, is_night);
+             * visit, and you can practice tricks out in the open. Pan the whole
+             * scene (scenery, visitors, and cats) together like the cottage. */
+            render_set_offset(park_cam.x, park_cam.y);
+            park_draw_wide(renderer, frame, is_night, PARK_ROOM_W);
             parklife_draw(renderer, &parklife, frame);
             /* draw the family sorted by y (nearer cats overlap farther ones) */
             int order[KZ_MAX_CATS];
@@ -1802,6 +1819,7 @@ int main(int argc, char *argv[]) {
             }
             for (int i = 0; i < roster.count; i++)
                 mood_draw(renderer, &roster.cats[i].anim, frame);
+            render_clear_offset();   /* end park panning */
             }
         } else if (location == LOC_COTTAGE || location == LOC_CAFE) {
             /* Indoor places where the family roams and socializes. */
