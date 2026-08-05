@@ -938,6 +938,7 @@ bool ui_walk_button_hit(float px_, float py_) {
 #define TRAY_PAGE  6                       /* item slots shown per page   */
 
 float ui_decor_tray_top(void) { return (float)TRAY_Y; }
+float ui_decor_tray_bottom(void) { return (float)(TRAY_Y + TRAY_H); }
 
 static float tray_slot_x(int slot_on_page) {
     return 6.0f + slot_on_page * (TRAY_SLOT + 2);

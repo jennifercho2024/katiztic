@@ -88,17 +88,12 @@ static int map_place_from_loc(Location loc) {
  * sits on the cottage floor; the wall picture hangs where placed on the wall.
  * `top_y` is the requested top; returns the resting top. */
 static float decor_rest_y(DecorKind kind, float top_y) {
-    if (kind == DECOR_PICTURE) {
-        /* the picture hangs on the wall: keep it in the upper area */
-        if (top_y > 100.0f) top_y = 100.0f;
-        if (top_y < 20.0f)  top_y = 20.0f;
-        return top_y;
-    }
-    /* Other items place freely anywhere on the floor, front to back. The
-     * cottage floor spans from the wall line (~148) to the front of the room
-     * (~224), so allow that whole depth; clamp only to keep items on screen. */
-    if (top_y < 24.0f)   top_y = 24.0f;    /* don't float off the top     */
-    if (top_y > 224.0f)  top_y = 224.0f;   /* don't slide past the front   */
+    (void)kind;
+    /* All items — including the wall picture — can be placed freely wherever
+     * you drag them, clamped only so they stay on screen (not off the top,
+     * not past the front of the room). */
+    if (top_y < 6.0f)    top_y = 6.0f;
+    if (top_y > 224.0f)  top_y = 224.0f;
     return top_y;
 }
 
@@ -1409,8 +1404,11 @@ int main(int argc, char *argv[]) {
                     float rx = lx, ry = ly;
                     if (location == LOC_COTTAGE)
                         screen_to_room_zoomed(&cam, cottage_zoom, lx, ly, &rx, &ry);
-                    /* Dropping onto the (screen-fixed) tray puts it away. */
-                    if (decor_open && ly >= ui_decor_tray_top()) {
+                    /* Dropping onto the (screen-fixed) tray STRIP puts it away.
+                     * Only the tray's own band counts, so you can still place
+                     * items low on the floor while the tray is open. */
+                    if (decor_open && ly >= ui_decor_tray_top()
+                        && ly <= ui_decor_tray_bottom()) {
                         decor.items[drag_item].placed = false;
                     } else {
                         decor.items[drag_item].placed = true;

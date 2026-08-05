@@ -163,6 +163,7 @@ bool ui_decor_tray_more_hit(const Decor *d, float px, float py);
 /* The y-coordinate of the top of the tray (things dropped above it land in
  * the room; things below are still "in the tray"). */
 float ui_decor_tray_top(void);
+float ui_decor_tray_bottom(void);
 
 /* Draw a small centered hint bar near the bottom (e.g. "F feed  G groom").
  * `flash` > 0 briefly highlights the panel to acknowledge an action. */
