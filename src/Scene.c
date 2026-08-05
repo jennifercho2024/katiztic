@@ -46,7 +46,7 @@ Meadow meadow_make(void) {
     Meadow m;
     m.time = KZ_DUSK;  /* open on the dusk vibe from the mockup */
     for (int i = 0; i < KZ_PETAL_COUNT; i++) {
-        m.petals[i].x     = (float)(SDL_rand(KZ_W));
+        m.petals[i].x     = (float)(SDL_rand(MEADOW_ROOM_W));
         m.petals[i].y     = (float)(SDL_rand(KZ_H));
         m.petals[i].speed = 0.2f + SDL_randf() * 0.4f;
         m.petals[i].drift = SDL_randf() * 6.28f;
@@ -65,12 +65,19 @@ void meadow_update(Meadow *m) {
         p->y += p->speed;
         p->x += sinf(p->drift) * 0.15f;
         p->drift += 0.01f;
-        if (p->y > KZ_H) { p->y = -4; p->x = (float)(SDL_rand(KZ_W)); }
+        if (p->y > KZ_H) { p->y = -4; p->x = (float)(SDL_rand(MEADOW_ROOM_W)); }
     }
 }
 
 /* Vertical 3-band gradient, drawn as rows so it stays crisp/retro. */
+static void draw_sky_wide(SDL_Renderer *r, const TimeOfDay *t, int room_w);
+
 static void draw_sky(SDL_Renderer *r, const TimeOfDay *t) {
+    draw_sky_wide(r, t, KZ_W);
+}
+
+/* the gradient sky, drawn across a room of the given width (KZ_W or wider) */
+static void draw_sky_wide(SDL_Renderer *r, const TimeOfDay *t, int room_w) {
     for (int y = 0; y < KZ_H; y++) {
         float f = (float)y / (float)KZ_H;
         Color a, b; float lf;
@@ -79,53 +86,63 @@ static void draw_sky(SDL_Renderer *r, const TimeOfDay *t) {
         Uint8 rr = (Uint8)(a.r + (b.r - a.r) * lf);
         Uint8 gg = (Uint8)(a.g + (b.g - a.g) * lf);
         Uint8 bb = (Uint8)(a.b + (b.b - a.b) * lf);
-        px_rect(r, 0, (float)y, KZ_W, 1, rgb(rr, gg, bb));
+        px_rect(r, 0, (float)y, (float)room_w, 1, rgb(rr, gg, bb));
     }
 }
 
 void meadow_draw(SDL_Renderer *r, const Meadow *m, Uint64 frame) {
     const TimeOfDay *t = &TIMES[m->time];
+    const int MW = MEADOW_ROOM_W;   /* the meadow is wider than the screen */
 
-    draw_sky(r, t);
+    draw_sky_wide(r, t, MW);
 
     /* Stars, only at night, gently twinkling. */
     if (m->time == KZ_NIGHT) {
-        for (int i = 0; i < 20; i++) {
-            float sx = (float)((i * 53) % KZ_W);
+        for (int i = 0; i < 40; i++) {
+            float sx = (float)((i * 53) % MW);
             float sy = (float)((i * 29) % 70);
             float b  = 0.4f + 0.6f * fabsf(sinf((float)frame * 0.03f + i));
             px_rect_a(r, sx, sy, 1, 1, KZ_CLOUD, (Uint8)(b * 255));
         }
     }
 
-    /* Soft sun / moon. */
+    /* Soft sun / moon — sits in the sky part-way across the room. */
     Color orb = (m->time == KZ_NIGHT) ? rgb(0xE8,0xE0,0xF0) : rgb(0xFB,0xF0,0xD8);
-    px_rect_a(r, 176, 30, 18, 18, orb, 130);
+    px_rect_a(r, 300, 30, 18, 18, orb, 130);
 
-    /* Distant hills — one soft rounded band. */
-    for (int x = 0; x < KZ_W; x++) {
+    /* Distant hills — one soft rounded band across the whole room. */
+    for (int x = 0; x < MW; x++) {
         float h = 88.0f + sinf((float)x * 0.03f) * 10.0f;
         px_rect(r, (float)x, h, 1, (float)KZ_H - h, t->hill);
     }
 
     /* Near grass. */
-    px_rect(r, 0, 120, KZ_W, KZ_H - 120, t->grass);
+    px_rect(r, 0, 120, MW, KZ_H - 120, t->grass);
 
-    /* Swaying grass blades. */
-    for (int b = 0; b < 40; b++) {
+    /* Swaying grass blades across the room. */
+    for (int b = 0; b < MW / 6; b++) {
         float bx   = (float)(b * 6 + 3);
         float sway = sinf((float)frame * 0.05f + b) * 1.5f;
         px_rect(r, bx + sway, 132, 1, 6, t->grass2);
     }
 
-    /* Scattered flowers. */
+    /* Scattered flowers across the room. */
     Color fc[4] = { KZ_PETAL_PINK, KZ_BUTTER, KZ_LAVENDER, KZ_CLOUD };
-    for (int f = 0; f < 10; f++) {
+    for (int f = 0; f < MW / 23; f++) {
         float fx = 18.0f + f * 23.0f;
         float fy = 128.0f + (f % 3) * 8.0f;
         px_rect(r, fx, fy, 2, 2, fc[f % 4]);
         px_rect(r, fx - 1, fy + 1, 1, 1, fc[(f + 1) % 4]);
         px_rect(r, fx + 2, fy + 1, 1, 1, fc[(f + 1) % 4]);
+    }
+
+    /* A friendly tree partway across, to give the wider meadow a landmark. */
+    {
+        float tx = 210;
+        px_rect(r, tx, 96, 6, 24, rgb(0xA6, 0x7C, 0x5A));       /* trunk */
+        px_rect(r, tx - 12, 74, 30, 24, t->hill);              /* canopy back */
+        px_rect(r, tx - 8, 68, 22, 20, rgb(0x8F, 0xC0, 0x7A)); /* canopy */
+        px_rect(r, tx - 4, 64, 14, 12, rgb(0x9C, 0xC6, 0x8E)); /* canopy top */
     }
 
     /* Drifting petals (drawn above the ground, below the wash). */

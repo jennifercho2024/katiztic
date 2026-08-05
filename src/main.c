@@ -210,8 +210,8 @@ int main(int argc, char *argv[]) {
      * button only shows in the cottage. Positions in logical 240x160 space. */
     Button btn_travel = { KZ_W - 24, 4,  20, 16, KZ_BTN_OUT };
     /* zoom controls, shown only in the cottage (stacked, right side) */
-    Button btn_zoom_in  = { KZ_W - 24, 84,  20, 16, KZ_BTN_ZOOM_IN };
-    Button btn_zoom_out = { KZ_W - 24, 104, 20, 16, KZ_BTN_ZOOM_OUT };
+    Button btn_zoom_in  = { 4, 78,  20, 16, KZ_BTN_ZOOM_IN };
+    Button btn_zoom_out = { 4, 96,  20, 16, KZ_BTN_ZOOM_OUT };
     bool   map_open = false;      /* is the world map showing?           */
     int    map_sel = 0;           /* cursor: which place is highlighted   */
     bool   map_confirm = false;   /* is the "Go here?" dialog up?         */
@@ -222,6 +222,7 @@ int main(int argc, char *argv[]) {
     #define COTTAGE_ROOM_W 520.0f
     #define COTTAGE_ROOM_H 240.0f
     Camera cam = camera_make(COTTAGE_ROOM_W, COTTAGE_ROOM_H);
+    Camera meadow_cam = camera_make((float)MEADOW_ROOM_W, KZ_H);
     bool cam_dragging = false;    /* panning the room right now? */
     float cam_last_x = 0, cam_last_y = 0;
     float cottage_zoom = 1.0f;    /* 1 = normal; larger zooms in, smaller out */
@@ -1205,6 +1206,11 @@ int main(int argc, char *argv[]) {
                             int sz = story_zone_for(location);
                             if (sz >= 0)
                                 story_pet_boost(&story, (StoryZone)sz);
+                        } else if (location == LOC_MEADOW) {
+                            /* empty space in the meadow -> pan the scenery */
+                            cam_dragging = true;
+                            cam_last_x = lx;
+                            cam_last_y = ly;
                         }
                     }
                 }
@@ -1228,7 +1234,8 @@ int main(int argc, char *argv[]) {
                 }
                 /* Panning the room: move the camera opposite the drag. */
                 if (cam_dragging) {
-                    camera_pan(&cam, cam_last_x - lx, cam_last_y - ly);
+                    Camera *pc = (location == LOC_MEADOW) ? &meadow_cam : &cam;
+                    camera_pan(pc, cam_last_x - lx, cam_last_y - ly);
                     cam_last_x = lx;
                     cam_last_y = ly;
                 }
@@ -1880,7 +1887,9 @@ int main(int argc, char *argv[]) {
             active->anim.cx = CAT_X;
             active->anim.cy = CAT_Y;
             active->anim.act = ACT_SIT;      /* she sits calmly on the walk */
+            render_set_offset(meadow_cam.x, meadow_cam.y);   /* pan the meadow */
             meadow_draw(renderer, &meadow, frame);
+            render_clear_offset();   /* cat, visitor, wash stay screen-fixed */
             encounter_draw(renderer, &enc, frame);   /* the visitor, if present */
             cat_draw(renderer, &active->anim, col, frame);
             if (active->shiny)

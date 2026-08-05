@@ -32,6 +32,9 @@ TimeIndex time_from_hour(int hour);
 
 /* Drifting petals live with the scene. A fixed pool, no allocation. */
 #define KZ_PETAL_COUNT 14
+
+/* The meadow is wider than the screen so you can pan across it. */
+#define MEADOW_ROOM_W 480
 typedef struct { float x, y, speed, drift; int size; } Petal;
 
 typedef struct {
