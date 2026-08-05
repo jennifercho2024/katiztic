@@ -54,6 +54,14 @@ typedef enum { LOC_COTTAGE, LOC_MEADOW, LOC_CAFE, LOC_FOREST, LOC_STREET,
                LOC_MARKET, LOC_PLAYDATE, LOC_PARK, LOC_KATLYMPICS,
                LOC_STORE } Location;
 
+/* Where your cats can do tricks: any place they're actually present with you —
+ * the cottage, park, café, meadow, forest, and street (not the shop screens,
+ * map, or event venues). */
+static bool tricks_allowed_here(Location loc) {
+    return loc == LOC_COTTAGE || loc == LOC_PARK || loc == LOC_CAFE
+        || loc == LOC_MEADOW  || loc == LOC_FOREST || loc == LOC_STREET;
+}
+
 /* The world map lists real destinations 0..6 (Cottage, Meadow, Cafe, Forest,
  * Street, Market, Park). The Location enum has PLAYDATE tucked at index 6
  * (it's reached via letters, not the map), so map place 6 (Park) must map to
@@ -1053,9 +1061,9 @@ int main(int argc, char *argv[]) {
                             cam_last_y = ly;
                         }
                     } else if (location == LOC_CAFE) {
-                        /* At the cat café: tap a resident cat to pet it. These
-                         * are the café's own cats — they live here, so you can
-                         * visit and pet them any time (no adopting). */
+                        /* At the cat café: tap a resident cat to pet it, or tap
+                         * one of your own roaming cats to pet and hold-to-train
+                         * it (just like at home). */
                         int cci = cafecats_hit(&cafecats, lx, ly);
                         if (cci >= 0) {
                             cafecats_pet(&cafecats, cci);
@@ -1065,6 +1073,18 @@ int main(int argc, char *argv[]) {
                             banner_timer = 160;
                             hit_one = true;
                             press_fx = 8;
+                        } else {
+                            for (int i = 0; i < roster.count; i++) {
+                                if (cat_hit(&roster.cats[i].anim, lx, ly)) {
+                                    roster_select(&roster, i);
+                                    cat_pet(&roster.cats[i].anim);
+                                    stats_pet(&roster.cats[i].stats);
+                                    holding_cat = true;   /* hold to train */
+                                    hold_frames = 0;
+                                    hit_one = true;
+                                    break;
+                                }
+                            }
                         }
                     } else if (location == LOC_PARK) {
                         /* At the park: greet a visiting cat first, else tap/hold
@@ -1212,6 +1232,8 @@ int main(int argc, char *argv[]) {
                         if (hit_out) {
                             cat_pet(&a->anim);
                             stats_pet(&a->stats);   /* petting deepens bond */
+                            holding_cat = true;     /* hold to open the trick tray */
+                            hold_frames = 0;
                             if (quests_bump(&quests, QUEST_PET))
                                 quest_fanfare(&roster, &quests, &pantry, QUEST_PET, banner_line,
                                               sizeof banner_line,
@@ -1426,24 +1448,43 @@ int main(int argc, char *argv[]) {
         else if (location == LOC_CAFE || location == LOC_PARK)
             behavior_update(&roster, NULL, frame);
         if (location == LOC_PARK) parklife_update(&parklife, frame);
+        if (location == LOC_PARK) {
+            /* your cats play on the playground equipment: when one roams near a
+             * slide, tunnel, tree, ball pit, or see-saw, it plays there. */
+            static const float EQUIP_X[] = { 34, 168, 96, 30, 300, 400, 250, 430, 358 };
+            const int EQUIP_N = (int)(sizeof EQUIP_X / sizeof EQUIP_X[0]);
+            for (int i = 0; i < roster.count; i++) {
+                for (int e = 0; e < EQUIP_N; e++) {
+                    float dx = roster.cats[i].anim.cx - EQUIP_X[e];
+                    if (dx * dx <= 18.0f * 18.0f) {   /* passing by this equipment */
+                        if (SDL_rand(40) == 0) {
+                            roster.cats[i].anim.act = ACT_PLAY;
+                            stats_gain_xp(&roster.cats[i].stats, 3);
+                            stats_pet(&roster.cats[i].stats);  /* playing is fun */
+                        }
+                        break;
+                    }
+                }
+            }
+        }
         if (location == LOC_CAFE) {
             cafecats_update(&cafecats, frame);
-            /* your roaming cats mingle with the café cats: when one of yours
-             * gets close to a café cat, they play together (both perk up). */
+            /* your roaming cats mingle with the café residents: whenever one of
+             * yours gets near a café cat they play together, bouncing happily
+             * with little hearts — lots of fun for everyone. */
             for (int i = 0; i < roster.count; i++) {
                 for (int j = 0; j < CAFE_CATS_MAX; j++) {
-                    if (!cafecats.cats[j].present || cafecats.cats[j].adopted)
-                        continue;
+                    if (!cafecats.cats[j].present) continue;
                     float dx = roster.cats[i].anim.cx - cafecats.cats[j].home_x;
                     float dy = roster.cats[i].anim.cy - cafecats.cats[j].home_y;
-                    if (dx * dx + dy * dy <= 26.0f * 26.0f) {
-                        /* close enough to play — now and then, a happy bounce */
-                        if (SDL_rand(90) == 0) {
+                    if (dx * dx + dy * dy <= 34.0f * 34.0f) {   /* near enough */
+                        /* play often while they're close */
+                        if (SDL_rand(30) == 0) {
                             roster.cats[i].anim.act = ACT_PLAY;
                             cafecats.cats[j].anim.act = ACT_PLAY;
-                            roster.cats[i].anim.facing =
-                                (dx < 0) ? 1 : -1;   /* face the friend */
-                            stats_gain_xp(&roster.cats[i].stats, 2);
+                            roster.cats[i].anim.facing = (dx < 0) ? 1 : -1;
+                            stats_gain_xp(&roster.cats[i].stats, 3);
+                            stats_pet(&roster.cats[i].stats);  /* fun lifts mood */
                             cafecats.cats[j].friendship = 40;  /* a happy heart */
                         }
                     }
@@ -1532,7 +1573,7 @@ int main(int argc, char *argv[]) {
 
         /* Hold-to-train: keep pressing a cat in the cottage and, after a
          * moment, the trick tray opens so you can ask for a trick. */
-        if (holding_cat && (location == LOC_COTTAGE || location == LOC_PARK)
+        if (holding_cat && tricks_allowed_here(location)
             && !trick_open) {
             hold_frames++;
             /* a little sparkle-glow builds on the held cat as a cue */
@@ -1964,7 +2005,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* Trick trainer tray, when open. */
-        if (trick_open && (location == LOC_COTTAGE || location == LOC_PARK)) {
+        if (trick_open && tricks_allowed_here(location)) {
             OwnedCat *a = roster_active(&roster);
             float ax = a->anim.cx - (location == LOC_COTTAGE ? cam.x : 0.0f);
             float ay = a->anim.cy - (location == LOC_COTTAGE ? cam.y : 0.0f);

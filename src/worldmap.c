@@ -245,6 +245,9 @@ void map_draw(SDL_Renderer *r, int selected, int current, Uint64 frame) {
         float chip_w = 12 + tw + 6;               /* icon + gap + text + pad */
         float chip_x = PLACES[i].x - chip_w / 2.0f;
         float chip_y = PLACES[i].y + 5;
+        /* keep the whole chip on screen so long names never spill off an edge */
+        if (chip_x < 2) chip_x = 2;
+        if (chip_x + chip_w > KZ_W - 2) chip_x = KZ_W - 2 - chip_w;
         px_rect_a(r, chip_x, chip_y, chip_w, 10, KZ_CLOUD, 220);
         place_icon(r, i, chip_x + 6, chip_y + 5);   /* icon at chip's left */
         text_draw(r, PLACES[i].name, chip_x + 12, chip_y + 2, KZ_COCOA);
