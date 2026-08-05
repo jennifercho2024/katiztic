@@ -17,6 +17,9 @@
  * lights the lamps. */
 void street_draw(SDL_Renderer *r, Uint64 frame, bool night);
 void street_draw_wide(SDL_Renderer *r, Uint64 frame, bool night, int room_w);
+/* The continuous street stroll: scenery (lampposts, benches, bicycles, vending
+ * machines, bushes) scrolls endlessly past as your cat walks the sidewalk. */
+void street_walk_draw(SDL_Renderer *r, float scroll, Uint64 frame, bool night);
 
 /* The street is wider than the screen so you can stroll down the lane. */
 #define STREET_ROOM_W 480

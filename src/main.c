@@ -742,7 +742,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* walk button (park only): start or stop a scenic walk */
-                if (location == LOC_PARK && ui_walk_button_hit(lx, ly)) {
+                if ((location == LOC_PARK || location == LOC_STREET)
+                    && ui_walk_button_hit(lx, ly)) {
                     walking = !walking;
                     walk_dir = 0;   /* start still; hold a side to walk */
                     if (walking) {
@@ -759,8 +760,8 @@ int main(int argc, char *argv[]) {
                  * the open area to stroll that way; the cat walks only while
                  * you hold, and stops the moment you lift your finger (see the
                  * MOUSE_BUTTON_UP handler). Taps in the button rows/edges still
-                 * reach their buttons so you can stop or leave the park. */
-                if (location == LOC_PARK && walking
+                 * reach their buttons so you can stop or leave. */
+                if ((location == LOC_PARK || location == LOC_STREET) && walking
                     && ly > 40 && ly < KZ_H - 24
                     && lx > 28 && lx < KZ_W - 28) {
                     walk_dir = (lx < KZ_W / 2.0f) ? -1 : 1;
@@ -1307,8 +1308,8 @@ int main(int argc, char *argv[]) {
                             int sz = story_zone_for(location);
                             if (sz >= 0)
                                 story_pet_boost(&story, (StoryZone)sz);
-                        } else if (location == LOC_MEADOW || location == LOC_FOREST
-                                   || location == LOC_STREET) {
+                        } else if ((location == LOC_MEADOW || location == LOC_FOREST
+                                   || location == LOC_STREET) && !walking) {
                             /* empty space outdoors -> pan the scenery */
                             cam_dragging = true;
                             cam_last_x = lx;
@@ -1392,7 +1393,8 @@ int main(int argc, char *argv[]) {
                     break;
                 }
                 /* hold-to-walk: releasing the screen stops the park stroll */
-                if (location == LOC_PARK && walking) walk_dir = 0;
+                if ((location == LOC_PARK || location == LOC_STREET) && walking)
+                    walk_dir = 0;
                 if (quests_dragging) {
                     /* a gesture that never scrolled is a tap -> close */
                     if (!quests_scrolled) quests_open = false;
@@ -1652,7 +1654,7 @@ int main(int argc, char *argv[]) {
             katlympics_update(&katlympics);
         /* On a scenic walk, the scenery scrolls and the active cat pads along
          * beside you at the center of the path. */
-        if (location == LOC_PARK && walking) {
+        if ((location == LOC_PARK || location == LOC_STREET) && walking) {
             OwnedCat *a = roster_active(&roster);
             /* the cat walks only while you HOLD a side of the screen: holding
              * sets walk_dir and it strolls that way; releasing stops it. */
@@ -1672,9 +1674,10 @@ int main(int argc, char *argv[]) {
             } else {
                 a->anim.act = ACT_SIT;   /* standing still, waiting */
             }
-            /* the cat stays centered on the path; the world moves around it */
+            /* the cat stays centered on the path; the world moves around it.
+             * the street's sidewalk sits a little lower than the park path. */
             a->anim.cx = 96.0f;
-            a->anim.cy = 130.0f;
+            a->anim.cy = (location == LOC_STREET) ? 120.0f : 130.0f;
         }
         if (press_fx > 0) press_fx--;
         if (roster_show > 0) roster_show--;   /* fade the roster when idle */
@@ -2104,6 +2107,18 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < roster.count; i++)
                 mood_draw(renderer, &roster.cats[i].anim, frame);
             render_clear_offset();   /* UI and everything else is screen-fixed */
+        } else if (location == LOC_STREET && walking) {
+            /* A continuous street stroll: the sidewalk and its lampposts,
+             * benches, bicycles, vending machines, and bushes scroll endlessly
+             * past while your cat walks in place at the center. */
+            street_walk_draw(renderer, walk_scroll, frame, is_night);
+            CatColors cc = active->shiny ? cat_shiny_colors()
+                                         : cattype_colors(active->type);
+            cat_draw_select_ring(renderer, &active->anim, frame);
+            cat_draw(renderer, &active->anim, cc, frame);
+            if (active->shiny)
+                cat_draw_sparkles(renderer, &active->anim, frame);
+            mood_draw(renderer, &active->anim, frame);
         } else if (location == LOC_FOREST || location == LOC_STREET) {
             /* A faded story zone. It's drawn through the warmth filter — grey
              * at first, its pastels returning as warmth rises. Your cat is
@@ -2227,7 +2242,7 @@ int main(int argc, char *argv[]) {
         ui_friends_button_draw(renderer, press_fx > 0);
         ui_quests_button_draw(renderer, false);   /* friends list */
         ui_mail_button_draw(renderer, &owners, press_fx > 0);   /* mailbox */
-        if (location == LOC_PARK)
+        if (location == LOC_PARK || location == LOC_STREET)
             ui_walk_button_draw(renderer, walking, press_fx > 0);  /* walk */
         if (location == LOC_COTTAGE) {
             ui_decor_button_draw(renderer, press_fx > 0);  /* décor tray */
