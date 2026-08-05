@@ -1061,29 +1061,32 @@ int main(int argc, char *argv[]) {
                             cam_last_y = ly;
                         }
                     } else if (location == LOC_CAFE) {
-                        /* At the cat café: tap a resident cat to pet it, or tap
-                         * one of your own roaming cats to pet and hold-to-train
-                         * it (just like at home). */
-                        int cci = cafecats_hit(&cafecats, lx, ly);
-                        if (cci >= 0) {
-                            cafecats_pet(&cafecats, cci);
-                            SDL_snprintf(banner_line, sizeof banner_line,
-                                         "%s purrs happily.",
-                                         cafecats.cats[cci].name);
-                            banner_timer = 160;
-                            hit_one = true;
-                            press_fx = 8;
-                        } else {
-                            for (int i = 0; i < roster.count; i++) {
-                                if (cat_hit(&roster.cats[i].anim, lx, ly)) {
-                                    roster_select(&roster, i);
-                                    cat_pet(&roster.cats[i].anim);
-                                    stats_pet(&roster.cats[i].stats);
-                                    holding_cat = true;   /* hold to train */
-                                    hold_frames = 0;
-                                    hit_one = true;
-                                    break;
-                                }
+                        /* At the cat café: tap one of your own roaming cats to
+                         * pet and hold-to-train it (checked first so residents
+                         * never block your family), else tap a café resident. */
+                        bool got_own = false;
+                        for (int i = 0; i < roster.count; i++) {
+                            if (cat_hit(&roster.cats[i].anim, lx, ly)) {
+                                roster_select(&roster, i);
+                                cat_pet(&roster.cats[i].anim);
+                                stats_pet(&roster.cats[i].stats);
+                                holding_cat = true;   /* hold to train */
+                                hold_frames = 0;
+                                hit_one = true;
+                                got_own = true;
+                                break;
+                            }
+                        }
+                        if (!got_own) {
+                            int cci = cafecats_hit(&cafecats, lx, ly);
+                            if (cci >= 0) {
+                                cafecats_pet(&cafecats, cci);
+                                SDL_snprintf(banner_line, sizeof banner_line,
+                                             "%s purrs happily.",
+                                             cafecats.cats[cci].name);
+                                banner_timer = 160;
+                                hit_one = true;
+                                press_fx = 8;
                             }
                         }
                     } else if (location == LOC_PARK) {
@@ -1224,6 +1227,11 @@ int main(int argc, char *argv[]) {
                         if (location == LOC_STREET) {
                             hx = CAT_X + sinf((float)frame * 0.008f) * 26.0f;
                             hy = 96.0f;
+                        } else if (location == LOC_MEADOW) {
+                            /* the meadow cat stands at a fixed world spot and
+                             * pans; her on-screen x is world - camera */
+                            hx = (float)MEADOW_ROOM_W / 2.0f - meadow_cam.x;
+                            hy = CAT_Y;
                         }
                         float sx0 = a->anim.cx, sy0 = a->anim.cy;
                         a->anim.cx = hx; a->anim.cy = hy;
@@ -1372,6 +1380,11 @@ int main(int argc, char *argv[]) {
                 if (location == LOC_CAFE) {
                     cafecats = cafecats_new();
                 }
+                /* Arriving at the meadow: center the camera so the cats start
+                 * on screen (you can then pan across the field). */
+                if (location == LOC_MEADOW) {
+                    meadow_cam = camera_make((float)MEADOW_ROOM_W, KZ_H);
+                }
                 /* Arriving at the park: gather the family onto the play lawn
                  * (the cottage's home spots are spread across a big room, so
                  * we place them within the park's screen here). */
@@ -1445,8 +1458,21 @@ int main(int argc, char *argv[]) {
                     roster.cats[i].anim.cy = 224.0f;
             }
         }
-        else if (location == LOC_CAFE || location == LOC_PARK)
+        else if (location == LOC_CAFE || location == LOC_PARK) {
             behavior_update(&roster, NULL, frame);
+            /* The café and park screens are only 160px tall, but the shared
+             * roaming bounds reach y=224 (sized for the tall cottage room). Pull
+             * the cats onto the visible floor so they don't wander off the
+             * bottom of the screen (which made them untappable). */
+            for (int i = 0; i < roster.count; i++) {
+                if (roster.cats[i].anim.cy < 116.0f)
+                    roster.cats[i].anim.cy = 116.0f;
+                if (roster.cats[i].anim.cy > 148.0f)
+                    roster.cats[i].anim.cy = 148.0f;
+                if (roster.cats[i].anim.ty > 148.0f)
+                    roster.cats[i].anim.ty = 148.0f;   /* keep their target near too */
+            }
+        }
         if (location == LOC_PARK) parklife_update(&parklife, frame);
         if (location == LOC_PARK) {
             /* your cats play on the playground equipment: when one roams near a
@@ -1969,12 +1995,16 @@ int main(int argc, char *argv[]) {
              * any) sits off to the side. */
             float save_x = active->anim.cx, save_y = active->anim.cy;
             Activity save_act = active->anim.act;
-            active->anim.cx = CAT_X;
+            /* Pan the whole meadow together — scenery AND cats — so panning
+             * feels like walking through the field. The cats stand at a fixed
+             * spot in the WORLD (the middle of the meadow), so as you pan they
+             * slide across the screen along with the scenery. */
+            float world_cx = (float)MEADOW_ROOM_W / 2.0f;
+            active->anim.cx = world_cx;
             active->anim.cy = CAT_Y;
             active->anim.act = ACT_SIT;      /* she sits calmly on the walk */
-            render_set_offset(meadow_cam.x, meadow_cam.y);   /* pan the meadow */
+            render_set_offset(meadow_cam.x, meadow_cam.y);
             meadow_draw(renderer, &meadow, frame);
-            render_clear_offset();   /* cat, visitor, wash stay screen-fixed */
             encounter_draw(renderer, &enc, frame);   /* the visitor, if present */
             /* the whole family joins the outing, fanned across the meadow */
             for (int i = 0; i < roster.count; i++) {
@@ -1983,7 +2013,7 @@ int main(int argc, char *argv[]) {
                 float fsx = fc->anim.cx, fsy = fc->anim.cy;
                 Activity fsa = fc->anim.act;
                 float spread = (float)((i - roster.active) * 34);
-                fc->anim.cx = CAT_X + spread;
+                fc->anim.cx = world_cx + spread;
                 fc->anim.cy = CAT_Y + 6.0f;
                 fc->anim.act = ACT_SIT;
                 CatColors fcc = fc->shiny ? cat_shiny_colors()
@@ -1996,6 +2026,7 @@ int main(int argc, char *argv[]) {
             if (active->shiny)
                 cat_draw_sparkles(renderer, &active->anim, frame);
             mood_draw(renderer, &active->anim, frame);
+            render_clear_offset();   /* wash + UI are screen-fixed */
             meadow_draw_wash(renderer, &meadow);   /* mood overlay, on top */
             active->anim.cx = save_x;
             active->anim.cy = save_y;
