@@ -15,17 +15,27 @@ static const DecorKind SHELF[] = {
 };
 #define SHELF_COUNT ((int)(sizeof SHELF / sizeof SHELF[0]))
 
-/* grid layout for the furniture shelves: 4 columns, 2 rows */
+/* grid layout: 4 columns x 2 rows = 8 items per page, with roomy cells so
+ * icons, names, and prices never overflow */
 #define COLS 4
+#define ROWS 2
+#define PER_PAGE (COLS * ROWS)
 #define CELL_W 54
-#define CELL_H 27
+#define CELL_H 44
 #define GRID_X0 10
-#define GRID_Y0 34
+#define GRID_Y0 40
 
 static void cell_xy(int i, float *x, float *y) {
-    *x = GRID_X0 + (i % COLS) * (CELL_W + 3);
-    *y = GRID_Y0 + (i / COLS) * (CELL_H + 3);
+    int slot = i % PER_PAGE;   /* position within the page */
+    *x = GRID_X0 + (slot % COLS) * (CELL_W + 3);
+    *y = GRID_Y0 + (slot / COLS) * (CELL_H + 4);
 }
+
+/* the "more items" page button, bottom-right */
+#define PAGE_BTN_X 150
+#define PAGE_BTN_Y (KZ_H - 16)
+#define PAGE_BTN_W 84
+#define PAGE_BTN_H 14
 
 /* the floor toggle button, top-right */
 #define FLOOR_BTN_X 150
@@ -177,10 +187,42 @@ static void store_backdrop(SDL_Renderer *r, StoreFloor floor) {
         FLOOR_BTN_X + FLOOR_BTN_W / 2.0f, FLOOR_BTN_Y + 5, KZ_COCOA);
 }
 
-void store_draw(SDL_Renderer *r, StoreFloor floor, const Decor *decor,
+/* how many items each floor shows */
+static int floor_item_count(StoreFloor floor) {
+    return (floor == STORE_FURNITURE) ? SHELF_COUNT : (int)FOOD_COUNT;
+}
+
+int store_page_count(StoreFloor floor) {
+    int n = floor_item_count(floor);
+    int pages = (n + PER_PAGE - 1) / PER_PAGE;
+    return pages < 1 ? 1 : pages;
+}
+
+/* draw the "More >" page button (only when there's more than one page) */
+static void draw_page_button(SDL_Renderer *r, int page, int pages) {
+    if (pages <= 1) return;
+    px_rect(r, PAGE_BTN_X, PAGE_BTN_Y, PAGE_BTN_W, PAGE_BTN_H, KZ_BUTTER);
+    px_rect(r, PAGE_BTN_X, PAGE_BTN_Y, PAGE_BTN_W, 1, KZ_COCOA);
+    px_rect(r, PAGE_BTN_X, PAGE_BTN_Y + PAGE_BTN_H - 1, PAGE_BTN_W, 1, KZ_COCOA);
+    px_rect(r, PAGE_BTN_X, PAGE_BTN_Y, 1, PAGE_BTN_H, KZ_COCOA);
+    px_rect(r, PAGE_BTN_X + PAGE_BTN_W - 1, PAGE_BTN_Y, 1, PAGE_BTN_H, KZ_COCOA);
+    char lbl[24];
+    SDL_snprintf(lbl, sizeof lbl, "More  (%d/%d) >", page + 1, pages);
+    text_draw_centered(r, lbl, PAGE_BTN_X + PAGE_BTN_W / 2.0f,
+                       PAGE_BTN_Y + 4, KZ_COCOA);
+}
+
+void store_draw(SDL_Renderer *r, StoreFloor floor, int page, const Decor *decor,
                 const Pantry *pantry, Uint64 frame) {
     (void)frame;
     store_backdrop(r, floor);
+
+    int pages = store_page_count(floor);
+    if (page < 0 || page >= pages) page = 0;
+    int start = page * PER_PAGE;
+    int end = start + PER_PAGE;
+    int n = floor_item_count(floor);
+    if (end > n) end = n;
 
     /* coin balance, top-right corner under the toggle */
     char coins[24];
@@ -188,7 +230,7 @@ void store_draw(SDL_Renderer *r, StoreFloor floor, const Decor *decor,
     text_draw(r, coins, KZ_W - 66, 30, rgb(0x9A, 0x7A, 0x5A));
 
     if (floor == STORE_FURNITURE) {
-        for (int i = 0; i < SHELF_COUNT; i++) {
+        for (int i = start; i < end; i++) {
             float x, y; cell_xy(i, &x, &y);
             DecorKind k = SHELF[i];
             bool owned = decor->items[k].owned;
@@ -198,79 +240,87 @@ void store_draw(SDL_Renderer *r, StoreFloor floor, const Decor *decor,
             px_rect(r, x, y + CELL_H - 1, CELL_W, 1, KZ_COCOA);
             px_rect(r, x, y, 1, CELL_H, KZ_COCOA);
             px_rect(r, x + CELL_W - 1, y, 1, CELL_H, KZ_COCOA);
-            /* icon on the left */
-            decor_icon(r, k, x + 3, y + 8);
-            /* name (top-right) */
-            text_draw(r, decor_info(k)->name, x + 16, y + 4, KZ_COCOA);
-            /* price or owned (bottom-right) */
+            /* icon centered near the top */
+            decor_icon(r, k, x + CELL_W / 2 - 6, y + 5);
+            /* name */
+            text_draw_centered(r, decor_info(k)->name, x + CELL_W / 2.0f,
+                               y + 22, KZ_COCOA);
+            /* price or owned */
             if (owned) {
-                text_draw(r, "owned", x + 16, y + 15, rgb(0x6A, 0xA0, 0x7A));
+                text_draw_centered(r, "owned", x + CELL_W / 2.0f, y + 32,
+                                   rgb(0x6A, 0xA0, 0x7A));
             } else {
                 char pr[16];
                 SDL_snprintf(pr, sizeof pr, "%d coins", decor_price(k));
                 bool afford = pantry->coins >= (Uint16)decor_price(k);
-                text_draw(r, pr, x + 16, y + 15,
-                          afford ? rgb(0x9A, 0x7A, 0x5A)
-                                 : rgb(0xC8, 0x9A, 0x9A));
+                text_draw_centered(r, pr, x + CELL_W / 2.0f, y + 32,
+                                   afford ? rgb(0x9A, 0x7A, 0x5A)
+                                          : rgb(0xC8, 0x9A, 0x9A));
             }
         }
     } else {
-        /* supplies floor: a grid of food/supply items (4 per row) */
-        for (int i = 0; i < FOOD_COUNT; i++) {
-            float x = 12 + (i % 4) * 56, y = 34 + (i / 4) * 56;
-            px_rect(r, x, y, 50, 50, KZ_CLOUD);
-            px_rect(r, x, y, 50, 1, KZ_COCOA);
-            px_rect(r, x, y + 49, 50, 1, KZ_COCOA);
-            px_rect(r, x, y, 1, 50, KZ_COCOA);
-            px_rect(r, x + 49, y, 1, 50, KZ_COCOA);
-            food_icon(r, (FoodKind)i, x + 19, y + 4);
-            text_draw_centered(r, food_name((FoodKind)i), x + 25, y + 18,
-                               KZ_COCOA);
+        for (int i = start; i < end; i++) {
+            float x, y; cell_xy(i, &x, &y);
+            px_rect(r, x, y, CELL_W, CELL_H, KZ_CLOUD);
+            px_rect(r, x, y, CELL_W, 1, KZ_COCOA);
+            px_rect(r, x, y + CELL_H - 1, CELL_W, 1, KZ_COCOA);
+            px_rect(r, x, y, 1, CELL_H, KZ_COCOA);
+            px_rect(r, x + CELL_W - 1, y, 1, CELL_H, KZ_COCOA);
+            food_icon(r, (FoodKind)i, x + CELL_W / 2 - 6, y + 4);
+            text_draw_centered(r, food_name((FoodKind)i), x + CELL_W / 2.0f,
+                               y + 18, KZ_COCOA);
             char have[16];
-            SDL_snprintf(have, sizeof have, "x%u",
-                         (unsigned)pantry->stock[i]);
-            text_draw_centered(r, have, x + 25, y + 26, rgb(0x9A, 0x7A, 0x5A));
+            SDL_snprintf(have, sizeof have, "x%u", (unsigned)pantry->stock[i]);
+            text_draw_centered(r, have, x + CELL_W / 2.0f, y + 26,
+                               rgb(0x9A, 0x7A, 0x5A));
             char pr[16];
             SDL_snprintf(pr, sizeof pr, "%d coins", food_price((FoodKind)i));
             bool afford = pantry->coins >= (Uint16)food_price((FoodKind)i);
-            px_rect(r, x + 6, y + 36, 38, 10, afford ? KZ_MINT
-                                                     : rgb(0xE0, 0xD0, 0xD0));
-            px_rect(r, x + 6, y + 36, 38, 1, KZ_COCOA);
-            px_rect(r, x + 6, y + 45, 38, 1, KZ_COCOA);
-            text_draw_centered(r, pr, x + 25, y + 38, KZ_COCOA);
+            px_rect(r, x + 6, y + 34, CELL_W - 12, 8,
+                    afford ? KZ_MINT : rgb(0xE0, 0xD0, 0xD0));
+            text_draw_centered(r, pr, x + CELL_W / 2.0f, y + 35, KZ_COCOA);
         }
     }
 
-    text_draw(r, "tap to buy  -  travel to leave", 6, KZ_H - 9,
+    draw_page_button(r, page, pages);
+    text_draw(r, "tap to buy - travel to leave", 6, KZ_H - 9,
               rgb(0x9A, 0x7A, 0x5A));
 }
 
-StoreTap store_hit(StoreFloor floor, float px_, float py_) {
+StoreTap store_hit(StoreFloor floor, int page, float px_, float py_) {
     StoreTap t = { STORE_TAP_NONE, -1 };
+    int pages = store_page_count(floor);
+    if (page < 0 || page >= pages) page = 0;
+
     /* floor toggle */
     if (px_ >= FLOOR_BTN_X && px_ <= FLOOR_BTN_X + FLOOR_BTN_W
         && py_ >= FLOOR_BTN_Y && py_ <= FLOOR_BTN_Y + FLOOR_BTN_H) {
         t.kind = STORE_TAP_SWITCH_FLOOR;
         return t;
     }
-    if (floor == STORE_FURNITURE) {
-        for (int i = 0; i < SHELF_COUNT; i++) {
-            float x, y; cell_xy(i, &x, &y);
-            if (px_ >= x && px_ <= x + CELL_W
-                && py_ >= y && py_ <= y + CELL_H) {
+    /* page button */
+    if (pages > 1
+        && px_ >= PAGE_BTN_X && px_ <= PAGE_BTN_X + PAGE_BTN_W
+        && py_ >= PAGE_BTN_Y && py_ <= PAGE_BTN_Y + PAGE_BTN_H) {
+        t.kind = STORE_TAP_NEXT_PAGE;
+        return t;
+    }
+
+    int start = page * PER_PAGE;
+    int end = start + PER_PAGE;
+    int n = floor_item_count(floor);
+    if (end > n) end = n;
+    for (int i = start; i < end; i++) {
+        float x, y; cell_xy(i, &x, &y);
+        if (px_ >= x && px_ <= x + CELL_W && py_ >= y && py_ <= y + CELL_H) {
+            if (floor == STORE_FURNITURE) {
                 t.kind = STORE_TAP_BUY_DECOR;
                 t.index = (int)SHELF[i];
-                return t;
-            }
-        }
-    } else {
-        for (int i = 0; i < FOOD_COUNT; i++) {
-            float x = 12 + (i % 4) * 56, y = 34 + (i / 4) * 56;
-            if (px_ >= x && px_ <= x + 50 && py_ >= y && py_ <= y + 50) {
+            } else {
                 t.kind = STORE_TAP_BUY_FOOD;
                 t.index = i;
-                return t;
             }
+            return t;
         }
     }
     return t;

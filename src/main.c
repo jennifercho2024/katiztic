@@ -300,6 +300,7 @@ int main(int argc, char *argv[]) {
     ParkLife parklife = parklife_new();         /* cats visiting the park */
     CafeCats cafecats = cafecats_new();         /* adoptable cats at the café */
     StoreFloor store_floor = STORE_FURNITURE;   /* which department store floor */
+    int store_page = 0;                         /* which page of items */
     int roster_show = 240;        /* frames the roster strip stays visible; when
                                    * it runs down the strip fades away until you
                                    * tap near it again */
@@ -969,10 +970,16 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 else if (location == LOC_STORE) {
-                    StoreTap st = store_hit(store_floor, lx, ly);
+                    StoreTap st = store_hit(store_floor, store_page, lx, ly);
                     if (st.kind == STORE_TAP_SWITCH_FLOOR) {
                         store_floor = (store_floor == STORE_FURNITURE)
                                     ? STORE_SUPPLIES : STORE_FURNITURE;
+                        store_page = 0;   /* start each floor on page 1 */
+                        press_fx = 8;
+                    } else if (st.kind == STORE_TAP_NEXT_PAGE) {
+                        /* cycle to the next page, wrapping back to the first */
+                        int pages = store_page_count(store_floor);
+                        store_page = (store_page + 1) % pages;
                         press_fx = 8;
                     } else if (st.kind == STORE_TAP_BUY_DECOR) {
                         DecorKind k = (DecorKind)st.index;
@@ -1636,7 +1643,7 @@ int main(int argc, char *argv[]) {
             market_draw(renderer, &pantry, frame);
         } else if (location == LOC_STORE) {
             /* The department store: buy furniture and cat supplies. */
-            store_draw(renderer, store_floor, &decor, &pantry, frame);
+            store_draw(renderer, store_floor, store_page, &decor, &pantry, frame);
         } else if (location == LOC_KATLYMPICS) {
             /* The Katlympics stadium: pick an event, choose your performance,
              * or watch it play out. */
