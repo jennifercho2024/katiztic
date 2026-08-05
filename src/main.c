@@ -94,10 +94,11 @@ static float decor_rest_y(DecorKind kind, float top_y) {
         if (top_y < 20.0f)  top_y = 20.0f;
         return top_y;
     }
-    /* Other items can be placed freely wherever you drag them, clamped so they
-     * stay on screen (not above the wall line, not below the floor). */
-    if (top_y < 24.0f)  top_y = 24.0f;    /* don't float off the top    */
-    if (top_y > 156.0f) top_y = 156.0f;   /* don't sink through the floor */
+    /* Other items place freely anywhere on the floor, front to back. The
+     * cottage floor spans from the wall line (~148) to the front of the room
+     * (~224), so allow that whole depth; clamp only to keep items on screen. */
+    if (top_y < 24.0f)   top_y = 24.0f;    /* don't float off the top     */
+    if (top_y > 224.0f)  top_y = 224.0f;   /* don't slide past the front   */
     return top_y;
 }
 
@@ -1515,6 +1516,9 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < roster.count; i++) {
             cat_update(&roster.cats[i].anim);
             mood_update(&roster.cats[i].anim, &roster.cats[i].stats);
+            /* grow the cat's body to match its level (kitten -> adult) */
+            roster.cats[i].anim.scale =
+                cat_growth_scale(roster.cats[i].stats.level);
         }
         /* At home and at the café, the whole family roams and socializes.
          * Décor (yarn/milk to react to) exists only in the cottage. */

@@ -40,6 +40,8 @@ typedef struct {
     int   trick;       /* which trick is being performed (-1 = none)  */
     int   trick_t;     /* frames remaining in the trick animation     */
     int   trick_len;   /* total length of the current trick animation */
+    /* --- growth: kittens start small (~0.6) and grow to full size (1.0) --- */
+    float scale;       /* body size multiplier; 0 is treated as 1.0     */
 } Cat;
 
 /* Place a cat at a spot. */
@@ -80,5 +82,10 @@ void cat_draw_sparkles(SDL_Renderer *r, const Cat *cat, Uint64 frame);
 /* A soft glowing ring under a cat, marking it as the currently selected one
  * so you can tell your cats apart at a glance. */
 void cat_draw_select_ring(SDL_Renderer *r, const Cat *cat, Uint64 frame);
+
+/* The body-size multiplier for a cat at the given level: kittens start small
+ * (~0.6 at level 1), reach mid-growth (~0.8) by level 12, and are fully grown
+ * (1.0) by level 25. */
+float cat_growth_scale(int level);
 
 #endif /* KATIZTIC_CAT_H */

@@ -22,7 +22,8 @@ Cat cat_make(float cx, float cy) {
     Cat c = { cx, cy, 0, roll_next_blink(), 0,
               ACT_SIT, 120, cx, cy, 1, (Uint64)SDL_rand(100000),
               0, 120 + SDL_rand(240), 0,
-              CAT_TRICK_NONE, 0, 0 };
+              CAT_TRICK_NONE, 0, 0,
+              1.0f };   /* scale: full-grown by default; main sets it by level */
     return c;
 }
 
@@ -172,6 +173,15 @@ void cat_draw(SDL_Renderer *r, const Cat *cat, CatColors col, Uint64 frame) {
 
     /* Body + darker belly band. Squash/stretch (spin, roll, jump, sit) scales
      * the main mass around its center; roll/spin shift it sideways. */
+    /* ---- growth scale: kittens are smaller, adults full size ---- */
+    float gs = (cat->scale > 0.0f) ? cat->scale : 1.0f;
+    /* fold growth into the squash factors so the whole silhouette scales, and
+     * lift the draw origin so a smaller cat still rests on the ground */
+    squash_x *= gs;
+    squash_y *= gs;
+    float grow_lift = (1.0f - gs) * 12.0f;   /* keep paws on the floor */
+    py += grow_lift;
+
     float bw = 20.0f * squash_x, bh = 14.0f * squash_y;
     float bxo = (20.0f - bw) / 2.0f;             /* recenter horizontally */
     float byo = (14.0f - bh);                    /* keep feet on the ground */
@@ -284,6 +294,21 @@ void cat_draw_sparkles(SDL_Renderer *r, const Cat *cat, Uint64 frame) {
         px_rect_a(r, sx - 2, sy,     5, 1, gold, a);     /* horizontal */
         px_rect_a(r, sx,     sy,     1, 1, KZ_CLOUD, a); /* center    */
     }
+}
+
+float cat_growth_scale(int level) {
+    /* piecewise: kitten -> mid at 12 -> full at 25 */
+    const float KITTEN = 0.60f, MID = 0.80f, FULL = 1.0f;
+    if (level <= 1)  return KITTEN;
+    if (level >= 25) return FULL;
+    if (level <= 12) {
+        /* levels 1..12 grow from KITTEN to MID */
+        float t = (float)(level - 1) / (float)(12 - 1);
+        return KITTEN + (MID - KITTEN) * t;
+    }
+    /* levels 12..25 grow from MID to FULL */
+    float t = (float)(level - 12) / (float)(25 - 12);
+    return MID + (FULL - MID) * t;
 }
 
 void cat_draw_select_ring(SDL_Renderer *r, const Cat *cat, Uint64 frame) {
