@@ -39,6 +39,7 @@
 #include "store.h"
 #include "text.h"
 #include "story.h"
+#include "tutorial.h"
 #include "worldmap.h"
 #include "pantry.h"
 #include "market.h"
@@ -249,8 +250,10 @@ int main(int argc, char *argv[]) {
 
     /* Load the family, or start with two starter cats if there's no save. */
     Roster roster;
+    Tutorial tutorial = { false, 0, 0 };
     if (!roster_load(&roster, KZ_SAVE_PATH, CAT_X, CAT_Y)) {
         roster = roster_new(CAT_X, CAT_Y);
+        tutorial = tutorial_new();   /* first launch: show the walkthrough */
     }
     /* Spread the cats to distinct spots so they don't begin stacked; from
      * there their own wandering takes over. */
@@ -448,6 +451,15 @@ int main(int argc, char *argv[]) {
                 float lx, ly;
                 SDL_RenderCoordinatesFromWindow(renderer, e.button.x,
                                                 e.button.y, &lx, &ly);
+
+                /* The first-launch tutorial captures taps while it's showing,
+                 * so the walkthrough plays before any game interaction. */
+                if (tutorial.active) {
+                    tutorial_tap(&tutorial, lx, ly);
+                    press_fx = 8;
+                    break;
+                }
+
                 /* In the cottage, the room is panned by the camera, so in-room
                  * hit-tests (cats, décor, bed) use room coordinates. UI stays
                  * in screen coordinates (lx,ly). */
@@ -1634,13 +1646,17 @@ int main(int argc, char *argv[]) {
         /* Hold-to-interact on a cat, in stages:
          *   ~3 seconds  -> open the trick tray (ask for a trick)
          *   ~5 seconds  -> pick the cat up so you can carry it anywhere
-         * A quick tap just pets. Release cancels the hold. */
-        if (holding_cat && !trick_open && drag_cat < 0) {
+         * A quick tap just pets. Release cancels the hold. The counter keeps
+         * running even after the trick tray opens, so a longer hold reaches the
+         * pick-up stage. */
+        if (holding_cat && drag_cat < 0) {
             hold_frames++;
             OwnedCat *a = roster_active(&roster);
             cat_pet(&a->anim);   /* keep the happy glow going as a cue */
-            if (hold_frames == 180 && tricks_allowed_here(location)) {
-                /* 3s: open the trick trainer */
+            if (hold_frames >= 180 && hold_frames < 185
+                && tricks_allowed_here(location) && !trick_open) {
+                /* 3s: open the trick trainer (a small window so a skipped
+                 * frame can't miss it) */
                 trick_open = true;
                 decor_open = false;
                 feed_open = false;
@@ -2114,6 +2130,27 @@ int main(int argc, char *argv[]) {
             ui_feed_tray(renderer, &pantry, frame);
         }
 
+        /* Hold progress: while pressing a cat, show filling dots above it so
+         * you can see the 3s (tricks) and 5s (pick-up) stages approaching. */
+        if (holding_cat && hold_frames > 12) {
+            OwnedCat *a = roster_active(&roster);
+            float off_x = (location == LOC_COTTAGE) ? cam.x
+                        : (location == LOC_PARK)    ? park_cam.x
+                        : (location == LOC_MEADOW)  ? meadow_cam.x
+                        : 0.0f;
+            float off_y = (location == LOC_COTTAGE) ? cam.y : 0.0f;
+            float ax = a->anim.cx - off_x, ay = a->anim.cy - off_y;
+            /* a small progress bar toward pick-up (fills over 5s); it turns
+             * pink once the 3s trick point is passed */
+            float prog = (float)hold_frames / 300.0f;
+            if (prog > 1.0f) prog = 1.0f;
+            Color barc = (hold_frames >= 180) ? KZ_HEART : KZ_BUTTER;
+            px_rect(renderer, ax - 12, ay - 26, 24, 4, KZ_CLOUD);
+            px_rect(renderer, ax - 12, ay - 26, 24.0f * prog, 4, barc);
+            px_rect(renderer, ax - 12, ay - 26, 24, 1, KZ_COCOA);
+            px_rect(renderer, ax - 12, ay - 23, 24, 1, KZ_COCOA);
+        }
+
         /* Trick trainer tray, when open. */
         if (trick_open && tricks_allowed_here(location)) {
             OwnedCat *a = roster_active(&roster);
@@ -2172,6 +2209,10 @@ int main(int argc, char *argv[]) {
                 ui_confirm_travel(renderer, mp->name);
             }
         }
+
+        /* the first-launch tutorial sits on top of everything */
+        if (tutorial.active)
+            tutorial_draw(renderer, &tutorial, frame);
 
         SDL_RenderPresent(renderer);
 
