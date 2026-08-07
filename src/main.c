@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
     CafeCats cafecats = cafecats_new();         /* adoptable cats at the café */
     StoreFloor store_floor = STORE_FURNITURE;   /* which department store floor */
     int store_page = 0;                         /* which page of items */
-    int roster_show = 240;        /* frames the roster strip stays visible; when
+    int roster_show = 300;        /* frames the roster strip stays visible; when
                                    * it runs down the strip fades away until you
                                    * tap near it again */
     bool walking = false;         /* is a scenic park walk in progress? */
@@ -489,7 +489,7 @@ int main(int argc, char *argv[]) {
                             && ((ly > KZ_H - 30 && lx < 130)     /* roster strip */
                              || (lx < 70 && ly < 74));           /* stat panel   */
                 if (near_ui) {
-                    roster_show = 240;   /* reveal / keep visible */
+                    roster_show = 300;   /* reveal / keep visible (5 seconds) */
                     if (roster_was_hidden) { press_fx = 8; break; }
                 }
 
@@ -996,6 +996,7 @@ int main(int argc, char *argv[]) {
                     break;
                 } else if (slot >= 0) {
                     roster_select(&roster, slot);
+                    roster_show = 300;   /* keep the strip up while you switch */
                     press_fx = 8;
                     break;
                 }

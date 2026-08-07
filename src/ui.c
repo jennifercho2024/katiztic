@@ -290,15 +290,6 @@ void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
     }
     text_draw(r, cattype_name(cat->type), x + 4, y + 10,
               cattype_colors(cat->type).dark);
-    /* life stage label, right-aligned on the type line */
-    {
-        const char *stage; Color sc;
-        if (s->level >= 25)      { stage = "Grown";   sc = KZ_HEART; }
-        else if (s->level >= 12) { stage = "Growing"; sc = rgb(0xC0, 0x9A, 0x40); }
-        else                     { stage = "Kitten";  sc = rgb(0x5A, 0xA0, 0x7A); }
-        float sw = text_width(stage);
-        text_draw(r, stage, x + w - 4 - sw, y + 10, sc);
-    }
     px_rect(r, x + 3, y + 17, w - 6, 1, KZ_COCOA);   /* divider */
 
     float rx = x + 5, ry = y + 21;
