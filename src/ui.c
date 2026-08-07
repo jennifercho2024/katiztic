@@ -8,29 +8,6 @@
 
 /* ---- button icon glyphs, ~9x9, drawn centered in the button ---- */
 
-static void glyph_house(SDL_Renderer *r, float x, float y, Color c) {
-    /* roof */
-    px_rect(r, x + 3, y,     3, 1, c);
-    px_rect(r, x + 2, y + 1, 5, 1, c);
-    px_rect(r, x + 1, y + 2, 7, 1, c);
-    px_rect(r, x,     y + 3, 9, 1, c);
-    /* walls + door */
-    px_rect(r, x + 1, y + 4, 7, 5, c);
-    px_rect(r, x + 3, y + 6, 3, 3, KZ_CLOUD);
-}
-
-static void glyph_sun(SDL_Renderer *r, float x, float y, Color c) {
-    /* rays */
-    px_rect(r, x + 4, y,     1, 2, c);
-    px_rect(r, x + 4, y + 7, 1, 2, c);
-    px_rect(r, x,     y + 4, 2, 1, c);
-    px_rect(r, x + 7, y + 4, 2, 1, c);
-    /* body */
-    px_rect(r, x + 3, y + 3, 3, 3, c);
-    px_rect(r, x + 2, y + 4, 5, 1, c);
-    px_rect(r, x + 4, y + 2, 1, 5, c);
-}
-
 static void glyph_moon(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x + 3, y + 1, 3, 1, c);
     px_rect(r, x + 2, y + 2, 2, 1, c);
@@ -215,13 +192,6 @@ static void icon_leaf(SDL_Renderer *r, float x, float y, Color c) {
     px_rect(r, x,     y + 3, 2, 2, c);
 }
 
-static void icon_star(SDL_Renderer *r, float x, float y, Color c) {
-    px_rect(r, x + 2, y,     1, 1, c);
-    px_rect(r, x,     y + 2, 5, 1, c);
-    px_rect(r, x + 1, y + 3, 3, 1, c);
-    px_rect(r, x + 1, y + 4, 1, 1, c);
-    px_rect(r, x + 3, y + 4, 1, 1, c);
-}
 
 /* A single stat row: icon, then a bar filled proportional to value/100. */
 static void stat_row(SDL_Renderer *r, float x, float y,

@@ -27,6 +27,10 @@ typedef enum {
     DECOR_POST,      /* a scratching post               */
     DECOR_PLANT2,    /* a tall leafy plant              */
     DECOR_TABLE,     /* a little side table             */
+    DECOR_FISHBOWL,  /* a fish bowl — cats watch it     */
+    DECOR_WINDOW,    /* a sunny window with a view      */
+    DECOR_CATBED,    /* a cozy cat bed                  */
+    DECOR_TOYBASKET, /* a basket of cat toys            */
     DECOR_COUNT
 } DecorKind;
 

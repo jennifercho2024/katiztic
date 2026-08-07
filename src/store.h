@@ -29,7 +29,8 @@ int store_page_count(StoreFloor floor);
 typedef enum {
     STORE_TAP_NONE,
     STORE_TAP_SWITCH_FLOOR,   /* the floor toggle                */
-    STORE_TAP_NEXT_PAGE,      /* the "more items" page button    */
+    STORE_TAP_NEXT_PAGE,      /* the "next page" arrow button    */
+    STORE_TAP_PREV_PAGE,      /* the "previous page" arrow button */
     STORE_TAP_BUY_DECOR,      /* buy furniture; `index` = DecorKind */
     STORE_TAP_BUY_FOOD,       /* buy food; `index` = FoodKind     */
 } StoreTapKind;

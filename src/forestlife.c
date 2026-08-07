@@ -189,6 +189,7 @@ int forestlife_interact(ForestLife *fl, int index, bool have_treat,
     Animal *a = &fl->animals[index];
     if (!a->active) return -1;
     AnimalKind k = a->kind;
+    if ((int)k < 0 || (int)k >= ANIMAL_KIND_COUNT) return -1;   /* safety */
 
     int step = trust_step(k, have_treat);
     if (step <= 0) {

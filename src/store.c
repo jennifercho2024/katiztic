@@ -12,6 +12,7 @@ static const DecorKind SHELF[] = {
     DECOR_CUSHION, DECOR_RUG2, DECOR_YARN, DECOR_MILK,
     DECOR_BOOKSHELF, DECOR_CLOCK, DECOR_BEANBAG, DECOR_POST,
     DECOR_PLANT2, DECOR_TABLE,
+    DECOR_FISHBOWL, DECOR_WINDOW, DECOR_CATBED, DECOR_TOYBASKET,
 };
 #define SHELF_COUNT ((int)(sizeof SHELF / sizeof SHELF[0]))
 
@@ -31,10 +32,11 @@ static void cell_xy(int i, float *x, float *y) {
     *y = GRID_Y0 + (slot / COLS) * (CELL_H + 4);
 }
 
-/* the "more items" page button, bottom-right */
-#define PAGE_BTN_X 150
+/* page navigation arrows, bottom center: [<]  2/3  [>] */
+#define PREV_BTN_X 92
+#define NEXT_BTN_X 132
 #define PAGE_BTN_Y (KZ_H - 16)
-#define PAGE_BTN_W 84
+#define PAGE_BTN_W 16
 #define PAGE_BTN_H 14
 
 /* the floor toggle button, top-right */
@@ -114,6 +116,32 @@ static void decor_icon(SDL_Renderer *r, DecorKind k, float x, float y) {
             px_rect(r, x + 2, y + 5, 2, 5, rgb(0xA8, 0x86, 0x6E));
             px_rect(r, x + 8, y + 5, 2, 5, rgb(0xA8, 0x86, 0x6E));
             px_rect(r, x + 5, y, 2, 3, KZ_MINT);
+            break;
+        case DECOR_FISHBOWL:
+            px_rect(r, x + 2, y + 2, 8, 7, rgb(0x9C, 0xCF, 0xE8));  /* water */
+            px_rect(r, x + 2, y + 1, 8, 1, rgb(0xC6, 0xE6, 0xF0));  /* rim */
+            px_rect(r, x + 3, y + 9, 6, 2, rgb(0xC8, 0xA6, 0x8E));  /* stand */
+            px_rect(r, x + 5, y + 4, 3, 2, KZ_BUTTER);             /* fish */
+            px_rect(r, x + 4, y + 4, 1, 2, KZ_PETAL_PINK);         /* tail */
+            break;
+        case DECOR_WINDOW:
+            px_rect(r, x + 1, y, 10, 10, rgb(0xC8, 0xA8, 0xB0));   /* frame */
+            px_rect(r, x + 2, y + 1, 8, 8, KZ_SKY_WASH);          /* sky */
+            px_rect(r, x + 2, y + 6, 8, 3, KZ_MINT);              /* hills */
+            px_rect(r, x + 7, y + 2, 2, 2, KZ_BUTTER);            /* sun */
+            px_rect(r, x + 6, y + 1, 1, 8, rgb(0xC8, 0xA8, 0xB0));/* mullion */
+            break;
+        case DECOR_CATBED:
+            px_rect(r, x + 1, y + 3, 10, 6, rgb(0xC8, 0x8C, 0x9C));/* rim */
+            px_rect(r, x + 3, y + 4, 6, 4, rgb(0xF5, 0xE6, 0xD0)); /* cushion */
+            px_rect(r, x + 1, y + 2, 10, 2, rgb(0xC8, 0x8C, 0x9C));/* back */
+            break;
+        case DECOR_TOYBASKET:
+            px_rect(r, x + 1, y + 4, 10, 6, rgb(0xC8, 0xA6, 0x8E));/* basket */
+            px_rect(r, x + 1, y + 6, 10, 1, rgb(0xA8, 0x86, 0x6E));
+            px_rect(r, x + 2, y + 1, 3, 3, KZ_HEART);             /* ball */
+            px_rect(r, x + 6, y, 2, 4, KZ_MINT);                  /* wand */
+            px_rect(r, x + 8, y + 2, 2, 2, KZ_LAVENDER);          /* mouse */
             break;
     }
 }
@@ -198,17 +226,34 @@ int store_page_count(StoreFloor floor) {
     return pages < 1 ? 1 : pages;
 }
 
-/* draw the "More >" page button (only when there's more than one page) */
+/* one arrow button: a soft box with a < or > glyph */
+static void draw_arrow_button(SDL_Renderer *r, float bx, bool left, bool enabled) {
+    Color fill = enabled ? KZ_BUTTER : rgb(0xE0, 0xDA, 0xCE);
+    Color ink  = enabled ? KZ_COCOA : rgb(0xB8, 0xB0, 0xA6);
+    px_rect(r, bx, PAGE_BTN_Y, PAGE_BTN_W, PAGE_BTN_H, fill);
+    px_rect(r, bx, PAGE_BTN_Y, PAGE_BTN_W, 1, ink);
+    px_rect(r, bx, PAGE_BTN_Y + PAGE_BTN_H - 1, PAGE_BTN_W, 1, ink);
+    px_rect(r, bx, PAGE_BTN_Y, 1, PAGE_BTN_H, ink);
+    px_rect(r, bx + PAGE_BTN_W - 1, PAGE_BTN_Y, 1, PAGE_BTN_H, ink);
+    /* chevron: a little arrowhead built from stacked pixels */
+    float cxp = bx + PAGE_BTN_W / 2.0f;
+    float cyp = PAGE_BTN_Y + PAGE_BTN_H / 2.0f;
+    for (int i = 0; i < 3; i++) {
+        float dx = left ? (float)i : -(float)i;
+        px_rect(r, cxp + dx - 1, cyp - 2 - i, 1, 1, ink);
+        px_rect(r, cxp + dx - 1, cyp + 1 + i, 1, 1, ink);
+        px_rect(r, cxp + dx - 1, cyp - 1, 1, 3, ink);   /* fill the point */
+    }
+}
+
+/* draw the prev/next page arrows + a "2/3" indicator between them */
 static void draw_page_button(SDL_Renderer *r, int page, int pages) {
     if (pages <= 1) return;
-    px_rect(r, PAGE_BTN_X, PAGE_BTN_Y, PAGE_BTN_W, PAGE_BTN_H, KZ_BUTTER);
-    px_rect(r, PAGE_BTN_X, PAGE_BTN_Y, PAGE_BTN_W, 1, KZ_COCOA);
-    px_rect(r, PAGE_BTN_X, PAGE_BTN_Y + PAGE_BTN_H - 1, PAGE_BTN_W, 1, KZ_COCOA);
-    px_rect(r, PAGE_BTN_X, PAGE_BTN_Y, 1, PAGE_BTN_H, KZ_COCOA);
-    px_rect(r, PAGE_BTN_X + PAGE_BTN_W - 1, PAGE_BTN_Y, 1, PAGE_BTN_H, KZ_COCOA);
-    char lbl[24];
-    SDL_snprintf(lbl, sizeof lbl, "More  (%d/%d) >", page + 1, pages);
-    text_draw_centered(r, lbl, PAGE_BTN_X + PAGE_BTN_W / 2.0f,
+    draw_arrow_button(r, PREV_BTN_X, true,  page > 0);
+    draw_arrow_button(r, NEXT_BTN_X, false, page < pages - 1);
+    char lbl[16];
+    SDL_snprintf(lbl, sizeof lbl, "%d/%d", page + 1, pages);
+    text_draw_centered(r, lbl, (PREV_BTN_X + PAGE_BTN_W + NEXT_BTN_X) / 2.0f,
                        PAGE_BTN_Y + 4, KZ_COCOA);
 }
 
@@ -298,12 +343,18 @@ StoreTap store_hit(StoreFloor floor, int page, float px_, float py_) {
         t.kind = STORE_TAP_SWITCH_FLOOR;
         return t;
     }
-    /* page button */
-    if (pages > 1
-        && px_ >= PAGE_BTN_X && px_ <= PAGE_BTN_X + PAGE_BTN_W
-        && py_ >= PAGE_BTN_Y && py_ <= PAGE_BTN_Y + PAGE_BTN_H) {
-        t.kind = STORE_TAP_NEXT_PAGE;
-        return t;
+    /* page arrows: previous (only if not on first page) and next */
+    if (pages > 1 && py_ >= PAGE_BTN_Y && py_ <= PAGE_BTN_Y + PAGE_BTN_H) {
+        if (page > 0
+            && px_ >= PREV_BTN_X && px_ <= PREV_BTN_X + PAGE_BTN_W) {
+            t.kind = STORE_TAP_PREV_PAGE;
+            return t;
+        }
+        if (page < pages - 1
+            && px_ >= NEXT_BTN_X && px_ <= NEXT_BTN_X + PAGE_BTN_W) {
+            t.kind = STORE_TAP_NEXT_PAGE;
+            return t;
+        }
     }
 
     int start = page * PER_PAGE;

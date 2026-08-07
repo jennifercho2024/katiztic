@@ -121,7 +121,9 @@ void behavior_update(Roster *ro, Decor *decor, Uint64 frame) {
                 /* only these items are interactive */
                 if (kind != DECOR_YARN && kind != DECOR_MILK
                     && kind != DECOR_TOWER && kind != DECOR_CUSHION
-                    && kind != DECOR_BEANBAG && kind != DECOR_POST)
+                    && kind != DECOR_BEANBAG && kind != DECOR_POST
+                    && kind != DECOR_CATBED && kind != DECOR_FISHBOWL
+                    && kind != DECOR_TOYBASKET)
                     continue;
 
                 float ix = decor->items[k].x + 8;   /* item center-ish */
@@ -144,16 +146,21 @@ void behavior_update(Roster *ro, Decor *decor, Uint64 frame) {
                     switch (kind) {
                         case DECOR_YARN:
                         case DECOR_TOWER:
+                        case DECOR_TOYBASKET:
                             c->act = ACT_PLAY;      /* bat / clamber & play */
                             break;
                         case DECOR_MILK:
                             c->act = ACT_GROOM;     /* lap the milk */
+                            break;
+                        case DECOR_FISHBOWL:
+                            c->act = ACT_GROOM;     /* watch the fish, transfixed */
                             break;
                         case DECOR_POST:
                             c->act = ACT_PLAY;      /* scratch (a lively pose) */
                             break;
                         case DECOR_CUSHION:
                         case DECOR_BEANBAG:
+                        case DECOR_CATBED:
                             c->act = ACT_SLEEP;     /* curl up for a nap */
                             break;
                         default: break;

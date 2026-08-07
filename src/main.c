@@ -1044,9 +1044,11 @@ int main(int argc, char *argv[]) {
                         store_page = 0;   /* start each floor on page 1 */
                         press_fx = 8;
                     } else if (st.kind == STORE_TAP_NEXT_PAGE) {
-                        /* cycle to the next page, wrapping back to the first */
                         int pages = store_page_count(store_floor);
-                        store_page = (store_page + 1) % pages;
+                        if (store_page < pages - 1) store_page++;
+                        press_fx = 8;
+                    } else if (st.kind == STORE_TAP_PREV_PAGE) {
+                        if (store_page > 0) store_page--;
                         press_fx = 8;
                     } else if (st.kind == STORE_TAP_BUY_DECOR) {
                         DecorKind k = (DecorKind)st.index;

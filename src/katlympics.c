@@ -338,6 +338,8 @@ void katlympics_draw_arena(SDL_Renderer *r, Uint64 frame) {
     px_rect(r, 20, 4, KZ_W - 40, 1, KZ_BUTTER);
     px_rect(r, 20, 19, KZ_W - 40, 1, KZ_BUTTER);
     text_draw_centered(r, "KATLYMPICS", KZ_W / 2.0f, 8, KZ_CLOUD);
+    /* the five-ring emblem beneath the banner */
+    draw_rings(r, KZ_W / 2.0f - 22, 26);
 }
 
 void katlympics_draw(SDL_Renderer *r, const Katlympics *k,

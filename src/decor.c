@@ -22,6 +22,10 @@ static const DecorInfo INFO[DECOR_COUNT] = {
     { DECOR_POST,    "Post",    UNLOCK_STORE,   0 },
     { DECOR_PLANT2,  "Tall Plant", UNLOCK_STORE, 0 },
     { DECOR_TABLE,   "Table",   UNLOCK_STORE,   0 },
+    { DECOR_FISHBOWL, "Fish Bowl", UNLOCK_STORE, 0 },
+    { DECOR_WINDOW,  "Window",  UNLOCK_STORE,   0 },
+    { DECOR_CATBED,  "Cat Bed", UNLOCK_STORE,   0 },
+    { DECOR_TOYBASKET, "Toy Basket", UNLOCK_STORE, 0 },
 };
 
 const DecorInfo *decor_info(DecorKind k) {
@@ -50,6 +54,10 @@ int decor_price(DecorKind k) {
         case DECOR_POST:    return 28;
         case DECOR_PLANT2:  return 18;
         case DECOR_TABLE:   return 20;
+        case DECOR_FISHBOWL: return 26;
+        case DECOR_WINDOW:  return 24;
+        case DECOR_CATBED:  return 22;
+        case DECOR_TOYBASKET: return 16;
         default:            return 15;
     }
 }
@@ -244,6 +252,70 @@ static void draw_table(SDL_Renderer *r, float x, float y, Uint64 frame) {
     px_rect(r, x + 8, y - 6, 3, 2, KZ_PETAL_PINK);
 }
 
+static void draw_fishbowl(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    Color glass = rgb(0xC6, 0xE6, 0xF0), water = rgb(0x9C, 0xCF, 0xE8),
+          stand = rgb(0xC8, 0xA6, 0x8E);
+    px_rect(r, x + 2, y + 16, 12, 3, stand);           /* little stand */
+    px_rect(r, x + 1, y + 4, 14, 12, glass);           /* bowl glass */
+    px_rect(r, x + 2, y + 7, 12, 8, water);            /* water */
+    px_rect(r, x + 3, y + 3, 10, 2, glass);            /* rim */
+    /* a fish swimming back and forth */
+    float sw = sinf((float)frame * 0.05f) * 3.0f;
+    px_rect(r, x + 6 + sw, y + 9, 3, 2, KZ_BUTTER);    /* body */
+    px_rect(r, x + 5 + sw, y + 9, 1, 2, KZ_PETAL_PINK);/* tail */
+    px_rect(r, x + 8 + sw, y + 9, 1, 1, KZ_COCOA);     /* eye */
+    /* a couple of bubbles */
+    float bub = fmodf((float)frame * 0.4f, 10.0f);
+    px_rect_a(r, x + 10, y + 13 - bub, 1, 1, KZ_CLOUD, 200);
+}
+
+static void draw_window(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    (void)frame;
+    Color frame_c = rgb(0xC8, 0xA8, 0xB0), sky = KZ_SKY_WASH,
+          hill = KZ_MINT, sun = KZ_BUTTER;
+    px_rect(r, x, y, 22, 20, frame_c);                 /* window frame */
+    px_rect(r, x + 2, y + 2, 18, 16, sky);             /* sky view */
+    px_rect(r, x + 2, y + 13, 18, 5, hill);            /* rolling hills */
+    px_rect(r, x + 14, y + 4, 4, 4, sun);              /* sun */
+    /* a little cloud */
+    px_rect(r, x + 4, y + 5, 5, 2, KZ_CLOUD);
+    px_rect(r, x + 6, y + 4, 3, 1, KZ_CLOUD);
+    /* mullion cross */
+    px_rect(r, x + 10, y + 2, 1, 16, frame_c);
+    px_rect(r, x + 2, y + 9, 18, 1, frame_c);
+    /* a small sill */
+    px_rect(r, x - 1, y + 20, 24, 2, rgb(0xB0, 0x8E, 0x9C));
+}
+
+static void draw_catbed(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    (void)frame;
+    Color rim = rgb(0xC8, 0x8C, 0x9C), pad = rgb(0xF5, 0xE6, 0xD0),
+          sh = rgb(0xE0, 0x9A, 0xB0);
+    px_rect(r, x, y + 4, 24, 10, rim);                 /* raised rim */
+    px_rect(r, x + 3, y + 6, 18, 7, pad);              /* soft cushion */
+    px_rect(r, x + 3, y + 11, 18, 2, sh);              /* cushion shadow */
+    px_rect(r, x + 1, y + 2, 22, 3, rim);              /* back rim */
+    /* a little paw-print motif on the cushion */
+    px_rect(r, x + 11, y + 8, 2, 2, sh);
+    px_rect(r, x + 10, y + 7, 1, 1, sh);
+    px_rect(r, x + 13, y + 7, 1, 1, sh);
+}
+
+static void draw_toybasket(SDL_Renderer *r, float x, float y, Uint64 frame) {
+    (void)frame;
+    Color basket = rgb(0xC8, 0xA6, 0x8E), weave = rgb(0xA8, 0x86, 0x6E);
+    px_rect(r, x + 1, y + 8, 18, 10, basket);          /* basket body */
+    px_rect(r, x + 1, y + 11, 18, 1, weave);           /* weave lines */
+    px_rect(r, x + 1, y + 14, 18, 1, weave);
+    px_rect(r, x, y + 7, 20, 2, weave);                /* rim */
+    /* toys poking out the top */
+    px_rect(r, x + 4, y + 3, 4, 4, KZ_HEART);          /* red ball */
+    px_rect(r, x + 10, y + 2, 3, 5, KZ_MINT);          /* feather wand */
+    px_rect(r, x + 11, y, 1, 3, KZ_BUTTER);
+    px_rect(r, x + 14, y + 4, 3, 3, KZ_LAVENDER);      /* little mouse toy */
+    px_rect(r, x + 16, y + 5, 1, 1, KZ_COCOA);
+}
+
 /* Bounding box of each item's art relative to the (x,y) passed to
  * decor_draw_one: {min-x offset, min-y offset, width, height}. Used to center
  * previews in the tray so nothing spills out of the slot. */
@@ -265,6 +337,10 @@ static DecorBox decor_box(DecorKind k) {
         case DECOR_POST:    return (DecorBox){  0, -2, 16, 26 };
         case DECOR_PLANT2:  return (DecorBox){  0, -2, 14, 28 };
         case DECOR_TABLE:   return (DecorBox){  0, -6, 20, 20 };
+        case DECOR_FISHBOWL: return (DecorBox){ 0,  3, 16, 16 };
+        case DECOR_WINDOW:  return (DecorBox){ -1,  0, 24, 22 };
+        case DECOR_CATBED:  return (DecorBox){  0,  2, 24, 12 };
+        case DECOR_TOYBASKET: return (DecorBox){ 0,  0, 20, 18 };
         default:            return (DecorBox){  0,  0, 16, 16 };
     }
 }
@@ -296,6 +372,10 @@ void decor_draw_one(SDL_Renderer *r, DecorKind k, float x, float y,
         case DECOR_POST:    draw_post(r, x, y, frame);    break;
         case DECOR_PLANT2:  draw_plant2(r, x, y, frame);  break;
         case DECOR_TABLE:   draw_table(r, x, y, frame);   break;
+        case DECOR_FISHBOWL: draw_fishbowl(r, x, y, frame); break;
+        case DECOR_WINDOW:  draw_window(r, x, y, frame);  break;
+        case DECOR_CATBED:  draw_catbed(r, x, y, frame);  break;
+        case DECOR_TOYBASKET: draw_toybasket(r, x, y, frame); break;
         default: break;
     }
 }
@@ -317,6 +397,10 @@ static void item_size(DecorKind k, float *w, float *h) {
         case DECOR_POST:    *w = 16; *h = 26; break;
         case DECOR_PLANT2:  *w = 14; *h = 28; break;
         case DECOR_TABLE:   *w = 20; *h = 18; break;
+        case DECOR_FISHBOWL: *w = 16; *h = 19; break;
+        case DECOR_WINDOW:  *w = 22; *h = 22; break;
+        case DECOR_CATBED:  *w = 24; *h = 14; break;
+        case DECOR_TOYBASKET: *w = 20; *h = 18; break;
         default:            *w = 16; *h = 16; break;
     }
 }

@@ -70,12 +70,6 @@ void meadow_update(Meadow *m) {
 }
 
 /* Vertical 3-band gradient, drawn as rows so it stays crisp/retro. */
-static void draw_sky_wide(SDL_Renderer *r, const TimeOfDay *t, int room_w);
-
-static void draw_sky(SDL_Renderer *r, const TimeOfDay *t) {
-    draw_sky_wide(r, t, KZ_W);
-}
-
 /* the gradient sky, drawn across a room of the given width (KZ_W or wider) */
 static void draw_sky_wide(SDL_Renderer *r, const TimeOfDay *t, int room_w) {
     for (int y = 0; y < KZ_H; y++) {
