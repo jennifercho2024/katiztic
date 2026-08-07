@@ -482,8 +482,12 @@ int main(int argc, char *argv[]) {
                  * back; if they were hidden, that first tap only reveals them
                  * (tap again to act). Taps elsewhere don't disturb the fade. */
                 bool roster_was_hidden = (roster_show <= 0);
-                bool near_ui = (ly > KZ_H - 30 && lx < 130)     /* roster strip */
-                            || (lx < 70 && ly < 74);            /* stat panel   */
+                bool roster_visible_here = (location != LOC_STORE
+                                            && location != LOC_KATLYMPICS
+                                            && location != LOC_PLAYDATE);
+                bool near_ui = roster_visible_here
+                            && ((ly > KZ_H - 30 && lx < 130)     /* roster strip */
+                             || (lx < 70 && ly < 74));           /* stat panel   */
                 if (near_ui) {
                     roster_show = 240;   /* reveal / keep visible */
                     if (roster_was_hidden) { press_fx = 8; break; }

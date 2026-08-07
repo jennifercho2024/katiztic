@@ -32,12 +32,12 @@ static void cell_xy(int i, float *x, float *y) {
     *y = GRID_Y0 + (slot / COLS) * (CELL_H + 4);
 }
 
-/* page navigation arrows, bottom center: [<]  2/3  [>] */
-#define PREV_BTN_X 92
-#define NEXT_BTN_X 132
-#define PAGE_BTN_Y (KZ_H - 16)
-#define PAGE_BTN_W 16
-#define PAGE_BTN_H 14
+/* page navigation arrows, bottom-RIGHT corner:  2/3 [<] [>] */
+#define PREV_BTN_X 198
+#define NEXT_BTN_X 218
+#define PAGE_BTN_Y (KZ_H - 18)
+#define PAGE_BTN_W 18
+#define PAGE_BTN_H 16
 
 /* the floor toggle button, top-right */
 #define FLOOR_BTN_X 150
@@ -253,8 +253,7 @@ static void draw_page_button(SDL_Renderer *r, int page, int pages) {
     draw_arrow_button(r, NEXT_BTN_X, false, page < pages - 1);
     char lbl[16];
     SDL_snprintf(lbl, sizeof lbl, "%d/%d", page + 1, pages);
-    text_draw_centered(r, lbl, (PREV_BTN_X + PAGE_BTN_W + NEXT_BTN_X) / 2.0f,
-                       PAGE_BTN_Y + 4, KZ_COCOA);
+    text_draw_centered(r, lbl, PREV_BTN_X - 14, PAGE_BTN_Y + 4, KZ_COCOA);
 }
 
 void store_draw(SDL_Renderer *r, StoreFloor floor, int page, const Decor *decor,
