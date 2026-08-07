@@ -1452,6 +1452,7 @@ int main(int argc, char *argv[]) {
                 decor_open = false;
                 feed_open = false;
                 holding_cat = false;
+                drag_cat = -1;     /* drop any carried cat when leaving */
                 walking = false;   /* end any park walk when leaving */
                 walk_dir = 0;
                 location = newloc;

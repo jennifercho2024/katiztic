@@ -39,10 +39,10 @@ static void cell_xy(int i, float *x, float *y) {
 #define PAGE_BTN_W 18
 #define PAGE_BTN_H 16
 
-/* the floor toggle button, top-right */
-#define FLOOR_BTN_X 150
+/* the floor toggle button, top area — kept clear of the home button (x>=216) */
+#define FLOOR_BTN_X 120
 #define FLOOR_BTN_Y 6
-#define FLOOR_BTN_W 84
+#define FLOOR_BTN_W 90
 #define FLOOR_BTN_H 16
 
 /* a tiny preview icon for a piece of furniture */
