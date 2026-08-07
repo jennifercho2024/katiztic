@@ -13,6 +13,8 @@ static const QuestInfo INFO[QUEST_COUNT] = {
     { "See cats play",             1,   15,  false, QICON_CATS    },
     { "Recolor the forest",        1,   60,  false, QICON_LEAF    },
     { "Recolor the street",        1,   60,  false, QICON_LEAF    },
+    { "Raise a cat to grown-up",  25,   75,  false, QICON_STAR    },
+    { "Grow 3 cats to adults",     3,  120,  false, QICON_CATS    },
 };
 
 const QuestInfo *quest_info(QuestId q) {

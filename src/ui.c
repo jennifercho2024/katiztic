@@ -290,6 +290,15 @@ void ui_draw_panel(SDL_Renderer *r, const OwnedCat *cat, float x, float y,
     }
     text_draw(r, cattype_name(cat->type), x + 4, y + 10,
               cattype_colors(cat->type).dark);
+    /* life stage label, right-aligned on the type line */
+    {
+        const char *stage; Color sc;
+        if (s->level >= 25)      { stage = "Grown";   sc = KZ_HEART; }
+        else if (s->level >= 12) { stage = "Growing"; sc = rgb(0xC0, 0x9A, 0x40); }
+        else                     { stage = "Kitten";  sc = rgb(0x5A, 0xA0, 0x7A); }
+        float sw = text_width(stage);
+        text_draw(r, stage, x + w - 4 - sw, y + 10, sc);
+    }
     px_rect(r, x + 3, y + 17, w - 6, 1, KZ_COCOA);   /* divider */
 
     float rx = x + 5, ry = y + 21;
@@ -394,6 +403,19 @@ void ui_roster_draw(SDL_Renderer *r, const Roster *ro, Uint8 fade) {
             Color gold = rgb(0xFF, 0xE8, 0x9A);
             px_rect_a(r, sx,     sy - 1, 1, 3, gold, fade);
             px_rect_a(r, sx - 1, sy,     3, 1, gold, fade);
+        }
+
+        /* life-stage badge in the bottom-left corner: a small dot whose colour
+         * shows whether this cat is a kitten, growing, or fully grown. */
+        {
+            Uint16 lvl = ro->cats[i].stats.level;
+            Color badge; int pips;
+            if (lvl >= 25)      { badge = KZ_HEART;       pips = 3; } /* grown  */
+            else if (lvl >= 12) { badge = KZ_BUTTER;      pips = 2; } /* growing*/
+            else                { badge = KZ_MINT;        pips = 1; } /* kitten */
+            float bx = x + 2, by = y + RS_SLOT - 4;
+            for (int p = 0; p < pips; p++)
+                px_rect_a(r, bx + p * 3, by, 2, 2, badge, fade);
         }
     }
 

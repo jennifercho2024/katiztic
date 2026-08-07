@@ -1833,10 +1833,12 @@ int main(int argc, char *argv[]) {
         {
             int maxlvl = 0;
             bool playing = false;
+            int adults = 0;   /* cats that have reached full size (level 25) */
             for (int i = 0; i < roster.count; i++) {
                 if ((int)roster.cats[i].stats.level > maxlvl)
                     maxlvl = (int)roster.cats[i].stats.level;
                 if (roster.cats[i].anim.act == ACT_PLAY) playing = true;
+                if (roster.cats[i].stats.level >= 25) adults++;
             }
             const QuestId QIDS[6] = {
                 QUEST_FRIENDS, QUEST_FAMILY, QUEST_LEVEL5,
@@ -1858,6 +1860,13 @@ int main(int argc, char *argv[]) {
                            (story_warmth(&story, STORY_ZONE_STREET) >= 1.0f)
                                ? 1 : 0))
                 quest_fanfare(&roster, &quests, &pantry, QUEST_STREET, banner_line,
+                              sizeof banner_line, &banner_timer);
+            /* growth quests: raising a cat to full size, and 3 cats to adults */
+            if (quests_set(&quests, QUEST_GROWUP, maxlvl))
+                quest_fanfare(&roster, &quests, &pantry, QUEST_GROWUP, banner_line,
+                              sizeof banner_line, &banner_timer);
+            if (quests_set(&quests, QUEST_GROWUP3, adults))
+                quest_fanfare(&roster, &quests, &pantry, QUEST_GROWUP3, banner_line,
                               sizeof banner_line, &banner_timer);
         }
         if (banner_timer > 0) banner_timer--;

@@ -26,6 +26,8 @@ typedef enum {
     QUEST_PLAY,      /* see two cats play together      */
     QUEST_FOREST,    /* bring color back to the forest  */
     QUEST_STREET,    /* bring color back to the street  */
+    QUEST_GROWUP,    /* raise a cat to full size (lvl 25) */
+    QUEST_GROWUP3,   /* raise 3 cats to adulthood        */
     QUEST_COUNT
 } QuestId;
 
